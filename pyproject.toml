@@ -1,0 +1,12 @@
+[tool.black]
+line-length = 119
+exclude = '''
+/(
+  \.toml
+  |\.sh
+  |\.git
+  |\.ini
+  |Dockerfile
+  |Jenkinfile
+)/
+'''

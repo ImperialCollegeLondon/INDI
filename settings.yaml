@@ -1,0 +1,86 @@
+# MANUAL SETTINGS
+
+# ========================================================================================
+# WORKFLOW
+# ========================================================================================
+# Startup folder
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/pre_clinical/CDTI_SL0_TD020_B500_RR640__20
+# worflow mode: anon, reg, all
+# anon: anonymises DICOM files to a dataframe, and then DELETES DICOM FILES (NOT WORKING YET)
+# reg: runs image registration only. This is useful when batch processing
+# main: runs the full workflow, may require manual input if processing for the first time
+workflow_mode: main
+
+# Sequence type: se, steam
+sequence_type: steam
+
+# ========================================================================================
+# DEBUGGING
+# ========================================================================================
+# If True, more images are saved for debugging / quality control
+debug: True
+# extra registration debug images
+registration_extra_debug: False
+
+# ========================================================================================
+# Threshold strength: 1.0 max, 0.0 min
+# ========================================================================================
+threshold_strength: 0.5
+
+# ========================================================================================
+# IMAGE REGISTRATION
+# ========================================================================================
+# DWI registration:
+# none, quick_rigid,
+# elastix_rigid, elastix_affine, elastix_non_rigid
+# elastix_groupwise (not working well at the moment)
+registration: elastix_non_rigid
+
+# ========================================================================================
+# IMAGE SEGMENTATION
+# ========================================================================================
+# Manual LV segmentation: True, False
+manual_segmentation: True
+
+# ========================================================================================
+# TENSOR FITTING
+# ========================================================================================
+# Tensor fit: LS, WLS, NLLS, RESTORE
+tensor_fit_method: NLLS
+
+# ========================================================================================
+# IMAGE REMOVAL
+# ========================================================================================
+# Remove frames manually: True, False
+remove_outliers_manually: True
+
+# Remove outliers with AI: True, False
+# NOT WORKING WELL AT THE MOMENT
+remove_outliers_with_ai: False
+
+# ========================================================================================
+# MISC
+# ========================================================================================
+# define manually the assumed rr interval (msec). In most cases this is 1E3 ms.
+# this value is used if no value was found in header (this is only for the STEAM sequence).
+assumed_rr_interval: 1000
+# true b-value of the b0 images (this is only for the STEAM sequence).
+calculated_real_b0: 33
+
+# ========================================================================================
+# AI MODELS
+# ========================================================================================
+# SEGMENTATION
+# ========================================================================================
+# U-Net segmentation: True, False
+u_net_segmentation: True
+# U-Net ensemble number: 1 to 5
+n_ensemble: 5
+
+# ========================================================================================
+# TENSOR DENOISING
+# ========================================================================================
+# Uformer Denoise
+uformer_denoise: False
+# Uformer Denoise: number of breathholds: 1, 3, or 5
+uformer_breatholds: 3
