@@ -276,14 +276,19 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
         n_images = len(index_pos)
 
         if n_images < 2:
-            logger.info("Only one image found for the lowest b-value, using that image as reference")
+            logger.info(
+                "Slice " + slice_str + ": only one image found for the lowest b-value, using that image as reference"
+            )
             ref_images["image"] = current_entries.at[index_pos, "image"]
             ref_images["index"] = index_pos
             ref_images["n_images"] = len(current_entries)
             ref_images["groupwise_reg_info"] = {}
         else:
             logger.info(
-                str(n_images)
+                "Slice "
+                + slice_str
+                + ": "
+                + str(n_images)
                 + " images found for the lowest b-value, registering them groupwise and using the mean as reference. Please hold..."
             )
             # stack all images to be registered
@@ -348,7 +353,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
             ref_images["groupwise_reg_info"]["pre"] = img_pre
             ref_images["groupwise_reg_info"]["post"] = img_reg
     else:
-        logger.info("Registration is elastix_groupwise, so reference image is None.")
+        logger.info("Slice " + slice_str + ": Registration is elastix_groupwise, so reference image is None.")
         ref_images["image"] = None
         ref_images["index"] = 0
         ref_images["n_images"] = len(current_entries)
@@ -461,8 +466,9 @@ def image_registration(
             current_entries = data.loc[data["slice_position"] == slice_idx]
             # reference image will be the mean of all lower b-values
             ref_images[slice_idx] = get_ref_image(current_entries, slice_idx, settings, logger)
-            # plot reference images
-            plot_ref_images(ref_images, slices, settings)
+
+        # plot reference images
+        plot_ref_images(ref_images, slices, settings)
 
         # run the registration loop
         data, img_pre_reg, img_post_reg = registration_loop(data, ref_images, slices, info, settings, logger)
