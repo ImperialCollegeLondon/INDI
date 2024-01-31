@@ -2,7 +2,7 @@
 (CheckNumberOfSamples "true")
 (DefaultPixelValue 0)
 (FinalBSplineInterpolationOrder 3)
-(FinalGridSpacingInVoxels  16)
+(FinalGridSpacingInVoxels  64)
 (FixedImagePyramid "FixedSmoothingImagePyramid")
 (GridSpacingSchedule 2.803221 1.988100 1.410000 1.000000)
 (ImageSampler "RandomCoordinate")
@@ -24,11 +24,11 @@
 (WriteResultImage "true")
 
 //Choose one of the following groupwise metrics:
-//(Metric "PCAMetric2")
+(Metric "PCAMetric2")
 //(Metric "PCAMetric")
 //(Metric "LinearGroupwiseMI")
 //(Metric "SumOfPairwiseCorrelationCoefficientsMetric")
-(Metric "VarianceOverLastDimensionMetric")
+//(Metric "VarianceOverLastDimensionMetric")
 
 ////Specific for the LinearGroupwiseMI metric
 //(TemplateImage "ArithmeticAverage" "ArithmeticAverage")

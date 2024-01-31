@@ -4,9 +4,9 @@
 # WORKFLOW
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/pre_clinical/CDTI_SL0_TD020_B500_RR640__20
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/in_vivo/some_hvol_examples
 # worflow mode: anon, reg, all
-# anon: anonymises DICOM files to a dataframe, and then DELETES DICOM FILES (NOT WORKING YET)
+# anon: anonymises DICOM files to a dataframe, and then DELETES DICOM FILES (NOT IMPLEMENTED YET)
 # reg: runs image registration only. This is useful when batch processing
 # main: runs the full workflow, may require manual input if processing for the first time
 workflow_mode: main
@@ -20,7 +20,7 @@ sequence_type: steam
 # If True, more images are saved for debugging / quality control
 debug: True
 # extra registration debug images
-registration_extra_debug: False
+registration_extra_debug: True
 
 # ========================================================================================
 # Threshold strength: 1.0 max, 0.0 min
