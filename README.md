@@ -18,7 +18,7 @@ Tranformer models need to be copied to the following path:
 
 ### Installation
 
-Software has been tested on macOS with python 3.10.
+Software has been tested on macOS Sonoma with python 3.10.
 
 #### Installation in macOS (Intel and Apple silicon)
 
