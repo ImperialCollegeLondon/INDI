@@ -468,17 +468,25 @@ def manual_lv_segmentation(
             second_axis_lines = {"epi": None, "endo": None, "ip": None}
             seg_mask = {"epi": None, "endo": None}
         else:
-            # get endo and epi contours from mask
-            # interpolate the contours to a small number of points and
-            # delete the last point, which is equal to the first one
-            # use the points for the initial polygon
-            epi_contour, endo_contour = get_sa_contours(lv_masks[slice_idx])
-            epi_contour = spline_interpolate_contour(epi_contour, n_points=n_points, join_ends=False)
-            epi_contour = np.delete(epi_contour, -1, 0)
-            endo_contour = spline_interpolate_contour(endo_contour, n_points=n_points, join_ends=False)
-            endo_contour = np.delete(endo_contour, -1, 0)
-            second_axis_lines = {"epi": None, "endo": None, "ip": None}
-            seg_mask = {"epi": None, "endo": None}
+            try:
+                # get endo and epi contours from mask
+                # interpolate the contours to a small number of points and
+                # delete the last point, which is equal to the first one
+                # use the points for the initial polygon
+                epi_contour, endo_contour = get_sa_contours(lv_masks[slice_idx])
+                epi_contour = spline_interpolate_contour(epi_contour, n_points=n_points, join_ends=False)
+                epi_contour = np.delete(epi_contour, -1, 0)
+                endo_contour = spline_interpolate_contour(endo_contour, n_points=n_points, join_ends=False)
+                endo_contour = np.delete(endo_contour, -1, 0)
+                second_axis_lines = {"epi": None, "endo": None, "ip": None}
+                seg_mask = {"epi": None, "endo": None}
+            except:
+                # if something goes wrong in finding the endo and epi lines. Most likely the U-Net
+                # mask does not have the right shape. So we need to manually draw the contours from scratch.
+                epi_contour = np.array([])
+                endo_contour = np.array([])
+                second_axis_lines = {"epi": None, "endo": None, "ip": None}
+                seg_mask = {"epi": None, "endo": None}
 
         class buttons:
             """matplotlib figure buttons"""

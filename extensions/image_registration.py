@@ -162,7 +162,7 @@ def registration_loop(
             # store images before registration
             img_pre_reg[slice_idx] = np.copy(mov_all)
 
-            logger.info("Starting groupwise registration. Please hold...")
+            logger.info("Slice " + slice_idx + ": Starting groupwise registration. Please hold...")
 
             # register all images groupwise
             img_reg, result_transform_parameters = itk.elastix_registration_method(
@@ -188,7 +188,7 @@ def registration_loop(
 
         else:
             # if not groupwise registration
-            logger.info("Starting registration. Please hold...")
+            logger.info("Slice " + slice_idx + ": Starting registration. Please hold...")
             # loop through all images and register one by one
             for i in tqdm(range(ref_images[slice_idx]["n_images"]), desc="Registering images"):
                 if i == ref_images[slice_idx]["index"]:
@@ -275,11 +275,20 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
         index_pos = current_entries.index[current_entries["b_value"] == b_values[0]].tolist()
         n_images = len(index_pos)
 
-        if n_images < 2:
-            logger.info(
-                "Slice " + slice_str + ": only one image found for the lowest b-value, using that image as reference"
-            )
-            ref_images["image"] = current_entries.at[index_pos, "image"]
+        if n_images < 2 or settings["registration_reference_method"] == "first":
+            if n_images < 2:
+                logger.info(
+                    "Slice "
+                    + slice_str
+                    + ": only one image found for the lowest b-value, using that image as reference"
+                )
+            else:
+                logger.info(
+                    "Slice "
+                    + slice_str
+                    + ": using the first image as reference, registration_reference_method = first"
+                )
+            ref_images["image"] = current_entries.at[index_pos[0], "image"]
             ref_images["index"] = index_pos
             ref_images["n_images"] = len(current_entries)
             ref_images["groupwise_reg_info"] = {}
@@ -289,7 +298,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
                 + slice_str
                 + ": "
                 + str(n_images)
-                + " images found for the lowest b-value, registering them groupwise and using the mean as reference. Please hold..."
+                + " images found for the lowest b-value, registering them groupwise for a reference. Please hold..."
             )
             # stack all images to be registered
             image_stack = np.stack(current_entries["image"][index_pos].values)
@@ -459,13 +468,27 @@ def image_registration(
         logger.info("No saved registration found.")
         logger.info("Registration type: " + settings["registration"])
 
-        # get reference image, index position and number of images per slice
-        ref_images = {}
-        for slice_idx in slices:
-            # dataframe for each slice
-            current_entries = data.loc[data["slice_position"] == slice_idx]
-            # reference image will be the mean of all lower b-values
-            ref_images[slice_idx] = get_ref_image(current_entries, slice_idx, settings, logger)
+        # check if the reference images have been saved already
+        if not os.path.exists(os.path.join(settings["session"], "image_registration_references.npz")):
+            logger.info("No saved reference images found.")
+            # get reference image, index position and number of images per slice
+            ref_images = {}
+            for slice_idx in slices:
+                # dataframe for each slice
+                current_entries = data.loc[data["slice_position"] == slice_idx]
+                # reference image will be the mean of all lower b-values
+                ref_images[slice_idx] = get_ref_image(current_entries, slice_idx, settings, logger)
+
+            # save reference images
+            save_path = os.path.join(settings["session"], "image_registration_references.npz")
+            np.savez_compressed(save_path, ref_images=ref_images)
+
+        else:
+            logger.info("Saved reference images found.")
+            # load reference images
+            save_path = os.path.join(settings["session"], "image_registration_references.npz")
+            npzfile = np.load(save_path, allow_pickle=True)
+            ref_images = npzfile["ref_images"].item()
 
         # plot reference images
         plot_ref_images(ref_images, slices, settings)
