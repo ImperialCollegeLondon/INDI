@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import time
 
 import itk
 import matplotlib.pyplot as plt
@@ -338,6 +339,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
             mask = itk.GetImageFromArray(mask_arr)
 
             # register all images groupwise
+            t0 = time.time()
             img_reg, result_transform_parameters = itk.elastix_registration_method(
                 image_stack,
                 image_stack,
@@ -345,6 +347,9 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
                 fixed_mask=mask,
                 log_to_console=False,
             )
+            t1 = time.time()
+            total = t1 - t0
+            logger.info("Slice " + slice_str + ": Time for groupwise registration: " + str(int(total)) + " seconds")
 
             # format registered images
             img_reg = np.copy(np.asarray(img_reg, dtype=np.float32))
