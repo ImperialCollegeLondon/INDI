@@ -680,11 +680,6 @@ def clean_mask(mask: NDArray) -> NDArray:
 
     for idx in range(img_size[0]):
         slice_mask = mask[idx]
-        # # clean image, leave only the biggest blob
-        # mask_lv = slice_mask == 1
-        # mask_lv = 1 * mask_lv
-        # # plt.imshow(mask_lv)
-        # # plt.show()
 
         # find the biggest blob
         label_img = label(slice_mask)
@@ -696,10 +691,7 @@ def clean_mask(mask: NDArray) -> NDArray:
         clean_mask[idx, :, :] = morphology.remove_small_objects(
             slice_mask.astype(bool), min_size=max_area, connectivity=2
         ).astype(int)
-        clean_mask = clean_mask * slice_mask
-
-        # plt.imshow(clean_mask)
-        # plt.show()
+        clean_mask[idx, :, :] = clean_mask[idx, :, :] * slice_mask
 
     return clean_mask
 

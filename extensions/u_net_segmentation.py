@@ -68,7 +68,7 @@ def denoise_images(img: NDArray, settings: dict, slices: NDArray) -> NDArray:
     return img
 
 
-def u_net_segmentation_3ch(img: NDArray, settings: dict, logger: logging.Logger) -> NDArray:
+def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: logging.Logger) -> NDArray:
     """
     U-Net segmentation:
     - 3 channel (background = 0, LV myocardium, rest of heart)
@@ -76,6 +76,7 @@ def u_net_segmentation_3ch(img: NDArray, settings: dict, logger: logging.Logger)
     Parameters
     ----------
     img: image to be segmented
+    n_slices: number of slices
     settings
     logger
 
@@ -186,7 +187,7 @@ def u_net_segmentation_3ch(img: NDArray, settings: dict, logger: logging.Logger)
 
     # We need to discretise the labels to the highest probability class
     mask_3c = np.empty((img.shape[0], img.shape[1], img.shape[2]))
-    for i in range(img.shape[0]):
+    for i in range(n_slices):
         current_predicted_labels_3c = mean_predicted_labels[i, :, :, :]
         mask_3c[i, :, :] = np.argmax(current_predicted_labels_3c, axis=2)
 
@@ -329,7 +330,7 @@ def u_net_segment_heart(
     """
     n_slices = len(slices)
 
-    mask_3c = u_net_segmentation_3ch(average_images, settings, logger)
+    mask_3c = u_net_segmentation_3ch(average_images, n_slices, settings, logger)
 
     mask_3c = clean_mask(mask_3c)
 
