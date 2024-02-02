@@ -4,7 +4,7 @@
 # WORKFLOW
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/pre_clinical/two_slices
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/pre_clinical/two_slices_new
 # worflow mode: anon, reg, all
 # anon: anonymises DICOM files to a dataframe, and then DELETES DICOM FILES (NOT IMPLEMENTED YET)
 # reg: runs image registration only. This is useful when batch processing
@@ -34,10 +34,10 @@ threshold_strength: 0.5
 # none, quick_rigid,
 # elastix_rigid, elastix_affine, elastix_non_rigid
 # elastix_groupwise (not working well at the moment)
-registration: quick_rigid
+registration: elastix_non_rigid
 
 # DWI registration reference method: first, groupwise
-registration_reference_method: first
+registration_reference_method: groupwise
 
 # ========================================================================================
 # IMAGE SEGMENTATION
