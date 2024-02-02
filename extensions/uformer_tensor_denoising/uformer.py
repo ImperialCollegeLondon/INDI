@@ -1067,7 +1067,7 @@ class Uformer(nn.Module):
         return {"relative_position_bias_table"}
 
     def extra_repr(self) -> str:
-        return f"embed_dim={self.embed_dim}, token_projection={self.token_projection}, token_mlp={self.mlp},win_size={self.win_size}"
+        return f"embed_dim={self.embed_dim}, token_projection={self.token_projection}, token_mlp={self.mlp}, win_size={self.win_size}"
 
     def forward(self, x, *args, mask=None, **kwargs):
         # Input Projection
