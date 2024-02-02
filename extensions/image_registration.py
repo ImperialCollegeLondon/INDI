@@ -132,7 +132,7 @@ def registration_loop(
             ref = itk.GetImageFromArray(ref)
 
         # dataframe for this slice
-        current_entries = data.loc[data["slice_position"] == slice_idx]
+        current_entries = data.loc[data["slice_integer"] == slice_idx]
 
         # images to be registered
         mov_all = np.transpose(np.dstack(current_entries["image"].values), (2, 0, 1))
@@ -163,7 +163,7 @@ def registration_loop(
             # store images before registration
             img_pre_reg[slice_idx] = np.copy(mov_all)
 
-            logger.info("Slice " + slice_idx + ": Starting groupwise registration. Please hold...")
+            logger.info("Slice " + str(slice_idx).zfill(2) + ": Starting groupwise registration. Please hold...")
 
             # register all images groupwise
             img_reg, result_transform_parameters = itk.elastix_registration_method(
@@ -189,7 +189,7 @@ def registration_loop(
 
         else:
             # if not groupwise registration
-            logger.info("Slice " + slice_idx + ": Starting registration. Please hold...")
+            logger.info("Slice " + str(slice_idx).zfill(2) + ": Starting registration. Please hold...")
             # loop through all images and register one by one
             for i in tqdm(range(ref_images[slice_idx]["n_images"]), desc="Registering images"):
                 if i == ref_images[slice_idx]["index"]:
@@ -246,7 +246,7 @@ def registration_loop(
     return data, img_pre_reg, img_post_reg
 
 
-def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict, logger: logging.Logger) -> dict:
+def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict, logger: logging.Logger) -> dict:
     """
 
     Get all the lower b-value images, and groupwise register them if more than one.
@@ -280,13 +280,13 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
             if n_images < 2:
                 logger.info(
                     "Slice "
-                    + slice_str
+                    + str(slice_idx).zfill(2)
                     + ": only one image found for the lowest b-value, using that image as reference"
                 )
             else:
                 logger.info(
                     "Slice "
-                    + slice_str
+                    + str(slice_idx).zfill(2)
                     + ": using the first image as reference, registration_reference_method = first"
                 )
             ref_images["image"] = current_entries.at[index_pos[0], "image"]
@@ -296,7 +296,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
         else:
             logger.info(
                 "Slice "
-                + slice_str
+                + str(slice_idx).zfill(2)
                 + ": "
                 + str(n_images)
                 + " images found for the lowest b-value, registering them groupwise for a reference. Please hold..."
@@ -349,7 +349,13 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
             )
             t1 = time.time()
             total = t1 - t0
-            logger.info("Slice " + slice_str + ": Time for groupwise registration: " + str(int(total)) + " seconds")
+            logger.info(
+                "Slice "
+                + str(slice_idx).zfill(2)
+                + ": Time for groupwise registration: "
+                + str(int(total))
+                + " seconds"
+            )
 
             # format registered images
             img_reg = np.copy(np.asarray(img_reg, dtype=np.float32))
@@ -367,7 +373,9 @@ def get_ref_image(current_entries: pd.DataFrame, slice_str: str, settings: dict,
             ref_images["groupwise_reg_info"]["pre"] = img_pre
             ref_images["groupwise_reg_info"]["post"] = img_reg
     else:
-        logger.info("Slice " + slice_str + ": Registration is elastix_groupwise, so reference image is None.")
+        logger.info(
+            "Slice " + str(slice_idx).zfill(2) + ": Registration is elastix_groupwise, so reference image is None."
+        )
         ref_images["image"] = None
         ref_images["index"] = 0
         ref_images["n_images"] = len(current_entries)
@@ -391,14 +399,14 @@ def plot_ref_images(ref_images: dict, slices: NDArray, settings: dict):
     """
     if settings["debug"] and settings["registration"] != "elastix_groupwise":
         # plot reference images
-        for idx, slice in enumerate(slices):
+        for slice_idx in slices:
             plt.figure(figsize=(5, 5))
-            plt.imshow(ref_images[slice]["image"], cmap="Greys_r")
+            plt.imshow(ref_images[slice_idx]["image"], cmap="Greys_r")
             plt.axis("off")
             plt.savefig(
                 os.path.join(
                     settings["debug_folder"],
-                    "reference_images_for_registration_slice_" + slice + ".png",
+                    "reference_images_for_registration_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
                 dpi=200,
                 bbox_inches="tight",
@@ -408,12 +416,12 @@ def plot_ref_images(ref_images: dict, slices: NDArray, settings: dict):
             plt.close()
 
         # plot results of groupwise registration
-        for idx, slice in enumerate(slices):
-            if ref_images[slice]["groupwise_reg_info"]:
-                n_images = len(ref_images[slice]["groupwise_reg_info"]["pre"])
-                img_pre = ref_images[slice]["groupwise_reg_info"]["pre"]
-                img_reg = ref_images[slice]["groupwise_reg_info"]["post"]
-                c_ref = ref_images[slice]["image"]
+        for slice_idx in slices:
+            if ref_images[slice_idx]["groupwise_reg_info"]:
+                n_images = len(ref_images[slice_idx]["groupwise_reg_info"]["pre"])
+                img_pre = ref_images[slice_idx]["groupwise_reg_info"]["pre"]
+                img_reg = ref_images[slice_idx]["groupwise_reg_info"]["post"]
+                c_ref = ref_images[slice_idx]["image"]
 
                 plt.figure()
                 for i in range(n_images):
@@ -437,7 +445,7 @@ def plot_ref_images(ref_images: dict, slices: NDArray, settings: dict):
                 plt.savefig(
                     os.path.join(
                         settings["debug_folder"],
-                        "groupwise_registration_reference_slice_" + str(abs(float(slice))) + ".png",
+                        "groupwise_registration_reference_slice_" + str(slice_idx).zfill(2) + ".png",
                     ),
                     dpi=200,
                     pad_inches=0,
@@ -455,7 +463,7 @@ def image_registration(
     Parameters
     ----------
     data: data to be registered
-    slices: array with slice positions
+    slices: array with slice integer
     info: dictionary with useful info
     settings: dict with settings
     logger: logger
@@ -480,7 +488,7 @@ def image_registration(
             ref_images = {}
             for slice_idx in slices:
                 # dataframe for each slice
-                current_entries = data.loc[data["slice_position"] == slice_idx]
+                current_entries = data.loc[data["slice_integer"] == slice_idx]
                 # reference image will be the mean of all lower b-values
                 ref_images[slice_idx] = get_ref_image(current_entries, slice_idx, settings, logger)
 

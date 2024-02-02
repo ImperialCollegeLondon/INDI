@@ -307,7 +307,6 @@ def get_cardiac_coordinates_short_axis(
     lv_centres: dictionary with the LV centres for each slice
     """
     lv_centres = []
-    n_slices = len(slices)
 
     # the three orthogonal vectors
     long = np.zeros((mask.shape + (3,)))
@@ -315,12 +314,12 @@ def get_cardiac_coordinates_short_axis(
     circ_adjusted = np.zeros((mask.shape + (3,)))
     radi_adjusted = np.zeros((mask.shape + (3,)))
 
-    for slice in range(n_slices):
+    for slice_idx in slices:
         # number of slices and get LV mask from mask
         # (contains LV myocardium and other heart structures)
 
-        lv_mask = np.zeros(mask[slice].shape)
-        lv_mask[mask[slice] == 1] = 1
+        lv_mask = np.zeros(mask[slice_idx].shape)
+        lv_mask[mask[slice_idx] == 1] = 1
 
         phi_matrix = np.zeros(lv_mask.shape)
 
@@ -333,9 +332,9 @@ def get_cardiac_coordinates_short_axis(
 
         phi_matrix[coords] = -np.arctan2(coords[0] - x_center, coords[1] - y_center)
 
-        long[slice][coords] = [0, 0, 1]
+        long[slice_idx][coords] = [0, 0, 1]
 
-        circ[slice][coords] = np.array(
+        circ[slice_idx][coords] = np.array(
             [
                 np.sin(phi_matrix[coords]),
                 -np.cos(phi_matrix[coords]),
@@ -343,7 +342,7 @@ def get_cardiac_coordinates_short_axis(
             ]
         ).T
 
-        epi_points = np.flip(segmentation[slice]["epicardium"])
+        epi_points = np.flip(segmentation[slice_idx]["epicardium"])
 
         # remove last point because it is the same as the first
         epi_points = epi_points[:-1, :]
@@ -368,14 +367,14 @@ def get_cardiac_coordinates_short_axis(
             closest_wall_vec = np.array([closest_wall_vec[1], -closest_wall_vec[0], 0])
 
             # angle with circ
-            angle = np.rad2deg(np.arccos(np.dot(closest_wall_vec, circ[slice][c_point[0], c_point[1]])))
+            angle = np.rad2deg(np.arccos(np.dot(closest_wall_vec, circ[slice_idx][c_point[0], c_point[1]])))
 
             if angle > 90:
                 closest_wall_vec = -closest_wall_vec
 
-            circ_adjusted[slice][c_point[0], c_point[1]] = np.array([closest_wall_vec[0], closest_wall_vec[1], 0])
-            radi_adjusted[slice][c_point[0], c_point[1]] = -np.cross(
-                circ_adjusted[slice][c_point[0], c_point[1]], long[slice][c_point[0], c_point[1]]
+            circ_adjusted[slice_idx][c_point[0], c_point[1]] = np.array([closest_wall_vec[0], closest_wall_vec[1], 0])
+            radi_adjusted[slice_idx][c_point[0], c_point[1]] = -np.cross(
+                circ_adjusted[slice_idx][c_point[0], c_point[1]], long[slice_idx][c_point[0], c_point[1]]
             )
 
     # output variable as a dictionary with all 3 vectors
@@ -385,7 +384,7 @@ def get_cardiac_coordinates_short_axis(
         # plot the cardiac coordinates maps
         direction_str = ["x", "y", "z"]
         order_keys = ["long", "circ", "radi"]
-        for slice_idx, slice_str in enumerate(slices):
+        for slice_idx in slices:
             fig, ax = plt.subplots(3, 3)
             for idx in range(3):
                 for direction in range(3):
@@ -401,7 +400,7 @@ def get_cardiac_coordinates_short_axis(
             plt.savefig(
                 os.path.join(
                     settings["debug_folder"],
-                    "cardiac_coordinates_slice_" + slice_str + ".png",
+                    "cardiac_coordinates_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
                 dpi=200,
                 pad_inches=0,
@@ -555,11 +554,11 @@ def get_ha_line_profiles(
     wall_thickness = {}
 
     # loop over each slice
-    for idx, slice in enumerate(slices):
+    for slice_idx in slices:
         # current HA map
-        c_HA = HA[idx]
+        c_HA = HA[slice_idx]
         # current U-Net mask
-        c_mask = mask_3c[idx]
+        c_mask = mask_3c[slice_idx]
         # make the mask binary, remove RV and all non LV myocardium is 0
         c_mask[c_mask == 2] = 0
         # HA map background is nan
@@ -579,7 +578,7 @@ def get_ha_line_profiles(
             # Extract the line profiles from the centre to each point of the epicardium
             # These are in _pixel_ coordinates!!
             # centre
-            y0, x0 = [int(x) for x in lv_centres[idx]]
+            y0, x0 = [int(x) for x in lv_centres[slice_idx]]
             # epicardial point
             x1, y1 = epi_contour[point_idx]
             # length of the line
@@ -601,11 +600,11 @@ def get_ha_line_profiles(
             lp_matrix[point_idx, :] = lp
 
         # store HA line profile matrix and wall thickness in dictionaries
-        ha_lines_profiles[slice] = {}
-        wall_thickness[slice] = {}
+        ha_lines_profiles[slice_idx] = {}
+        wall_thickness[slice_idx] = {}
 
-        ha_lines_profiles[slice]["lp_matrix"] = lp_matrix
-        wall_thickness[slice]["wt"] = wt
+        ha_lines_profiles[slice_idx]["lp_matrix"] = lp_matrix
+        wall_thickness[slice_idx]["wt"] = wt
 
         # fit a line to the mean line profile
         average_lp = np.nanmean(lp_matrix, axis=0)
@@ -618,11 +617,11 @@ def get_ha_line_profiles(
         slope = model.coef_
 
         # store all this info in the dictionary
-        ha_lines_profiles[slice]["average_lp"] = average_lp
-        ha_lines_profiles[slice]["std_lp"] = std_lp
-        ha_lines_profiles[slice]["r_sq"] = r_sq
-        ha_lines_profiles[slice]["slope"] = slope
-        ha_lines_profiles[slice]["y_pred"] = y_pred
+        ha_lines_profiles[slice_idx]["average_lp"] = average_lp
+        ha_lines_profiles[slice_idx]["std_lp"] = std_lp
+        ha_lines_profiles[slice_idx]["r_sq"] = r_sq
+        ha_lines_profiles[slice_idx]["slope"] = slope
+        ha_lines_profiles[slice_idx]["y_pred"] = y_pred
 
         if settings["debug"]:
             # plot HA line profiles
@@ -651,7 +650,7 @@ def get_ha_line_profiles(
             plt.savefig(
                 os.path.join(
                     settings["debug_folder"],
-                    "HA_line_profiles_" + "slice_" + str(abs(float(slice))) + ".png",
+                    "HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
                 dpi=200,
                 pad_inches=0,
@@ -697,7 +696,7 @@ def clean_mask(mask: NDArray) -> NDArray:
 
 
 def get_snr_maps(
-    data: pd.DataFrame, mask_3c: NDArray, settings: dict, logger: logging.Logger, info: dict
+    data: pd.DataFrame, mask_3c: NDArray, slices: NDArray, settings: dict, logger: logging.Logger, info: dict
 ) -> Tuple[dict, NDArray, dict, dict]:
     """
     Save the SNR maps.
@@ -706,6 +705,7 @@ def get_snr_maps(
     ----------
     data: dataframe with the diffusion images and info
     mask: U-Net mask of the heart
+    slices: array with slice integers
     settings: dictionary with useful info
     logger
 
@@ -714,7 +714,6 @@ def get_snr_maps(
     snr maps, noise maps, and LV snr for b0
     """
 
-    slices = data.slice_position.unique()
     img_size = data.loc[0, "image"].shape
 
     # snr will be a dictionary for each slice with nested dictionaries for each
@@ -722,13 +721,13 @@ def get_snr_maps(
     snr = {}
     snr_b0_lv = {}
     noise = {}
-    for slice_str in slices:
-        snr[slice_str] = {}
-        noise[slice_str] = {}
+    for slice_idx in slices:
+        snr[slice_idx] = {}
+        noise[slice_idx] = {}
 
-    for slice_idx, slice_str in enumerate(slices):
+    for slice_idx in slices:
         # dataframe for each slice
-        current_entries = data.loc[data["slice_position"] == slice_str]
+        current_entries = data.loc[data["slice_integer"] == slice_idx]
         # how many diffusion configs do we have for this slice?
         current_entries["direction"] = [tuple(lst_in) for lst_in in current_entries["direction"]]
         diffusion_configs_table = (
@@ -763,48 +762,48 @@ def get_snr_maps(
                 std_array = np.std(img_stack, axis=0)
                 std_array[mask_3c[slice_idx] == 0] = np.nan
 
-                snr[slice_str][key_string] = np.divide(np.mean(img_stack, axis=0), std_array)
-                noise[slice_str][key_string] = std_array
+                snr[slice_idx][key_string] = np.divide(np.mean(img_stack, axis=0), std_array)
+                noise[slice_idx][key_string] = std_array
 
                 if round(row["b_value_original"]) == 0:
-                    snr_values = snr[slice_str][key_string]
-                    snr_b0_lv[slice_str] = {}
-                    snr_b0_lv[slice_str]["mean"] = np.nanmean(snr_values[mask_3c[slice_idx] == 1])
-                    snr_b0_lv[slice_str]["std"] = np.nanstd(snr_values[mask_3c[slice_idx] == 1])
+                    snr_values = snr[slice_idx][key_string]
+                    snr_b0_lv[slice_idx] = {}
+                    snr_b0_lv[slice_idx]["mean"] = np.nanmean(snr_values[mask_3c[slice_idx] == 1])
+                    snr_b0_lv[slice_idx]["std"] = np.nanstd(snr_values[mask_3c[slice_idx] == 1])
 
     # we can only store these values if we have b0 data
     if bool(snr_b0_lv):
         # add to logger mean SNR for each slice for b0
         mean_snr_b0 = []
         info["LV SNR b0"] = {}
-        for slice_str in slices:
+        for slice_idx in slices:
             logger.debug(
                 "LV SNR for slice "
-                + slice_str
+                + str(slice_idx).zfill(2)
                 + " b0 images = "
-                + "%.2f" % snr_b0_lv[slice_str]["mean"]
+                + "%.2f" % snr_b0_lv[slice_idx]["mean"]
                 + " +/- "
-                + "%.2f" % snr_b0_lv[slice_str]["std"]
+                + "%.2f" % snr_b0_lv[slice_idx]["std"]
             )
-            info["LV SNR b0"][slice_str] = (
-                "%.2f" % snr_b0_lv[slice_str]["mean"] + " +/- " + "%.2f" % snr_b0_lv[slice_str]["std"]
+            info["LV SNR b0"][str(slice_idx).zfill(2)] = (
+                "%.2f" % snr_b0_lv[slice_idx]["mean"] + " +/- " + "%.2f" % snr_b0_lv[slice_idx]["std"]
             )
-            mean_snr_b0.append(snr_b0_lv[slice_str])
+            mean_snr_b0.append(snr_b0_lv[slice_idx])
 
     if settings["debug"]:
-        for slice_str in slices:
-            if len(snr[slice_str]) > 0:
-                plt.figure(figsize=(3 * len(snr[slice_str]), 3))
-                for idx, key in enumerate(snr[slice_str]):
-                    plt.subplot(1, len(snr[slice_str]), idx + 1)
-                    plt.imshow(snr[slice_str][key], vmin=0, vmax=20, cmap="magma")
+        for slice_idx in slices:
+            if len(snr[slice_idx]) > 0:
+                plt.figure(figsize=(3 * len(snr[slice_idx]), 3))
+                for idx, key in enumerate(snr[slice_idx]):
+                    plt.subplot(1, len(snr[slice_idx]), idx + 1)
+                    plt.imshow(snr[slice_idx][key], vmin=0, vmax=20, cmap="magma")
                     plt.axis("off")
                     plt.title(key, fontsize=7)
                     cbar = plt.colorbar(fraction=0.046, pad=0.04)
                     cbar.ax.tick_params(labelsize=7)
                 plt.tight_layout(pad=1.0)
                 plt.savefig(
-                    os.path.join(settings["debug_folder"], "snr_maps_slice_" + slice_str + ".png"),
+                    os.path.join(settings["debug_folder"], "snr_maps_slice_" + str(slice_idx).zfill(2) + ".png"),
                     dpi=200,
                     pad_inches=0,
                     transparent=False,
@@ -994,11 +993,11 @@ def plot_results_montage(
     # plt.style.use("seaborn-deep")
     colors = ["tab:orange", "tab:green", "tab:blue", "tab:red", "tab:brown", "tab:olive"]
     # plot results for each slice
-    for sl_idx, slice_idx in enumerate(slices):
-        alphas_whole_heart = np.copy(mask_3c[sl_idx])
+    for slice_idx in slices:
+        alphas_whole_heart = np.copy(mask_3c[slice_idx])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
 
-        alphas_myocardium = np.copy(mask_3c[sl_idx])
+        alphas_myocardium = np.copy(mask_3c[slice_idx])
         alphas_myocardium[alphas_myocardium == 2] = 0
         alphas_myocardium[alphas_myocardium > 0.1] = 1
 
@@ -1006,9 +1005,9 @@ def plot_results_montage(
 
         # FA map
         plt.subplot(2, 4, 1)
-        plt.imshow(average_images[sl_idx], cmap="Greys_r")
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
         plt.imshow(
-            dti["fa"][sl_idx],
+            dti["fa"][slice_idx],
             alpha=alphas_whole_heart,
             vmin=0,
             vmax=1,
@@ -1019,7 +1018,7 @@ def plot_results_montage(
         plt.title("FA")
 
         # FA histogram
-        vals = dti["fa"][sl_idx][alphas_myocardium > 0]
+        vals = dti["fa"][slice_idx][alphas_myocardium > 0]
         bins = np.linspace(0, 1, 40)
         weights = np.ones_like(vals) / len(vals)
         plt.subplot(2, 4, 5)
@@ -1028,9 +1027,9 @@ def plot_results_montage(
 
         # MD map
         plt.subplot(2, 4, 2)
-        plt.imshow(average_images[sl_idx], cmap="Greys_r")
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
         plt.imshow(
-            dti["md"][sl_idx] * 1e3,
+            dti["md"][slice_idx] * 1e3,
             alpha=alphas_whole_heart,
             vmin=0,
             vmax=2,
@@ -1041,7 +1040,7 @@ def plot_results_montage(
         plt.title("MD")
 
         # MD histogram
-        vals = 1e3 * dti["md"][sl_idx][alphas_myocardium > 0]
+        vals = 1e3 * dti["md"][slice_idx][alphas_myocardium > 0]
         bins = np.linspace(0, 2, 40)
         weights = np.ones_like(vals) / len(vals)
         plt.subplot(2, 4, 6)
@@ -1050,9 +1049,9 @@ def plot_results_montage(
 
         # HA map
         plt.subplot(2, 4, 3)
-        plt.imshow(average_images[sl_idx], cmap="Greys_r")
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
         plt.imshow(
-            dti["ha"][sl_idx],
+            dti["ha"][slice_idx],
             alpha=alphas_myocardium,
             vmin=-90,
             vmax=90,
@@ -1063,7 +1062,7 @@ def plot_results_montage(
         plt.title("HA")
 
         # HA histogram
-        vals = dti["ha"][sl_idx][alphas_myocardium > 0]
+        vals = dti["ha"][slice_idx][alphas_myocardium > 0]
         bins = np.linspace(-90, 90, 40)
         weights = np.ones_like(vals) / len(vals)
         plt.subplot(2, 4, 7)
@@ -1072,9 +1071,9 @@ def plot_results_montage(
 
         # E2A map
         plt.subplot(2, 4, 4)
-        plt.imshow(average_images[sl_idx], cmap="Greys_r")
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
         plt.imshow(
-            abs(dti["e2a"][sl_idx]),
+            abs(dti["e2a"][slice_idx]),
             alpha=alphas_myocardium,
             vmin=0,
             vmax=90,
@@ -1085,7 +1084,7 @@ def plot_results_montage(
         plt.title("|E2A|")
 
         # E2A histogram
-        vals = dti["e2a"][sl_idx][alphas_myocardium > 0]
+        vals = dti["e2a"][slice_idx][alphas_myocardium > 0]
         bins = np.linspace(-90, 90, 40)
         weights = np.ones_like(vals) / len(vals)
         plt.subplot(2, 4, 8)
@@ -1096,7 +1095,7 @@ def plot_results_montage(
         plt.savefig(
             os.path.join(
                 settings["results"],
-                "tensor_parameter_maps_" + folder_id + "_slice_" + str(abs(float(slice_idx))) + ".png",
+                "tensor_parameter_maps_" + folder_id + "_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=300,
             pad_inches=0,
@@ -1167,20 +1166,20 @@ def plot_results_montage(
     params["abs_E2A"]["scale"] = 1
     params["abs_E2A"]["abs"] = True
 
-    for sl_idx, slice_idx in enumerate(slices):
-        alphas_whole_heart = np.copy(mask_3c[sl_idx])
+    for slice_idx in slices:
+        alphas_whole_heart = np.copy(mask_3c[slice_idx])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
 
-        alphas_myocardium = np.copy(mask_3c[sl_idx])
+        alphas_myocardium = np.copy(mask_3c[slice_idx])
         alphas_myocardium[alphas_myocardium == 2] = 0
         alphas_myocardium[alphas_myocardium > 0.1] = 1
 
         for param in params:
             plt.figure(figsize=(5, 5))
-            plt.imshow(average_images[sl_idx], cmap="Greys_r")
+            plt.imshow(average_images[slice_idx], cmap="Greys_r")
             if params[param]["abs"]:
                 plt.imshow(
-                    np.abs(dti[params[param]["var_name"]][sl_idx] * params[param]["scale"]),
+                    np.abs(dti[params[param]["var_name"]][slice_idx] * params[param]["scale"]),
                     alpha=alphas_whole_heart,
                     vmin=params[param]["vmin_max"][0],
                     vmax=params[param]["vmin_max"][1],
@@ -1188,7 +1187,7 @@ def plot_results_montage(
                 )
             else:
                 plt.imshow(
-                    dti[params[param]["var_name"]][sl_idx] * params[param]["scale"],
+                    dti[params[param]["var_name"]][slice_idx] * params[param]["scale"],
                     alpha=alphas_whole_heart,
                     vmin=params[param]["vmin_max"][0],
                     vmax=params[param]["vmin_max"][1],
@@ -1202,7 +1201,7 @@ def plot_results_montage(
                 os.path.join(
                     settings["results"],
                     "results_a",
-                    "maps_" + param + "_slice_" + str(abs(float(slice_idx))) + ".png",
+                    "maps_" + param + "_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
                 dpi=200,
                 pad_inches=0,
@@ -1212,9 +1211,9 @@ def plot_results_montage(
 
             plt.figure(figsize=(5, 5))
             if params[param]["abs"]:
-                vals = abs(dti[params[param]["var_name"]][sl_idx][alphas_myocardium > 0] * params[param]["scale"])
+                vals = abs(dti[params[param]["var_name"]][slice_idx][alphas_myocardium > 0] * params[param]["scale"])
             else:
-                vals = dti[params[param]["var_name"]][sl_idx][alphas_myocardium > 0] * params[param]["scale"]
+                vals = dti[params[param]["var_name"]][slice_idx][alphas_myocardium > 0] * params[param]["scale"]
             bins = np.linspace(params[param]["vmin_max"][0], params[param]["vmin_max"][1], 40)
             weights = np.ones_like(vals) / len(vals)
             plt.hist(vals, bins=bins, weights=weights, rwidth=0.95, color=params[param]["hist_color"])
@@ -1223,7 +1222,7 @@ def plot_results_montage(
                 os.path.join(
                     settings["results"],
                     "results_a",
-                    "histograms_" + param + "_slice_" + str(abs(float(slice_idx))) + ".png",
+                    "histograms_" + param + "_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
                 dpi=200,
                 pad_inches=0,
@@ -1261,7 +1260,7 @@ def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
     cols_crop = np.linspace(
         info["crop_corner"][1], info["crop_corner"][1] + info["img_size"][1], info["img_size"][1], dtype=int
     )
-    sli = slices
+
     pos = np.linspace(1, 3, 3, dtype=int)
     vectors_xyz = np.linspace(1, 3, 3, dtype=int)
 
@@ -1281,7 +1280,7 @@ def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
             ),
         ),
         coords=dict(
-            slice=(["slice"], sli),
+            slice=(["slice"], slices),
             row=(["row"], rows),
             col=(["col"], cols),
             row_crop=(["row_crop"], rows_crop),
@@ -1361,17 +1360,22 @@ def export_results(
     info["git_hash"] = get_git_revision_hash()
 
     # save to disk basic info in a yaml format
+    info_redux = copy.deepcopy(info)
+    del info_redux["image_positions_to_integer"]
+    del info_redux["integer_to_image_positions"]
+    d = {str(k): [float(i) for i in v] for k, v in info["integer_to_image_positions"].items()}
+    info_redux["integer_to_image_positions"] = d
     with open(os.path.join(settings["results"], "data", "DTI_data.yml"), "w") as handle1:
-        yaml.safe_dump(info, handle1, default_flow_style=False, sort_keys=False)
+        yaml.safe_dump(info_redux, handle1, default_flow_style=False, sort_keys=False)
 
     # do final montage with image magick
-    for slice_str in slices:
+    for slice_idx in slices:
         run_command = (
             "bash "
             + os.path.join(settings["code_path"], "extensions", "montage_script.sh")
             + " "
             + settings["results"]
             + " "
-            + slice_str
+            + str(slice_idx).zfill(2)
         )
         os.system(run_command)

@@ -58,7 +58,7 @@ for current_folder in all_to_be_analysed_folders:
     # START processing
     # read and pre-process dicom files
     # =========================================================
-    [data, info, slices, slice_index_dict] = read_data(settings, info, logger)
+    [data, info, slices] = read_data(settings, info, logger)
 
     # =========================================================
     # DWIs registration
@@ -85,7 +85,6 @@ for current_folder in all_to_be_analysed_folders:
         slices,
         info["img_size"],
         img_post_reg,
-        slice_index_dict,
         settings,
         logger,
     )
@@ -110,7 +109,6 @@ for current_folder in all_to_be_analysed_folders:
         img_pre_reg,
         img_post_reg,
         ref_images,
-        slice_index_dict,
         info,
         logger,
         settings,
@@ -119,7 +117,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Get SNR maps
     # =========================================================
-    [snr, noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, settings, logger, info)
+    [snr, noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, slices, settings, logger, info)
 
     # =========================================================
     # Calculate tensor
