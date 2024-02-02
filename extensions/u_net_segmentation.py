@@ -49,14 +49,14 @@ def denoise_images(img: NDArray, settings: dict, slices: NDArray) -> NDArray:
         img[slice_idx] = denoised_img
 
     if settings["debug"]:
-        for idx, slice_idx in enumerate(slices):
+        for slice_idx in slices:
             plt.figure(figsize=(5, 5))
-            plt.imshow(img[idx], cmap="Greys_r")
+            plt.imshow(img[slice_idx], cmap="Greys_r")
             plt.axis("off")
             plt.savefig(
                 os.path.join(
                     settings["debug_folder"],
-                    "denoised_u_net_refs_slice_" + slices[idx] + ".png",
+                    "denoised_u_net_refs_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
                 dpi=200,
                 bbox_inches="tight",
@@ -204,7 +204,6 @@ def get_average_images(
     slices: NDArray,
     img_size: tuple,
     img_post_reg: NDArray,
-    slice_index_dict: dict,
     settings: dict,
     logger: logging.Logger,
 ) -> NDArray:
@@ -216,7 +215,6 @@ def get_average_images(
     slices: array with slice locations string
     img_size: image shape before cropping
     img_post_reg: images after registration
-    slice_index_dict: dictionary convert index to slice position
     settings
     logger
 
@@ -244,7 +242,7 @@ def get_average_images(
     return average_images
 
 
-def plot_segmentation_unet(n_slices: int, slices, mask_3c: NDArray, average_images: NDArray, settings: dict):
+def plot_segmentation_unet(n_slices: int, slices: NDArray, mask_3c: NDArray, average_images: NDArray, settings: dict):
     """
     Plot the masking of the heart and LV given by the U-Net.
 
@@ -258,28 +256,28 @@ def plot_segmentation_unet(n_slices: int, slices, mask_3c: NDArray, average_imag
         average denoised and normalised images for each slice
     settings : dict
     """
-    for idx, slice_str in enumerate(slices):
+    for slice_idx in slices:
         # get the borders of the mask
-        mask = np.full(np.shape(mask_3c[idx]), False)
+        mask = np.full(np.shape(mask_3c[slice_idx]), False)
         struct = ndimage.generate_binary_structure(2, 2)
 
         # myocardial border
         myo_border = mask
-        myo_border[mask_3c[idx] == 1] = True
+        myo_border[mask_3c[slice_idx] == 1] = True
         erode = ndimage.binary_erosion(myo_border, struct)
         myo_border = myo_border ^ erode
         myo_border_pts = (myo_border > 0).nonzero()
 
         # heart border
         heart_border = mask
-        heart_border[mask_3c[idx] == 2] = True
+        heart_border[mask_3c[slice_idx] == 2] = True
         erode = ndimage.binary_erosion(heart_border, struct)
         heart_border = heart_border ^ erode
         heart_border = (heart_border > 0).nonzero()
 
         # plot average images and respective masks
         plt.figure(figsize=(5, 5))
-        plt.imshow(average_images[idx], cmap="Greys_r")
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
         plt.scatter(
             heart_border[1],
             heart_border[0],
@@ -300,7 +298,7 @@ def plot_segmentation_unet(n_slices: int, slices, mask_3c: NDArray, average_imag
         plt.savefig(
             os.path.join(
                 settings["debug_folder"],
-                "unet_masks_slice_" + str(abs(float(slice_str))) + ".png",
+                "unet_masks_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             bbox_inches="tight",

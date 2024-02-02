@@ -70,7 +70,7 @@ def plot_eigenvector_maps(eigenvectors, slices, settings):
     # plot the eigenvectors
     direction_str = ["x", "y", "z"]
     order_str = ["tertiary", "secondary", "primary"]
-    for slice_idx, slice_str in enumerate(slices):
+    for slice_idx in slices:
         fig, ax = plt.subplots(3, 3)
         for idx, eig_order in enumerate(range(2, -1, -1)):
             for direction in range(3):
@@ -84,7 +84,7 @@ def plot_eigenvector_maps(eigenvectors, slices, settings):
         plt.savefig(
             os.path.join(
                 settings["debug_folder"],
-                "eigenvector_components_slice_" + slice_str + ".png",
+                "eigenvector_components_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             pad_inches=0,
@@ -152,7 +152,7 @@ def get_negative_eigenvalues_map(
     background_mask = np.copy(mask_3c)
     background_mask[background_mask > 0] = 1
     negative_eig_map = np.empty([len(slices), info["img_size"][0], info["img_size"][1]])
-    for slice_idx in range(len(slices)):
+    for slice_idx in slices:
         eig_1 = eigenvalues[slice_idx, :, :, 0] < 0
         eig_2 = eigenvalues[slice_idx, :, :, 1] < 0
         eig_3 = eigenvalues[slice_idx, :, :, 2] < 0
@@ -165,7 +165,7 @@ def get_negative_eigenvalues_map(
     alphas = np.copy(negative_eig_map[slice_idx])
     alphas[alphas > 0.1] = 1
     cmap = matplotlib.colors.ListedColormap(matplotlib.cm.get_cmap("Set3").colors[1:4])
-    for slice_idx in range(len(slices)):
+    for slice_idx in slices:
         plt.figure(figsize=(5, 5))
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
         plt.imshow(negative_eig_map[slice_idx], alpha=alphas, vmin=1, vmax=3, cmap=cmap)
@@ -173,7 +173,7 @@ def get_negative_eigenvalues_map(
         cbar.ax.tick_params(labelsize=5)
         cbar.set_ticks([4 / 3, 2, 8 / 3])
         cbar.set_ticklabels(["1", "2", "3"])
-        plt.title("negative eigenvalues slice: " + slices[slice_idx], fontsize=7)
+        plt.title("negative eigenvalues slice: " + str(slice_idx).zfill(2), fontsize=7)
         plt.tick_params(axis="both", which="major", labelsize=5)
         plt.tight_layout(pad=1.0)
         plt.axis("off")
@@ -181,7 +181,7 @@ def get_negative_eigenvalues_map(
             os.path.join(
                 settings["results"],
                 "results_b",
-                "negative_eigenvalues_slice_" + slices[slice_idx] + ".png",
+                "negative_eigenvalues_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             pad_inches=0,
@@ -233,7 +233,7 @@ def get_eigensystem(
     neg_vals = vals[vals < 0]
 
     info["n_negative_eigenvalues"] = int(len(neg_vals))
-    info["percentage_negative_eigenvalues"] = str("%.2f" % (len(neg_vals) / vals.size))
+    info["percentage_negative_eigenvalues"] = len(neg_vals) / vals.size * 100
     logger.debug(
         "Number of negative eigenvalues: "
         + str(info["n_negative_eigenvalues"])

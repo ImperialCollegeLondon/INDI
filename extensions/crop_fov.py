@@ -33,7 +33,7 @@ def crop_images(
     segmentation: segmentation information
     slices: array with slice positions
     average_images: average image of each slice
-    slice_position_to_index: dictionary index to slice position
+    ref_images: reference images
     info: useful info dictionary
     logger: logger
 
@@ -46,13 +46,8 @@ def crop_images(
     crop_mask: logical mask with the crop.
     """
 
-    # dictionary linking slice position and index of that slice
-    slice_position_to_index = {}
-    for idx, slice_idx in enumerate(slices):
-        slice_position_to_index[slice_idx] = idx
-
     n_entries, _ = data.shape
-    n_slices = len(slice_position_to_index)
+    n_slices = len(slices)
 
     global_crop_mask = sum(mask_3c[i] for i in range(mask_3c.shape[0]))
     crop_mask = global_crop_mask != 0
@@ -111,8 +106,8 @@ def crop_images(
 
     # crop the diffusion images
     for i in range(n_entries):
-        c_slice_position = data.loc[i, "slice_position"]
-        background_mask = np.copy(mask_3c[slice_position_to_index[c_slice_position]])
+        c_slice_position = data.loc[i, "slice_integer"]
+        background_mask = np.copy(mask_3c[c_slice_position])
         background_mask[background_mask > 0] = 1
         data.at[i, "image"] = data.loc[i, "image"][np.ix_(crop_mask.any(1), crop_mask.any(0))]
         data.at[i, "image"] = data.loc[i, "image"] * background_mask
@@ -133,7 +128,6 @@ def record_image_registration(
     img_post_reg: dict,
     ref_images: NDArray,
     mask: NDArray,
-    slice_index_dict: dict,
     slices: NDArray,
     settings: dict,
     logger: logging.Logger,
@@ -146,7 +140,6 @@ def record_image_registration(
     img_pre_reg: images before registration
     img_post_reg: images after registration
     mask: U-Net mask of the heart
-    slice_index_dict: dictionary index to slice position
     slices: array with slice position arrays
     settings: dictionary with useful info
     logger: logger
@@ -158,41 +151,20 @@ def record_image_registration(
     lv_mask = np.zeros(mask.shape)
     lv_mask[mask == 1] = 1
 
-    for idx, slice_idx in enumerate(slices):
+    for slice_idx in slices:
         # find the LV centre
-        count = (lv_mask[idx] == 1).sum()
-        x_center, y_center = np.round(np.argwhere(lv_mask[idx] == 1).sum(0) / count)
+        count = (lv_mask[slice_idx] == 1).sum()
+        x_center, y_center = np.round(np.argwhere(lv_mask[slice_idx] == 1).sum(0) / count)
 
-        store_h_lp_pre = []
-        store_v_lp_pre = []
-        store_h_lp_post = []
-        store_v_lp_post = []
-        for idx, img_idx in enumerate(slice_index_dict[slice_idx]):
-            clp = img_pre_reg[slice_idx][idx, int(x_center), :]
-            clp = np.vstack([clp, img_pre_reg[slice_idx][idx, int(x_center - 1), :]])
-            clp = np.vstack([clp, img_pre_reg[slice_idx][idx, int(x_center + 1), :]])
-            clp = np.mean(clp, axis=0)
-            store_h_lp_pre += [clp]
-            clp = img_pre_reg[slice_idx][idx, :, int(y_center)]
-            clp = np.vstack([clp, img_pre_reg[slice_idx][idx, :, int(y_center - 1)]])
-            clp = np.vstack([clp, img_pre_reg[slice_idx][idx, :, int(y_center + 1)]])
-            clp = np.mean(clp, axis=0)
-            store_v_lp_pre += [clp]
-            clp = img_post_reg[slice_idx][idx, int(x_center), :]
-            clp = np.vstack([clp, img_post_reg[slice_idx][idx, int(x_center - 1), :]])
-            clp = np.vstack([clp, img_post_reg[slice_idx][idx, int(x_center + 1), :]])
-            clp = np.mean(clp, axis=0)
-            store_h_lp_post += [clp]
-            clp = img_post_reg[slice_idx][idx, :, int(y_center)]
-            clp = np.vstack([clp, img_post_reg[slice_idx][idx, :, int(y_center - 1)]])
-            clp = np.vstack([clp, img_post_reg[slice_idx][idx, :, int(y_center + 1)]])
-            clp = np.mean(clp, axis=0)
-            store_v_lp_post += [clp]
+        store_h_lp_pre = img_pre_reg[slice_idx][:, int(x_center - 1) : int(x_center + 2) :, :]
+        store_h_lp_pre = np.mean(store_h_lp_pre, axis=1)
+        store_h_lp_post = img_post_reg[slice_idx][:, int(x_center - 1) : int(x_center + 2) :, :]
+        store_h_lp_post = np.mean(store_h_lp_post, axis=1)
 
-        store_h_lp_pre = np.vstack(store_h_lp_pre)
-        store_v_lp_pre = np.vstack(store_v_lp_pre)
-        store_h_lp_post = np.vstack(store_h_lp_post)
-        store_v_lp_post = np.vstack(store_v_lp_post)
+        store_v_lp_pre = img_pre_reg[slice_idx][:, :, int(y_center - 1) : int(y_center + 2)]
+        store_v_lp_pre = np.mean(store_v_lp_pre, axis=2)
+        store_v_lp_post = img_post_reg[slice_idx][:, :, int(y_center - 1) : int(y_center + 2)]
+        store_v_lp_post = np.mean(store_v_lp_post, axis=2)
 
         plt.figure(figsize=(5, 5))
         plt.subplot(2, 2, 1)
@@ -216,7 +188,7 @@ def record_image_registration(
             os.path.join(
                 settings["results"],
                 "results_b",
-                "registration_line_profiles_slice_" + str(abs(float(slice_idx))) + ".png",
+                "registration_line_profiles_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             pad_inches=0,
@@ -227,19 +199,19 @@ def record_image_registration(
     if settings["debug"]:
         # save the registration results for each slice as an animated gif
         # this time with mask
-        for sl_idx, slice_idx in enumerate(slices):
+        for slice_idx in slices:
             post_reg_array = img_post_reg[slice_idx]
             gif_images = []
             for idx in range(post_reg_array.shape[0]):
                 c_img = post_reg_array[idx] * (1 / post_reg_array[idx].max())
-                c_img_mask = color.label2rgb(mask[sl_idx], c_img, bg_label=0, alpha=0.05)
+                c_img_mask = color.label2rgb(mask[slice_idx], c_img, bg_label=0, alpha=0.05)
                 gif_images.append(c_img_mask)
             gif_images = gif_images / np.amax(gif_images) * 255
             gif_images = np.array(gif_images, dtype=np.uint8)
             imageio.mimsave(
                 os.path.join(
                     settings["debug_folder"],
-                    "registration_mask_slice_" + str(abs(float(slice_idx))) + ".gif",
+                    "registration_mask_slice_" + str(slice_idx).zfill(2) + ".gif",
                 ),
                 gif_images,
                 duration=0.3,
@@ -252,12 +224,12 @@ def record_image_registration(
 
         logger.debug("Saving extra debug information for the registration...")
 
-        for slice_str in slices:
-            n_imgs = len(img_pre_reg[slice_str])
+        for slice_idx in slices:
+            n_imgs = len(img_pre_reg[slice_idx])
             for img_idx in range(n_imgs):
-                c_ref = np.divide(ref_images[slice_str]["image"], np.max(ref_images[slice_str]["image"]))
-                c_img_pre = np.divide(img_pre_reg[slice_str][img_idx], np.max(img_pre_reg[slice_str][img_idx]))
-                c_img_post = np.divide(img_post_reg[slice_str][img_idx], np.max(img_post_reg[slice_str][img_idx]))
+                c_ref = np.divide(ref_images[slice_idx]["image"], np.max(ref_images[slice_idx]["image"]))
+                c_img_pre = np.divide(img_pre_reg[slice_idx][img_idx], np.max(img_pre_reg[slice_idx][img_idx]))
+                c_img_post = np.divide(img_post_reg[slice_idx][img_idx], np.max(img_post_reg[slice_idx][img_idx]))
                 comp_1 = compare_images(c_ref, c_img_post, method="checkerboard")
                 comp_2 = compare_images(c_ref, c_img_post, method="diff")
                 comp_3 = compare_images(c_ref, c_img_post, method="blend")
@@ -299,7 +271,7 @@ def record_image_registration(
                     os.path.join(
                         settings["debug_folder"],
                         "extra_motion_registration",
-                        "registration_slice_" + str(abs(float(slice_str))) + "_img_" + str(img_idx).zfill(3) + ".png",
+                        "registration_slice_" + str(slice_idx).zfill(2) + "_img_" + str(img_idx).zfill(3) + ".png",
                     ),
                     dpi=200,
                     pad_inches=0,
@@ -318,7 +290,6 @@ def crop_fov(
     img_pre_reg: NDArray,
     img_post_reg: NDArray,
     ref_images: NDArray,
-    slice_index_dict: dict,
     info: dict,
     logger: logging.Logger,
     settings: dict,
@@ -337,7 +308,6 @@ def crop_fov(
     img_pre_reg: images before registration
     img_post_reg: images after registration
     ref_images: reference images
-    slice_index_dict: dictionary index to slice position
     info: useful info dictionary
     logger: logger
     settings: dictionary with useful info
@@ -382,9 +352,7 @@ def crop_fov(
                 crop_mask.any(0),
             )
         ]
-    record_image_registration(
-        img_pre_reg, img_post_reg, ref_images, mask_3c, slice_index_dict, slices, settings, logger
-    )
+    record_image_registration(img_pre_reg, img_post_reg, ref_images, mask_3c, slices, settings, logger)
 
     if settings["debug"]:
         create_2d_montage_from_database(

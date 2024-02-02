@@ -352,28 +352,28 @@ def plot_manual_lv_segmentation(
     save_path: str,
     """
 
-    for idx, slice_str in enumerate(slices):
+    for slice_idx in slices:
         # alpha mask
-        alphas_myocardium = np.copy(mask_3c[idx])
+        alphas_myocardium = np.copy(mask_3c[slice_idx])
         alphas_myocardium[alphas_myocardium == 2] = 0
         alphas_myocardium[alphas_myocardium > 0.1] = 0.3
 
         # plot average images and respective masks
         plt.figure(figsize=(10, 10))
-        plt.imshow(average_maps[idx], cmap="Greys_r")
+        plt.imshow(average_maps[slice_idx], cmap="Greys_r")
         plt.imshow(alphas_myocardium, alpha=alphas_myocardium, vmin=0, vmax=1, cmap="hot")
         plt.axis("off")
         plt.scatter(
-            segmentation[idx]["epicardium"][:, 0],
-            segmentation[idx]["epicardium"][:, 1],
+            segmentation[slice_idx]["epicardium"][:, 0],
+            segmentation[slice_idx]["epicardium"][:, 1],
             marker=".",
             s=2,
             color="tab:blue",
             alpha=0.5,
         )
         plt.scatter(
-            segmentation[idx]["endocardium"][:, 0],
-            segmentation[idx]["endocardium"][:, 1],
+            segmentation[slice_idx]["endocardium"][:, 0],
+            segmentation[slice_idx]["endocardium"][:, 1],
             marker=".",
             s=2,
             color="tab:red",
@@ -381,16 +381,16 @@ def plot_manual_lv_segmentation(
         )
 
         plt.plot(
-            segmentation[idx]["anterior_ip"][0],
-            segmentation[idx]["anterior_ip"][1],
+            segmentation[slice_idx]["anterior_ip"][0],
+            segmentation[slice_idx]["anterior_ip"][1],
             "2",
             color="tab:orange",
             markersize=10,
             alpha=0.5,
         )
         plt.plot(
-            segmentation[idx]["inferior_ip"][0],
-            segmentation[idx]["inferior_ip"][1],
+            segmentation[slice_idx]["inferior_ip"][0],
+            segmentation[slice_idx]["inferior_ip"][1],
             "1",
             color="tab:orange",
             markersize=10,
@@ -399,7 +399,7 @@ def plot_manual_lv_segmentation(
         plt.savefig(
             os.path.join(
                 save_path,
-                filename + "_slice_" + str(abs(float(slice_str))) + ".png",
+                filename + "_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=300,
             bbox_inches="tight",
@@ -459,7 +459,7 @@ def manual_lv_segmentation(
     # dictionary to store the segmentation splines and insertion points for each slice
     segmentation = {}
     # loop over each slice
-    for slice_idx in range(n_slices):
+    for slice_idx in slices:
         # get the contours of the epicardium and endocardium if not all zeros
         all_zeros = not np.any(lv_masks[slice_idx])
         if all_zeros:

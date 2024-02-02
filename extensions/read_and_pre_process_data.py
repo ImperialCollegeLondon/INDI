@@ -18,12 +18,13 @@ from extensions.dwis_classifier import dwis_classifier
 from extensions.extensions import crop_pad_rotate_array
 
 
-def data_summary_plots(data: pd.DataFrame, settings: dict):
+def data_summary_plots(data: pd.DataFrame, info: dict, settings: dict):
     """
     Summarise the data in histogram counts by b-value, direction, and slice
     Parameters
     ----------
     data: dataframe with all the dwi data
+    info: dictionary with useful info
     settings: dictionary with useful info
     """
 
@@ -46,7 +47,7 @@ def data_summary_plots(data: pd.DataFrame, settings: dict):
     plt.grid(linewidth=0.5, alpha=0.3, linestyle="--")
 
     plt.subplot(1, 3, 2)
-    plt.plot(data.slice_position.values, ".")
+    plt.plot(data.slice_integer.values, ".")
     plt.title("slice positions", fontsize=7)
     plt.tick_params(axis="both", which="major", labelsize=5)
     plt.grid(linewidth=0.5, alpha=0.3, linestyle="--")
@@ -142,8 +143,8 @@ def get_data(settings: dict, info: dict) -> Tuple[pd.DataFrame, dict]:
                 ds[dicom_header_fields["DICOM_header_classic"]["diffusiongradientdirection"]]._value
                 if dicom_header_fields["DICOM_header_classic"]["diffusiongradientdirection"] in ds
                 else [1 / math.sqrt(3), 1 / math.sqrt(3), 1 / math.sqrt(3)],
-                # slice location as a rounded string
-                str(abs(round(float(ds["SliceLocation"]._value), 1))),
+                # image position
+                tuple(ds[dicom_header_fields["DICOM_header_classic"]["image_position_patient"]].value),
                 # nominal interval
                 float(ds["NominalInterval"]._value),
                 # acquisition time
@@ -163,7 +164,7 @@ def get_data(settings: dict, info: dict) -> Tuple[pd.DataFrame, dict]:
             "image",
             "b_value",
             "direction",
-            "slice_position",
+            "image_position",
             "nominal_interval",
             "acquisition_time",
             "acquisition_date",
@@ -417,9 +418,9 @@ def create_2d_montage_from_database(
     """
 
     # loop over the slices
-    for slice in slices:
+    for slice_int in slices:
         # dataframe with current slice
-        c_df = data.loc[data["slice_position"] == slice].copy()
+        c_df = data.loc[data["slice_integer"] == slice_int].copy()
 
         # initiate maximum number of images found for each b-val and dir combination
         max_number_of_images = 0
@@ -517,7 +518,7 @@ def create_2d_montage_from_database(
         plt.savefig(
             os.path.join(
                 save_path,
-                filename + "_slice_" + str(abs(float(slice))) + ".png",
+                filename + "_slice_" + str(slice_int).zfill(2) + ".png",
             ),
             dpi=300,
             bbox_inches="tight",
@@ -607,9 +608,9 @@ def manual_image_removal(
     data_original = data.copy()
 
     # loop over the slices
-    for slice_str in slices:
+    for slice_idx in slices:
         # dataframe with current slice
-        c_df = data.loc[data["slice_position"] == slice_str].copy()
+        c_df = data.loc[data["slice_integer"] == slice_idx].copy()
 
         # initiate maximum number of images found for each b-val and dir combination
         max_number_of_images = 0
@@ -777,24 +778,28 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     # image size
     info["img_size"] = list(data.loc[0, "image"].shape)
 
-    # store acquired slices info
-    slices = data.slice_position.unique()
+    # how many slices do we have and encode them with an integer
+    slices = data.image_position.unique()
     n_slices = len(slices)
     info["n_slices"] = n_slices
+    # create dictionaries to go from image position to integer and vice versa
+    info["integer_to_image_positions"] = {}
+    for idx, slice in enumerate(slices):
+        info["integer_to_image_positions"][idx] = slice
+    info["image_positions_to_integer"] = dict((v, k) for k, v in info["integer_to_image_positions"].items())
+    # create a new column in the data table with the slice integer for that slice
+    list_of_tuples = data.image_position.values
+    slice_integer = [info["image_positions_to_integer"][i] for i in list_of_tuples]
+    data["slice_integer"] = pd.Series(slice_integer)
+
+    # slices is going to be a list of all the integers
+    slices = data.slice_integer.unique()
 
     logger.debug("Number of dicom files: " + str(info["n_files"]))
     logger.debug("Number of slices: " + str(n_slices))
     logger.debug("Image size: " + str(info["img_size"]))
 
-    data_summary_plots(data, settings)
-
-    # update slice info
-    slice_index_dict = {}
-    for slice_idx in slices:
-        # dataframe for each slice
-        current_entries = data.loc[data["slice_position"] == slice_idx]
-        # store slice index
-        slice_index_dict[slice_idx] = current_entries.index.tolist()
+    data_summary_plots(data, info, settings)
 
     # =========================================================
     # display all DWIs in a montage
@@ -804,7 +809,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             data, "b_value", "direction", info, settings, slices, "dwis_original_dicoms", settings["debug_folder"], []
         )
 
-    return data, info, slices, slice_index_dict
+    return data, info, slices
 
 
 def pre_process_data(
@@ -816,7 +821,7 @@ def pre_process_data(
     Parameters
     ----------
     data: dataframe with images and diffusion info
-    slices: array with slice positions
+    slices: array with slice integers
     settings
     options
     info
