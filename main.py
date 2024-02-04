@@ -12,14 +12,14 @@ import sys
 import matplotlib
 
 from extensions.crop_fov import crop_fov
-from extensions.extensions import (
+from extensions.extensions import (  # get_xarray,
     denoise_tensor,
     export_results,
     get_cardiac_coordinates_short_axis,
     get_colourmaps,
     get_ha_line_profiles,
+    get_lv_segments,
     get_snr_maps,
-    get_xarray,
 )
 from extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from extensions.get_eigensystem import get_eigensystem
@@ -163,9 +163,14 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Get cardiac coordinates
     # =========================================================
-    local_cardiac_coordinates, lv_centres = get_cardiac_coordinates_short_axis(
+    local_cardiac_coordinates, lv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
         mask_3c, segmentation, slices, settings, dti, average_images
     )
+
+    # =========================================================
+    # Segment heart
+    # =========================================================
+    dti["lv_sectors"] = get_lv_segments(segmentation, phi_matrix, mask_3c, lv_centres, slices, logger)
 
     # =========================================================
     # Get dti["ha"] and dti["e2a"] maps
@@ -184,12 +189,12 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Copy diffusion maps to an xarray dataset
     # =========================================================
-    ds = get_xarray(info, dti, crop_mask, slices)
+    # ds = get_xarray(info, dti, crop_mask, slices)
 
     # =========================================================
     # Plot main results and save data
     # =========================================================
-    export_results(dti, info, settings, mask_3c, slices, average_images, colormaps, ds)
+    export_results(dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps)
 
     logger.info("============================================================")
     logger.info("====================== FINISHED ============================")

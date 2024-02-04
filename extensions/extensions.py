@@ -6,6 +6,8 @@ import pickle
 import subprocess
 from typing import Tuple
 
+import h5py
+
 # import cv2 as cv
 import matplotlib
 import matplotlib.pyplot as plt
@@ -314,14 +316,14 @@ def get_cardiac_coordinates_short_axis(
     circ_adjusted = np.zeros((mask.shape + (3,)))
     radi_adjusted = np.zeros((mask.shape + (3,)))
 
+    phi_matrix = {}
+
     for slice_idx in slices:
         # number of slices and get LV mask from mask
         # (contains LV myocardium and other heart structures)
 
         lv_mask = np.zeros(mask[slice_idx].shape)
         lv_mask[mask[slice_idx] == 1] = 1
-
-        phi_matrix = np.zeros(lv_mask.shape)
 
         coords = np.where(lv_mask == 1)
         n_points = len(coords[0])
@@ -330,14 +332,16 @@ def get_cardiac_coordinates_short_axis(
         x_center, y_center = np.round(np.argwhere(lv_mask == 1).sum(0) / count)
         lv_centres.append([x_center, y_center])
 
-        phi_matrix[coords] = -np.arctan2(coords[0] - x_center, coords[1] - y_center)
+        phi_matrix[slice_idx] = np.zeros(lv_mask.shape)
+
+        phi_matrix[slice_idx][coords] = -np.arctan2(coords[0] - x_center, coords[1] - y_center)
 
         long[slice_idx][coords] = [0, 0, 1]
 
         circ[slice_idx][coords] = np.array(
             [
-                np.sin(phi_matrix[coords]),
-                -np.cos(phi_matrix[coords]),
+                np.sin(phi_matrix[slice_idx][coords]),
+                -np.cos(phi_matrix[slice_idx][coords]),
                 np.repeat(0, n_points),
             ]
         ).T
@@ -417,7 +421,7 @@ def get_cardiac_coordinates_short_axis(
         if settings["debug"]:
             save_vtk_file(lcc, {}, maps, "cardiac_coordinates", settings["debug_folder"])
 
-    return local_cardiac_coordinates, lv_centres
+    return local_cardiac_coordinates, lv_centres, phi_matrix
 
 
 def create_2d_montage(img_stack: NDArray) -> NDArray:
@@ -962,7 +966,7 @@ def denoise_tensor(D: np.ndarray, settings: dict) -> np.ndarray:
 
 
 def plot_results_montage(
-    slices: NDArray, mask_3c: NDArray, average_images: dict, dti, colormaps: dict, settings: dict
+    slices: NDArray, mask_3c: NDArray, average_images: dict, dti, segmentation: dict, colormaps: dict, settings: dict
 ):
     """
     Plots the main montage of results
@@ -977,6 +981,8 @@ def plot_results_montage(
         average image of each slice
     dti : Class DTI
         holds DTI parameters
+    segmentation : dict
+        LV segmentation info
     colormaps : dict
         DTI maps colormaps
     settings : dict
@@ -1230,6 +1236,51 @@ def plot_results_montage(
             )
             plt.close()
 
+        # plot LV 12 sectors
+        plt.figure(figsize=(5, 5))
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
+        plt.imshow(
+            dti["lv_sectors"][slice_idx],
+            alpha=alphas_whole_heart * 0.5,
+            vmin=1,
+            vmax=12,
+            cmap=matplotlib.colors.ListedColormap(matplotlib.cm.get_cmap("tab20b").colors[0:12]),
+        )
+        plt.plot(
+            segmentation[slice_idx]["anterior_ip"][0],
+            segmentation[slice_idx]["anterior_ip"][1],
+            "2",
+            color="tab:orange",
+            markersize=20,
+            alpha=1.0,
+        )
+        plt.plot(
+            segmentation[slice_idx]["inferior_ip"][0],
+            segmentation[slice_idx]["inferior_ip"][1],
+            "1",
+            color="tab:orange",
+            markersize=20,
+            alpha=1.0,
+        )
+        cbar = plt.colorbar(fraction=0.046, pad=0.04)
+        ticklabels = [str(i) for i in range(1, 12 + 1)]
+        tickpos = np.linspace(1.5, 12 - 0.5, 12)
+        cbar.set_ticks(tickpos, labels=ticklabels)
+        plt.tight_layout(pad=1.0)
+        plt.axis("off")
+        plt.title("LV sectors")
+        plt.savefig(
+            os.path.join(
+                settings["results"],
+                "results_b",
+                "lv_segments_slice_" + str(slice_idx).zfill(2) + ".png",
+            ),
+            dpi=200,
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()
+
 
 def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
     """
@@ -1295,11 +1346,33 @@ def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
     ds["HA"] = (["slice", "row_crop", "cols_crop"], dti["ha"], {"units": "degrees"})
     ds["E2A"] = (["slice", "row_crop", "cols_crop"], dti["e2a"], {"units": "degrees"})
     ds["TA"] = (["slice", "row_crop", "cols_crop"], dti["ta"], {"units": "degrees"})
+    ds["abs_E2A"] = (["slice", "row_crop", "cols_crop"], np.abs(dti["e2a"]), {"units": "degrees"})
+    ds["LV_sectors"] = (["slice", "row_crop", "cols_crop"], dti["lv_sectors"], {"units": "[]"})
 
     # add crop mask to dataset
     ds["crop_mask"] = (["row", "col"], crop_mask, {"units": "[]"})
 
     return ds
+
+
+def export_to_hdf5(dti: dict, settings: dict):
+    """
+    Export DTI maps to HDF5
+
+    Parameters
+    ----------
+    dti: dict with DTI maps
+    settings: dict with settings
+
+    """
+    with h5py.File(os.path.join(settings["results"], "data", "DTI_maps" + ".h5"), "w") as hf:
+        for name, key in dti.items():
+            if isinstance(key, np.ndarray):
+                hf.create_dataset(name, data=key)
+
+    # # to read a map example
+    # with h5py.File(os.path.join(settings["results"], "data", "DTI_maps" + ".h5"), "r") as hf:
+    #     data = hf["ha"][:]
 
 
 def export_results(
@@ -1309,8 +1382,8 @@ def export_results(
     mask_3c: NDArray,
     slices: NDArray,
     average_images: NDArray,
+    segmentation: dict,
     colormaps: dict,
-    ds: xr.Dataset,
 ):
     """
 
@@ -1330,19 +1403,22 @@ def export_results(
         array with slice position strings
     average_images : NDArray
         normalised averaged images
+    segmentation : dict
+        LV segmentation info on LV borders and insertion points
     colormaps : dict
         DTI tailored colormaps
-    ds : xr.Dataset
-        xarray with DTI maps
     """
     # plot eigenvectors and tensor in VTK format
     export_vectors_tensors_vtk(dti, info, settings, mask_3c)
 
     # plot results montage
-    plot_results_montage(slices, mask_3c, average_images, dti, colormaps, settings)
+    plot_results_montage(slices, mask_3c, average_images, dti, segmentation, colormaps, settings)
 
     # save xarray to NetCDF
-    ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))
+    # ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))
+
+    # save results to h5 file
+    export_to_hdf5(dti, settings)
 
     # save to disk dti dictionary
     dti["info"] = info
@@ -1379,3 +1455,132 @@ def export_results(
             + str(slice_idx).zfill(2)
         )
         os.system(run_command)
+
+
+def get_lv_segments(
+    segmentation: dict,
+    phi_matrix: dict,
+    mask_3c: NDArray,
+    lv_centres: NDArray,
+    slices: NDArray,
+    logger: logging.Logger,
+) -> NDArray:
+    """
+    Get array with the LV segments
+
+    Args:
+        segmentation: dict containing the LV borders and insertion points
+        phi_matrix: dict containing numpy arrays with the
+            angles with respect to the centre of the lV (counter-clockwise)
+        mask_3c: 3D numpy array with the LV segmentation mask
+        lv_centres: Dictionary containing the (y_centre, x_centre) tuple for the lv, for each slice
+        slices: array with slice integers
+        logger: logging.Logger
+
+    Returns:
+        the corresponding 12 segments DataArray for the left ventricle
+    """
+
+    LV_free_wall_n_segs = 8
+    LV_septal_wall_n_segs = 4
+    # n_slices = mask_3c.shape[0]
+
+    # dictionary with keys: Tuple[slice_idx, segment_number(i.e. 1 to 12)]
+    segments_and_points = {}
+
+    # loop over slices
+    for slice_idx in slices:
+        lv_mask = mask_3c[slice_idx]
+        lv_mask[lv_mask == 2] = 0
+        phi_matrix[slice_idx][lv_mask == 0] = np.nan
+        phi_matrix[slice_idx] = -(phi_matrix[slice_idx] - np.pi)
+
+        y_center, x_center = lv_centres[slice_idx]
+
+        # superior and inferior insertion points must be defined in this order
+        anterior_ins_pt = segmentation[slice_idx]["anterior_ip"]
+        inferior_ins_pt = segmentation[slice_idx]["inferior_ip"]
+
+        (
+            anterior_ins_pt_col,
+            anterior_ins_pt_row,
+        ) = anterior_ins_pt
+        (
+            inferior_ins_pt_col,
+            inferior_ins_pt_row,
+        ) = inferior_ins_pt
+
+        # angles of the insertion points [0 2pi] clockwise
+        theta_ant_ins_pt = -(-np.arctan2(anterior_ins_pt_row - y_center, anterior_ins_pt_col - x_center) - np.pi)
+        theta_inf_ins_pt = -(-np.arctan2(inferior_ins_pt_row - y_center, inferior_ins_pt_col - x_center) - np.pi)
+
+        # ====================
+        # Segments free-wall
+        # ====================
+        # angular span of the free wall
+        if theta_ant_ins_pt < theta_inf_ins_pt:
+            angle_span_free_wall = theta_inf_ins_pt - theta_ant_ins_pt
+        else:
+            angle_span_free_wall = 2 * np.pi - (theta_ant_ins_pt - theta_inf_ins_pt)
+        # divide the span by 8 segments
+        angle_span_free_wall /= LV_free_wall_n_segs
+
+        # loop and gather the points for each lateral wall segment
+        for segment_idx in range(LV_free_wall_n_segs):
+            theta_start = theta_ant_ins_pt + segment_idx * angle_span_free_wall
+            if theta_start > 2 * np.pi:
+                theta_start -= 2 * np.pi
+            theta_end = theta_ant_ins_pt + (segment_idx + 1) * angle_span_free_wall
+            if theta_end > 2 * np.pi:
+                theta_end -= 2 * np.pi
+
+            if theta_end > theta_start:
+                points = np.argwhere((phi_matrix[slice_idx] >= theta_start) & (phi_matrix[slice_idx] < theta_end))
+            else:
+                points = np.argwhere((phi_matrix[slice_idx] >= theta_start) | (phi_matrix[slice_idx] < theta_end))
+
+            segments_and_points[(slice_idx, segment_idx + 1)] = points
+
+        # ====================
+        # Segments septal-wall
+        # ====================
+        # angular span of the free wall
+        if theta_ant_ins_pt < theta_inf_ins_pt:
+            angle_span_septal_wall = 2 * np.pi - (theta_inf_ins_pt - theta_ant_ins_pt)
+        else:
+            angle_span_septal_wall = theta_ant_ins_pt - theta_inf_ins_pt
+        # divide the span by 4 segments
+        angle_span_septal_wall /= LV_septal_wall_n_segs
+
+        # loop and gather the points for each lateral wall segment
+        for idx, segment_idx in enumerate(range(LV_free_wall_n_segs, (LV_free_wall_n_segs + LV_septal_wall_n_segs))):
+            theta_start = theta_inf_ins_pt + idx * angle_span_septal_wall
+            if theta_start > 2 * np.pi:
+                theta_start -= 2 * np.pi
+            theta_end = theta_inf_ins_pt + (idx + 1) * angle_span_septal_wall
+            if theta_end > 2 * np.pi:
+                theta_end -= 2 * np.pi
+
+            if theta_end > theta_start:
+                points = np.argwhere((phi_matrix[slice_idx] >= theta_start) & (phi_matrix[slice_idx] < theta_end))
+            else:
+                points = np.argwhere((phi_matrix[slice_idx] >= theta_start) | (phi_matrix[slice_idx] < theta_end))
+
+            segments_and_points[(slice_idx, segment_idx + 1)] = points
+
+    # prepare the output
+    segments_mask = np.zeros(mask_3c.shape)
+    for slice_idx in slices:
+        for curr_segment in range(1, (LV_free_wall_n_segs + LV_septal_wall_n_segs + 1)):
+            if (slice_idx, curr_segment) in segments_and_points.keys():
+                segments_mask[
+                    slice_idx,
+                    segments_and_points[slice_idx, curr_segment][:, 0],
+                    segments_and_points[slice_idx, curr_segment][:, 1],
+                ] = curr_segment
+
+    segments_mask = np.where(np.isnan(segments_mask), 0, segments_mask)
+
+    logger.debug("LV segmentation in sectors done.")
+
+    return segments_mask
