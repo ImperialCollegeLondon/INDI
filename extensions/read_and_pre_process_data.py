@@ -39,7 +39,7 @@ def data_summary_plots(data: pd.DataFrame, info: dict, settings: dict):
     plt.figure(figsize=(5, 5))
 
     plt.subplot(1, 3, 1)
-    plt.plot(data.b_value.values, ".")
+    plt.plot(data.b_value_original.values, ".")
     plt.title("b-values", fontsize=7)
     plt.tick_params(axis="both", which="major", labelsize=5)
     plt.grid(linewidth=0.5, alpha=0.3, linestyle="--")
@@ -208,7 +208,6 @@ def estimate_rr_interval(data: pd.DataFrame) -> [pd.DataFrame, NDArray]:
     time_delta = np.diff(time_stamps) * 0.5 * 1e-6
     # prepend nan to the time delta
     time_delta = np.insert(time_delta, 0, np.nan)
-    estimated_rr_intervals_original = time_delta.copy()
     # get median time delta, and replace values above 4x the median with nan
     median_time = np.nanmedian(time_delta)
     time_delta[time_delta > 4 * median_time] = np.nan
@@ -217,7 +216,67 @@ def estimate_rr_interval(data: pd.DataFrame) -> [pd.DataFrame, NDArray]:
     # replace nans with the next non-nan value
     data["estimated_rr_interval"] = data["estimated_rr_interval"].bfill()
 
-    return data, estimated_rr_intervals_original
+    return data
+
+
+def plot_b_values_adjustment(data: pd.DataFrame, settings: dict):
+    """
+    Plot b_values before and after adjustment, and the estimated RR intervals
+
+    Parameters
+    ----------
+    data
+    settings
+
+    Returns
+    -------
+
+    """
+
+    b_vals_original = data["b_value_original"].values
+    b_vals = data["b_value"].values
+    plt.figure(figsize=(5, 5))
+    plt.subplot(1, 1, 1)
+    plt.plot(b_vals_original, alpha=0.8)
+    plt.plot(b_vals, alpha=0.8)
+    plt.xlabel("image #")
+    plt.ylabel("b-value")
+    plt.legend(["original", "adjusted"])
+    plt.tick_params(axis="both", which="major", labelsize=5)
+    plt.title("b-values", fontsize=7)
+    plt.tight_layout(pad=1.0)
+    plt.savefig(
+        os.path.join(
+            settings["debug_folder"],
+            "data_b_values.png",
+        ),
+        dpi=200,
+        pad_inches=0,
+        transparent=False,
+    )
+    plt.close()
+
+    plt.figure(figsize=(5, 5))
+    plt.subplot(1, 1, 1)
+    plt.plot(data["nominal_interval"], alpha=0.8)
+    plt.plot(data["estimated_rr_interval"], alpha=0.8)
+    plt.legend(["nominal", "adjusted RR"])
+    plt.xlabel("image #")
+    plt.ylabel("nominal intervals")
+    plt.ylim([-0.25, 4])
+    plt.tick_params(axis="both", which="major", labelsize=5)
+    plt.title("nominal intervals", fontsize=7)
+    plt.tight_layout(pad=1.0)
+    plt.savefig(
+        os.path.join(
+            settings["debug_folder"],
+            "nominal_and_rr_intervals.png",
+        ),
+        dpi=200,
+        pad_inches=0,
+        transparent=False,
+    )
+    plt.close()
 
 
 def adjust_b_val_and_dir(
@@ -249,7 +308,7 @@ def adjust_b_val_and_dir(
     data["b_value_original"] = data["b_value"]
     data["direction_original"] = data["direction"]
 
-    data, estimated_rr_intervals_original = estimate_rr_interval(data)
+    data = estimate_rr_interval(data)
 
     # get the b0 value and assumed RR interval from the image comment field
     if settings["sequence_type"] == "steam":
@@ -332,54 +391,8 @@ def adjust_b_val_and_dir(
         c_diff_direction[1] = -c_diff_direction[1]
         data.at[idx, "direction"] = c_diff_direction
 
-    # plot the b-values (before and after adjustment)
-    # plot the nominal intervals
     if settings["debug"]:
-        b_vals_original = data["b_value_original"].values
-        b_vals = data["b_value"].values
-        plt.figure(figsize=(5, 5))
-        plt.subplot(1, 1, 1)
-        plt.plot(b_vals_original, alpha=0.8)
-        plt.plot(b_vals, alpha=0.8)
-        plt.xlabel("image #")
-        plt.ylabel("b-value")
-        plt.legend(["original", "adjusted"])
-        plt.tick_params(axis="both", which="major", labelsize=5)
-        plt.title("b-values", fontsize=7)
-        plt.tight_layout(pad=1.0)
-        plt.savefig(
-            os.path.join(
-                settings["debug_folder"],
-                "data_b_values.png",
-            ),
-            dpi=200,
-            pad_inches=0,
-            transparent=False,
-        )
-        plt.close()
-
-        plt.figure(figsize=(5, 5))
-        plt.subplot(1, 1, 1)
-        plt.plot(data["nominal_interval"], alpha=0.8)
-        plt.plot(data["estimated_rr_interval"], alpha=0.8)
-        plt.plot(estimated_rr_intervals_original, alpha=0.8)
-        plt.legend(["nominal", "adjusted RR", "original RR"])
-        plt.xlabel("image #")
-        plt.ylabel("nominal intervals")
-        plt.ylim([-0.25, 4])
-        plt.tick_params(axis="both", which="major", labelsize=5)
-        plt.title("nominal intervals", fontsize=7)
-        plt.tight_layout(pad=1.0)
-        plt.savefig(
-            os.path.join(
-                settings["debug_folder"],
-                "nominal_and_rr_intervals.png",
-            ),
-            dpi=200,
-            pad_inches=0,
-            transparent=False,
-        )
-        plt.close()
+        plot_b_values_adjustment(data, settings)
 
     return data
 
@@ -601,8 +614,6 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         logger.debug("Number of slices: " + str(n_slices))
         logger.debug("Image size: " + str(info["img_size"]))
 
-        data_summary_plots(data, info, settings)
-
         # =========================================================
         # display all DWIs in a montage
         # =========================================================
@@ -627,6 +638,8 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             logger.info("Sequence: STEAM: b-values and directions adjusted")
         if settings["sequence_type"] == "se":
             logger.info("Sequence: SE: Directions adjusted")
+
+        data_summary_plots(data, info, settings)
 
         # =========================================================
         # export all the data to files
@@ -710,5 +723,9 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
                 settings["debug_folder"],
                 [],
             )
+
+        # plot the b-values (before and after adjustment)
+        if settings["debug"]:
+            plot_b_values_adjustment(data, settings)
 
     return data, info, slices

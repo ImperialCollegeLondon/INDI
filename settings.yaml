@@ -4,7 +4,7 @@
 # WORKFLOW
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/in_vivo/test/slow
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/another_test
 # worflow mode: anon, reg, all
 # anon: anonymises DICOM files to a dataframe, and then DELETES DICOM FILES (NOT IMPLEMENTED YET)
 # reg: runs image registration only. This is useful when batch processing

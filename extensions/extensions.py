@@ -1245,7 +1245,7 @@ def plot_results_montage(
             alpha=alphas_whole_heart * 0.5,
             vmin=1,
             vmax=12,
-            cmap=matplotlib.colors.ListedColormap(matplotlib.cm.get_cmap("tab20b").colors[0:12]),
+            cmap=matplotlib.colors.ListedColormap(matplotlib.cm.get_cmap("tab20c").colors[0:12]),
         )
         plt.plot(
             segmentation[slice_idx]["anterior_ip"][0],
