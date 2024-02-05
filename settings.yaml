@@ -39,7 +39,7 @@ registration: elastix_non_rigid
 # DWI registration speed: fast, slow
 # slow: iterations = 2000; resolutions = 4
 # fast: iterations = 256; resolutions = 2
-registration_speed: slow
+registration_speed: fast
 
 # DWI registration reference method: first, groupwise
 registration_reference_method: groupwise
