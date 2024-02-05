@@ -4,7 +4,7 @@
 # WORKFLOW
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/pre_clinical/two_slices_new
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/in_vivo/test/slow
 # worflow mode: anon, reg, all
 # anon: anonymises DICOM files to a dataframe, and then DELETES DICOM FILES (NOT IMPLEMENTED YET)
 # reg: runs image registration only. This is useful when batch processing
@@ -36,6 +36,11 @@ threshold_strength: 0.5
 # elastix_groupwise (not working well at the moment)
 registration: elastix_non_rigid
 
+# DWI registration speed: fast, slow
+# slow: iterations = 2000; resolutions = 4
+# fast: iterations = 256; resolutions = 2
+registration_speed: fast
+
 # DWI registration reference method: first, groupwise
 registration_reference_method: groupwise
 
@@ -66,7 +71,7 @@ remove_outliers_with_ai: False
 # ========================================================================================
 # define manually the assumed rr interval (msec). In most cases this is 1E3 ms.
 # this value is used if no value was found in header (this is only for the STEAM sequence).
-assumed_rr_interval: 640
+assumed_rr_interval: 1000
 # true b-value of the b0 images (this is only for the STEAM sequence).
 calculated_real_b0: 33
 

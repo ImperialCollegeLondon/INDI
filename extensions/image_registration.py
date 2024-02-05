@@ -42,27 +42,46 @@ def registration_loop(
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_rigid.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
 
     if settings["registration"] == "elastix_affine":
         parameter_object = itk.ParameterObject.New()
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_rigid.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
+
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_affine.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
 
     if settings["registration"] == "elastix_non_rigid":
         parameter_object = itk.ParameterObject.New()
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_rigid.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_affine.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_bspline.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
 
         # # Export custom parameter maps to files
         # for index in range(parameter_object.GetNumberOfParameterMaps()):
@@ -269,11 +288,11 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
     ref_images = {}
     if settings["registration"] != "elastix_groupwise":
         # get unique b-values
-        b_values = current_entries["b_value"].unique()
+        b_values = current_entries["b_value_original"].unique()
         # sort b-values
         b_values = np.sort(b_values)
         # get indices for the lowest b-value
-        index_pos = current_entries.index[current_entries["b_value"] == b_values[0]].tolist()
+        index_pos = current_entries.index[current_entries["b_value_original"] == b_values[0]].tolist()
         n_images = len(index_pos)
 
         if n_images < 2 or settings["registration_reference_method"] == "first":

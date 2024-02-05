@@ -20,6 +20,7 @@ from extensions.extensions import (  # get_xarray,
     get_ha_line_profiles,
     get_lv_segments,
     get_snr_maps,
+    query_yes_no,
 )
 from extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from extensions.get_eigensystem import get_eigensystem
@@ -28,7 +29,8 @@ from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
 from extensions.heart_segmentation import heart_segmentation
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
-from extensions.read_and_pre_process_data import pre_process_data, read_data
+from extensions.read_and_pre_process_data import read_data
+from extensions.remove_outliers import remove_outliers
 from extensions.tensor_fittings import dipy_tensor_fit
 from extensions.u_net_segmentation import get_average_images
 
@@ -50,6 +52,18 @@ colormaps = get_colourmaps(script_path)
 # initial setup before going into the folder loop
 dti, settings, logger, log_format, all_to_be_analysed_folders = initial_setup(script_path)
 
+# Warning about deleting DICOM data
+if settings["workflow_mode"] == "anon":
+    answer = query_yes_no(
+        "Are you sure you want to delete all DICOM files? Make sure DICOMs are backed up somewhere else before saying yes!"
+    )
+    if answer:
+        logger.info("DELETING DICOM DATA TO ALL DATASETS FOUND!")
+    else:
+        logger.error("Exiting, no permission to delete DICOM data.")
+        sys.exit()
+
+
 for current_folder in all_to_be_analysed_folders:
     # initial setup
     info, settings, logger = folder_loop_initial_setup(current_folder, settings, logger, log_format)
@@ -59,6 +73,13 @@ for current_folder in all_to_be_analysed_folders:
     # read and pre-process dicom files
     # =========================================================
     [data, info, slices] = read_data(settings, info, logger)
+
+    # =========================================================
+    # Option to perform only reading of data and anonymisation
+    # =========================================================
+    if settings["workflow_mode"] == "anon":
+        logger.info("Anonymisation of data only mode is True. Stopping here.")
+        continue
 
     # =========================================================
     # DWIs registration
@@ -73,9 +94,9 @@ for current_folder in all_to_be_analysed_folders:
         continue
 
     # =========================================================
-    # pre-process data (adjust b-values, remove outliers)
+    # Remove outliers
     # =========================================================
-    [data, info, slices] = pre_process_data(data, slices, settings, info, logger)
+    [data, info, slices] = remove_outliers(data, slices, settings, info, logger)
 
     # =========================================================
     # Average images
