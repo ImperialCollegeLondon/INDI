@@ -42,27 +42,46 @@ def registration_loop(
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_rigid.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
 
     if settings["registration"] == "elastix_affine":
         parameter_object = itk.ParameterObject.New()
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_rigid.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
+
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_affine.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
 
     if settings["registration"] == "elastix_non_rigid":
         parameter_object = itk.ParameterObject.New()
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_rigid.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_affine.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_bspline.txt")
         )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
 
         # # Export custom parameter maps to files
         # for index in range(parameter_object.GetNumberOfParameterMaps()):
