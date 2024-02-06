@@ -209,6 +209,7 @@ def dipy_tensor_fit(
     logger.info("Starting tensor fitting with method: " + method)
 
     tensor = np.empty([info["img_size"][0], info["img_size"][1], 3, 3, len(slices)])
+    s0 = np.empty([info["img_size"][0], info["img_size"][1], len(slices)])
     residuals_img = {}
     residuals_map = {}
 
@@ -245,6 +246,7 @@ def dipy_tensor_fit(
 
         tenfit = tenmodel.fit(image_data)
         tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
+        s0[..., slice_idx] = np.squeeze(tenfit.S0_hat)
 
         if not quick_mode:
             if method != "RESTORE":
@@ -277,9 +279,10 @@ def dipy_tensor_fit(
 
     # reorder tensor to: [slice, lines, cols, 3x3 tensor]
     tensor = tensor.transpose(4, 0, 1, 2, 3)
+    s0 = s0.transpose(2, 0, 1)
 
     if not quick_mode:
         if settings["debug"]:
             plot_tensor_components(tensor, slices, settings)
 
-    return tensor, residuals_img, residuals_map, info
+    return tensor, s0, residuals_img, residuals_map, info

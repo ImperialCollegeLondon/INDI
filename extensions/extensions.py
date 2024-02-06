@@ -154,6 +154,7 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     maps["MD"] = dti["md"]
     maps["FA"] = dti["fa"]
     maps["mask"] = mask_3c
+    maps["s0"] = dti["s0"]
 
     save_vtk_file(vectors, tensors, maps, "eigensystem", os.path.join(settings["results"], "data"))
 
@@ -563,7 +564,7 @@ def get_ha_line_profiles(
         # current HA map
         c_HA = HA[slice_idx]
         # current U-Net mask
-        c_mask = mask_3c[slice_idx]
+        c_mask = np.copy(mask_3c[slice_idx])
         # make the mask binary, remove RV and all non LV myocardium is 0
         c_mask[c_mask == 2] = 0
         # HA map background is nan
@@ -1491,7 +1492,7 @@ def get_lv_segments(
 
     # loop over slices
     for slice_idx in slices:
-        lv_mask = mask_3c[slice_idx]
+        lv_mask = np.copy(mask_3c[slice_idx])
         lv_mask[lv_mask == 2] = 0
         phi_matrix[slice_idx][lv_mask == 0] = np.nan
         phi_matrix[slice_idx] = -(phi_matrix[slice_idx] - np.pi)

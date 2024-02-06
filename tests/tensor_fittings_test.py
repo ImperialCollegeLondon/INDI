@@ -44,7 +44,7 @@ def test_dipy_tensor_fit():
     logger = logging.getLogger(__name__)
 
     # calculate tensors with DiPy functions
-    tensor_calculated, residuals_img, residuals_map, _ = dipy_tensor_fit(
+    tensor_calculated, s0, residuals_img, residuals_map, _ = dipy_tensor_fit(
         slices,
         table,
         info,
