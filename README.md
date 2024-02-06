@@ -66,7 +66,7 @@ Then run:
 
 ## Documentation
 
-See [Pipeline](docs/pipeline.md) for details on the post-processing pipeline.
+See [Pipeline](docs/Pipeline.md) for details on the post-processing pipeline.
 
 See [YAML settings](docs/YAML_settings.md) for more information.
 
