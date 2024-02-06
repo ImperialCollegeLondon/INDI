@@ -1,6 +1,14 @@
 # INDI (in-vivo diffusion)
 
-In-vivo diffusion MRI post-processing pipeline.
+<p align="center">
+<img src="assets/images/sa_e1_small.png">
+</p>
+
+<p align="center">
+In-vivo diffusion analysis (INDI)<br>
+Post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
+</p>
+
 
 ## Table of Contents
 
