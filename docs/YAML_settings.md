@@ -47,35 +47,84 @@ Method of registration to be used:
 - `elastix_non_rigid`: Non-rigid registration using the `elastix` method from `itk`.
 - `elastix_groupwise`: Groupwise registration using the `elastix` method from `itk`. **Experimental, not working correctly at the moment.**.
 
-Elastix non rigid is the slowest, but potentially the best. Registration needs to be checked for unwanted distortions. If present, elastix affine may be the safest alternative.
+Elastix non rigid is the slowest, but potentially the best. Registration needs to be checked for unwanted distortions. 
+If present, elastix affine may be the safest alternative.
 
-### IMAGE SEGMENTATION
+`registration_speed = slow | fast`
+When using an Elastix registration method (`elastix_rigid`, `elastix_affine` or `elastix_non_rigid`), 
+the speed of the registration can be controlled with this parameter. 
+The slow option is more accurate, but takes longer to run:
+- slow: iterations = 2000; resolutions = 4
+- fast: iterations = 256; resolutions = 2
 
-- **manual_segmentation**: If True, user is prompted to do a manual segmentation with spline curves.
+When using the following registration methods:(`quick_rigid`, `elastix_rigid`, `elastix_affine` or `elastix_non_rigid`),
+we need to define a reference image for the registration. There are two methods available:
+- `first`: the first image with the lowest b-value is used as the reference.
+- `groupwise`: a groupwise registration is performed with all lowest b-value images, 
+and the average image is used as the reference.
 
-### TENSOR FITTING
+---
 
-- **tensor_fit_method**: Method used for tensor fitting. This is a library imported from DiPy. Options are:
-  - **LS**: Least squares
-  - **WLS**: Weighted least squares
-  - **NLLS**: Non-linear least squares
-  - **RESTORE**: RESTORE method
+## IMAGE SEGMENTATION
+Segmentation of the LV epicardial and endocardial borders.
 
-NLLS should be the default. RESTORE is an alternative that may be more robust to noise, outliers, but it is slower and may not work well if data quality is too low.
+`manual_segmentation = True | False`: If `True`, user is prompted to do a manual segmentation with spline curves.
 
-### IMAGE REMOVAL
+---
 
-- **remove_outliers_manually**: If True, user is prompted to assess and remove images manually.
-- **remove_outliers_with_ai**: If True, images are removed automatically using a trained AI model. **Not working well at the moment**.
+## TENSOR FITTING
+Tensor fitting algorithm. This is a library imported from DiPy.
 
-### AI MODELS
+`tensor_fit_method: LS | WLS | NLLS | RESTORE`:
+  - `LS`: Least squares
+  - `WLS`: Weighted least squares
+  - `NLLS`: Non-linear least squares
+  - `RESTORE`: [RESTORE method](https://onlinelibrary.wiley.com/doi/10.1002/mrm.20426)
 
-#### SEGMENTATION
+NLLS should be the default. 
+RESTORE is an alternative that may be more robust to noise or outliers, 
+but it is slower and may not work well if data quality is too low.
 
-- **u_net_segmentation**: If True, U-Net segmentation is performed automatically. If manual_segmentation is also True, the U-Net segmentation is used as a starting point for the manual segmentation.
-- **n_ensemble**: Number of U-Net models to use for the segmentation. Options are 1 to 5.
+---
 
-#### TENSOR DENOISING
+## IMAGE REMOVAL
 
-- **uformer_denoise**: If True, U-Former denoising is performed on the tensor data. This is a deep learning method that denoises the tensor data. It may improve the results when the data quality is low. The models have been trained on datasets with a fixed number of breatholds:
-  - **uformer_breathholds**: Number of breathholds to use for the U-Former denoising. Options are 1, 3, or 5.
+Some diffusion weighted images are corrupted with motion induced signal loss. 
+These images need to be removed before tensor fitting. 
+This can be done manually or automatically with AI (not working at the moment) 
+
+- `remove_outliers_manually = True | False`: If True, user is prompted to assess and remove images manually.
+- `remove_outliers_with_ai = True | False`: If True, images are removed automatically using a trained AI model. **Not working well at the moment**.
+
+---
+
+## MISC
+
+`assumed_rr_interval = float` Define manually the assumed rr interval (msec). The default value is 1000 msec.
+This value is only used if no value was found in the header `image_comments` and only useful for the STEAM sequence.
+
+`calculated_real_b0 = float` True b-value of the b0 images. Similar to the parameter above, 
+this value is only used if no value was found in the header `image_comments` and only useful for the STEAM sequence.
+
+---
+
+## AI MODELS
+
+Settings for the AI models used in the pipeline.
+
+### LV SEGMENTATION
+
+`u_net_segmentation = True | False`: If True, U-Net segmentation is performed automatically. 
+If manual_segmentation is also True, the U-Net segmentation is used as a starting point for the manual segmentation.
+
+`n_ensemble = int [1, 5]`: Number of U-Net models to use for the segmentation using a naive ensemble approach.
+
+### TENSOR DENOISING
+
+`uformer_denoise = True | False`: If True, [U-Former denoising](https://link.springer.com/chapter/10.1007/978-3-031-12053-4_8) 
+is performed on the tensor data. 
+This is a deep learning method that denoises the tensor data. 
+It may improve the results when the data quality is low. 
+The models have been trained on STEAM datasets with a fixed number of breatholds:
+
+`uformer_breathholds = 1 | 3 | 5`: Number of breathholds to use for the U-Former denoising.

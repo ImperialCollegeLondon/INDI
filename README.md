@@ -2,6 +2,13 @@
 
 In-vivo diffusion MRI post-processing pipeline.
 
+## Table of Contents
+
+- [Requirements](#Requirements)
+- [Installation](#Installation)
+- [Run](#Run)
+- [Documentation](#Documentation)
+
 ## Requirements
 
 ### Download AI models
@@ -16,11 +23,11 @@ U-Net models need to be copied to the following path:
 Tranformer models need to be copied to the following path:
 ```/usr/local/dtcmr/transformer_tensor_denoising/```
 
-### Installation
+## Installation
 
 Software has been tested on macOS Sonoma with python 3.10.
 
-#### Installation in macOS (Intel and Apple silicon)
+### Installation in macOS (Intel and Apple silicon)
 
 ```bash
 python -m venv .venv
@@ -51,11 +58,17 @@ pre-commit run --all-files
 ## Run
 
 Configure the `settings.yaml` file with the correct paths and parameters. 
-See [YAML_settings](docs/YAML_settings.md) for more information.
+See [YAML settings](docs/YAML_settings.md) for more information.
 
 Then run:
 
 ```python main_script.py```
+
+## Documentation
+
+See [Pipeline](docs/pipeline.md) for details on the post-processing pipeline.
+
+See [YAML settings](docs/YAML_settings.md) for more information.
 
 
 

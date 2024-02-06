@@ -3,7 +3,6 @@ import math
 import os
 import pickle
 import re
-import sys
 from datetime import datetime
 from typing import Tuple
 
@@ -318,7 +317,9 @@ def adjust_b_val_and_dir(
             m = re.findall(r"[-+]?(?:\d*\.*\d+)", info["image_comments"])
             m = [float(m) for m in m]
             if len(m) > 2:
-                sys.exit("Seems we have > 2 numbers in the comment field!")
+                logger.debug("Header comment field is corrupted!")
+                assumed_rr_int = settings["assumed_rr_interval"]
+                calculated_real_b0 = settings["calculated_real_b0"]
             if len(m) == 2:
                 logger.debug("Both b0 and RR interval found in header.")
                 calculated_real_b0 = m[0]
@@ -714,8 +715,8 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         if settings["debug"]:
             create_2d_montage_from_database(
                 data,
-                "b_value",
-                "direction",
+                "b_value_original",
+                "direction_original",
                 info,
                 settings,
                 slices,

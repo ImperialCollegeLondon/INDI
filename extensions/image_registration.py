@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import sys
 import time
 
 import itk
@@ -250,6 +251,7 @@ def registration_loop(
                         img_reg = mov
                     else:
                         logger.error("No method available fot registration: " + settings["registration"])
+                        sys.exit()
 
                     # store registered image
                     # correct for registration small errors
@@ -553,7 +555,7 @@ def image_registration(
         if not data_basic.drop(columns=["image"]).equals(data_loaded_basic.drop(columns=["image"])):
             logger.error("Loaded Dataframe with registered images does not match pre-registered Dataframe!")
             logger.error("Registration saved data needs to be deleted as something changed!")
-            exit()
+            sys.exit()
 
         logger.info("Passed data consistency check. Loading registered data.")
         # data matches, so now I need to replace the image column with the loaded one

@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/High_res_SAX/
+start_folder: path
 
 # anon, reg, main
 workflow_mode: main
@@ -68,7 +68,7 @@ remove_outliers_with_ai: False
 # float in msec
 assumed_rr_interval: 1000
 # float in msec
-calculated_real_b0: 29
+calculated_real_b0: 33
 
 # ========================================================================================
 # AI MODELS
