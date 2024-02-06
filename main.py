@@ -143,7 +143,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Calculate tensor
     # =========================================================
-    dti["tensor"], _, _, info = dipy_tensor_fit(
+    dti["tensor"], dti["s0"], _, _, info = dipy_tensor_fit(
         slices,
         data,
         info,

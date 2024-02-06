@@ -59,7 +59,7 @@ def heart_segmentation(
                 settings,
             )
 
-            tensor, _, _, info = dipy_tensor_fit(
+            tensor, _, _, _, info = dipy_tensor_fit(
                 slices,
                 data,
                 info,
