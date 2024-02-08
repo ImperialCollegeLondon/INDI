@@ -38,7 +38,7 @@ from extensions.u_net_segmentation import get_average_images
 # np.seterr(all="raise")
 
 # matplotlib
-matplotlib.use("macosx")
+# matplotlib.use("macosx")
 matplotlib.rcParams["toolbar"] = "None"
 matplotlib.rcParams["font.size"] = 5
 
