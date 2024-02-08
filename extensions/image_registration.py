@@ -1,5 +1,4 @@
 import logging
-import multiprocessing
 import os
 import sys
 import time
@@ -125,9 +124,6 @@ def registration_loop(
         #         ),
         #     )
 
-    # number of CPUs available
-    n_cpus = multiprocessing.cpu_count()
-
     # loop over slices
     img_post_reg = {}
     img_pre_reg = {}
@@ -192,7 +188,6 @@ def registration_loop(
                 parameter_object=parameter_object,
                 fixed_mask=mask,
                 log_to_console=False,
-                number_of_threads=n_cpus,
             )
 
             # format registered images
@@ -236,7 +231,6 @@ def registration_loop(
                             parameter_object=parameter_object,
                             fixed_mask=mask,
                             log_to_console=False,
-                            number_of_threads=n_cpus,
                         )
                     # basic quick rigid
                     elif settings["registration"] == "quick_rigid":
