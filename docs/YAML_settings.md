@@ -18,6 +18,7 @@ There are three main workflows with this tool. This is controlled by the `workfl
 - `main`: Runs the full post-processing, may require manual input if processing for the first time.
 
 `sequence_type = steam | se`: define the type of sequence. If using STEAM, the b0 values are adjusted to a >0 value (defined by the sequence spoilers), and then all b-values are adjusted for RR variations from the assumed value set in the protocol.
+This setting is only important when the `workflow_mode` is set to `anon`.
 
 ---
 

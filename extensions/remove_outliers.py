@@ -145,7 +145,7 @@ def manual_image_removal(
         for idx, key in enumerate(c_img_stack):
             cc_img_stack = c_img_stack[key]
             for idx2, img in enumerate(cc_img_stack):
-                axs[idx, idx2].imshow(img, cmap="gray")
+                axs[idx, idx2].imshow(img, cmap="gray", vmin=np.min(img), vmax=np.max(img) * 0.35)
                 axs[idx, idx2].text(
                     5,
                     5,
@@ -155,11 +155,6 @@ def manual_image_removal(
                     horizontalalignment="left",
                     verticalalignment="top",
                 )
-
-                # axs[idx, idx2].set_title(
-                #     str(key[0]) + "_" + str(idx),
-                #     fontsize=2,
-                # )
 
                 axs[idx, idx2].set_xticks([])
                 axs[idx, idx2].set_yticks([])

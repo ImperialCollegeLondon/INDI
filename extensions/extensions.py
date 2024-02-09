@@ -1617,3 +1617,30 @@ def query_yes_no(question, default="no"):
             return valid[choice]
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
+
+
+def image_histogram_equalization(image: NDArray, number_bins: int = 256):
+    """
+    Equalize histogram in numpy array image for better visualisation
+    # from http://www.janeriksolem.net/histogram-equalization-with-python-and.html
+
+    Parameters
+    ----------
+    image: NDArray with grayscale image
+    number_bins: number of histogram bins
+
+    Returns
+    -------
+    NDArray with equalized image
+
+    """
+
+    # get image histogram
+    image_histogram, bins = np.histogram(image.flatten(), number_bins, density=True)
+    cdf = image_histogram.cumsum()  # cumulative distribution function
+    cdf = (number_bins - 1) * cdf / cdf[-1]  # normalize
+
+    # use linear interpolation of cdf to find new pixel values
+    image_equalized = np.interp(image.flatten(), bins[:-1], cdf)
+
+    return image_equalized.reshape(image.shape)

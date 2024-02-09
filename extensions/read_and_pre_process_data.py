@@ -518,7 +518,7 @@ def create_2d_montage_from_database(
         # save montages in a figure
         fig = plt.figure(figsize=(len(c_img_stack), max_number_of_images))
         ax = fig.add_subplot(1, 1, 1)
-        plt.imshow(montage, cmap="Greys_r", vmin=np.min(montage), vmax=np.max(montage))
+        plt.imshow(montage, cmap="Greys_r", vmin=np.min(montage), vmax=np.max(montage) * 0.35)
         plt.imshow(montage_mask, cmap="bwr", alpha=0.2 * montage_mask)
         ax.set_yticks(
             range(
