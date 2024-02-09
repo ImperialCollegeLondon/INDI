@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/High_res_SAX/
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/steam_se_15_30
 
 # anon, reg, main
 workflow_mode: main
