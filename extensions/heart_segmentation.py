@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from extensions.extensions import clean_image, get_cylindrical_coordinates_short_axis
+from extensions.extensions import get_cylindrical_coordinates_short_axis
 from extensions.get_tensor_orientation_maps import get_ha_e2a_maps
 from extensions.manual_lv_segmentation import manual_lv_segmentation, plot_manual_lv_segmentation
 from extensions.tensor_fittings import dipy_tensor_fit
@@ -47,7 +47,9 @@ def heart_segmentation(
 
     if settings["manual_segmentation"]:
         # create a threshold mask
-        thr_img, thr_mask, thresh = clean_image(average_images, factor=settings["threshold_strength"], blur=False)
+        # _, thr_mask, _ = clean_image(average_images, factor=settings["threshold_strength"], blur=False)
+        # mask is all ones here for now.
+        thr_mask = np.ones(average_images.shape, dtype="uint8")
 
         # check if LV manual segmentation has been previously saved
         # if not calculate a prelim HA map
@@ -127,7 +129,13 @@ def heart_segmentation(
             # manual LV segmentation
             logger.info("Manual LV segmentation...")
             segmentation, mask_3c = manual_lv_segmentation(
-                mask_3c, slices, average_images, prelim_ha, 10, settings, colormaps, thr_mask
+                mask_3c,
+                slices,
+                average_images,
+                prelim_ha,
+                10,
+                settings,
+                colormaps,
             )
             logger.info("Manual LV segmentation done")
     else:
