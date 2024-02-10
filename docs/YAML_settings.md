@@ -27,11 +27,6 @@ This setting is only important when the `workflow_mode` is set to `anon`.
 - `debug = True | False`: If True, more images are saved during the post-processing for debugging / quality control.
 - `registration_extra_debug = True | False`: If True, extra registration debug images are saved.
 
----
-
-## THRESHOLDING
-
-- `threshold_strength = [0, 1.0]`: Threshold strength for the thresholding step. 1.0 is the maximum thresholding, 0.0 is no thresholding. 0.5 has been found to work well for in-vivo data.
 
 ---
 
@@ -63,13 +58,6 @@ we need to define a reference image for the registration. There are two methods 
 - `first`: the first image with the lowest b-value is used as the reference.
 - `groupwise`: a groupwise registration is performed with all lowest b-value images, 
 and the average image is used as the reference.
-
----
-
-## IMAGE SEGMENTATION
-Segmentation of the LV epicardial and endocardial borders.
-
-`manual_segmentation = True | False`: If `True`, user is prompted to do a manual segmentation with spline curves.
 
 ---
 

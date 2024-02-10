@@ -24,9 +24,6 @@ def solve_conflicts(settings: dict, logger: logging.Logger) -> dict:
     if settings["remove_outliers_manually"]:
         logger.info("Removing outliers with AI is disabled because manual removal of outliers is enabled!")
         settings["remove_outliers_with_ai"] = False
-    if not settings["manual_segmentation"]:
-        logger.info("U-Net segmentation is enabled because manual segmentation is disabled!")
-        settings["u_net_segmentation"] = True
     if settings["sequence_type"] == "se":
         logger.info("U-Net segmentation is disabled because sequence type is SE!")
         settings["u_net_segmentation"] = False

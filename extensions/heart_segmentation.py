@@ -45,7 +45,9 @@ def heart_segmentation(
     # Preliminary HA map
     # =========================================================
 
-    if settings["manual_segmentation"]:
+    # check if LV manual segmentation has been previously saved
+    # if not calculate a prelim HA map
+    if not os.path.exists(os.path.join(settings["session"], "manual_lv_segmentation.npz")):
         # create a threshold mask
         # _, thr_mask, _ = clean_image(average_images, factor=settings["threshold_strength"], blur=False)
         # mask is all ones here for now.
@@ -104,41 +106,38 @@ def heart_segmentation(
         logger.info("U-Net segmentation is False")
         mask_3c = np.zeros((len(slices), info["img_size"][0], info["img_size"][1]), dtype="uint8")
 
-    if settings["manual_segmentation"]:
-        logger.info("Manual LV segmentation is True")
-        # check if LV manual segmentation has been previously saved
-        if os.path.exists(os.path.join(settings["session"], "manual_lv_segmentation.npz")):
-            # load segmentations
-            logger.info("Manual LV segmentation previously saved. Loading mask...")
-            npzfile = np.load(os.path.join(settings["session"], "manual_lv_segmentation.npz"), allow_pickle=True)
-            mask_3c = npzfile["mask_3c"]
-            segmentation = npzfile["segmentation"]
-            segmentation = segmentation.item()
-            if settings["debug"]:
-                plot_manual_lv_segmentation(
-                    info["n_slices"],
-                    slices,
-                    segmentation,
-                    average_images,
-                    mask_3c,
-                    settings,
-                    "lv_manual_mask",
-                    settings["debug_folder"],
-                )
-        else:
-            # manual LV segmentation
-            logger.info("Manual LV segmentation...")
-            segmentation, mask_3c = manual_lv_segmentation(
-                mask_3c,
+    # Manual LV segmentation
+    # check if LV manual segmentation has been previously saved
+    if os.path.exists(os.path.join(settings["session"], "manual_lv_segmentation.npz")):
+        # load segmentations
+        logger.info("Manual LV segmentation previously saved. Loading mask...")
+        npzfile = np.load(os.path.join(settings["session"], "manual_lv_segmentation.npz"), allow_pickle=True)
+        mask_3c = npzfile["mask_3c"]
+        segmentation = npzfile["segmentation"]
+        segmentation = segmentation.item()
+        if settings["debug"]:
+            plot_manual_lv_segmentation(
+                info["n_slices"],
                 slices,
+                segmentation,
                 average_images,
-                prelim_ha,
-                10,
+                mask_3c,
                 settings,
-                colormaps,
+                "lv_manual_mask",
+                settings["debug_folder"],
             )
-            logger.info("Manual LV segmentation done")
     else:
-        logger.info("Manual LV segmentation is False")
+        # manual LV segmentation
+        logger.info("Manual LV segmentation...")
+        segmentation, mask_3c = manual_lv_segmentation(
+            mask_3c,
+            slices,
+            average_images,
+            prelim_ha,
+            10,
+            settings,
+            colormaps,
+        )
+        logger.info("Manual LV segmentation done")
 
     return segmentation, mask_3c

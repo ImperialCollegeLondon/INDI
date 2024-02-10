@@ -619,7 +619,7 @@ def manual_lv_segmentation(
         else:
             fig, ax = plt.subplots(2, 1, figsize=(16, 8))
         # leave some space for the buttons
-        fig.subplots_adjust(left=0.2, bottom=0.25)
+        fig.subplots_adjust(left=0.2, bottom=0.2)
         # axis where ROIs will be drawn
         ax_img_0 = ax[0].imshow(ha_maps[slice_idx], colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
         ax[0].axis("off")
@@ -630,16 +630,22 @@ def manual_lv_segmentation(
         # add the buttons to the figure
         callback = buttons()
         # epi button
-        ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.05])
-        button_epi = Button(ax_epi, "Epi")
+        epi_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "epicardium.png"))
+        ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.10])
+        ax_epi.axis("off")
+        button_epi = Button(ax_epi, label="epi", image=epi_icon)
         button_epi.on_clicked(callback.epi)
         # endo button
-        ax_endo = fig.add_axes([0.05, 0.65, 0.10, 0.05])
-        button_endo = Button(ax_endo, "Endo")
+        endo_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "endocardium.png"))
+        ax_endo = fig.add_axes([0.05, 0.60, 0.10, 0.10])
+        ax_endo.axis("off")
+        button_endo = Button(ax_endo, "endo", image=endo_icon)
         button_endo.on_clicked(callback.endo)
         # insertion points button
-        ax_ip = fig.add_axes([0.05, 0.55, 0.10, 0.05])
-        button_ip = Button(ax_ip, "i.p.")
+        ip_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "insertion_points.png"))
+        ax_ip = fig.add_axes([0.05, 0.45, 0.10, 0.10])
+        ax_ip.axis("off")
+        button_ip = Button(ax_ip, "i.p.", image=ip_icon)
         button_ip.on_clicked(lambda x: callback.click(x, second_axis_lines))
         # slider stuff
         threshold_slider_and_scroll = scrool_slider(

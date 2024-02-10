@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/steam_se_15_30
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/steam_se_15_30/STEAM/30T/STEAM_SYS
 
 # anon, reg, main
 workflow_mode: main
@@ -34,12 +34,6 @@ registration_speed: fast
 
 # first, groupwise
 registration_reference_method: groupwise
-
-# ========================================================================================
-# IMAGE SEGMENTATION
-# ========================================================================================
-# True, False
-manual_segmentation: True
 
 # ========================================================================================
 # TENSOR FITTING
