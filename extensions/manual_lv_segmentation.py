@@ -3,7 +3,7 @@ import os
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.widgets import Button, PolygonSelector
+from matplotlib.widgets import Button, PolygonSelector, Slider
 from numpy.typing import NDArray
 from scipy.interpolate import splev, splprep
 
@@ -236,6 +236,76 @@ class define_roi_border(object):
         self.canvas.draw_idle()
 
 
+def clean_image(img, factor):
+    clean_img = np.copy(img)
+    clean_img[img < factor] = 0
+    mask = np.ones(img.shape)
+    mask[img < factor] = 0
+
+    return clean_img, mask
+
+
+class scrool_slider:
+    """
+    Display image and a slider. When the slider is moved, the image is updated.
+    slider can be moved with the mouse wheel or by clicking on the slider.
+    """
+
+    def __init__(self, fig, ax_0, img_0, ax_img_0, ax_1, img_1, ax_img_1):
+        self.ax_0 = ax_0
+        self.img_0 = img_0
+        self.ax_img_0 = ax_img_0
+
+        self.ax_1 = ax_1
+        self.img_1 = img_1
+        self.ax_img_1 = ax_img_1
+
+        self.fig = fig
+
+        # Make a vertically oriented slider to control the amplitude
+        axamp = fig.add_axes([0.25, 0.1, 0.65, 0.03])
+        self.amp_slider = Slider(
+            ax=axamp,
+            label="Threshold: ",
+            valmin=0,
+            valmax=1,
+            valinit=0.1,
+            valstep=0.01,
+            orientation="horizontal",
+        )
+        # define that the update function will run when the slider is moved
+        self.amp_slider.on_changed(self.update)
+        # update the image when the slider is moved
+        self.update(self.amp_slider.val)
+
+    def on_scroll(self, event):
+        # scroll event will move the slider up to its limits, after that it won't move anymore
+        # scroll up event
+        if event.button == "up" and (self.amp_slider.val + self.amp_slider.valstep) < (
+            self.amp_slider.valmax + self.amp_slider.valstep
+        ):
+            self.amp_slider.set_val(self.amp_slider.val + self.amp_slider.valstep)
+        # scroll down event
+        if event.button == "down" and (self.amp_slider.val - self.amp_slider.valstep) > (
+            self.amp_slider.valmin - self.amp_slider.valstep
+        ):
+            self.amp_slider.set_val(self.amp_slider.val - self.amp_slider.valstep)
+        # update the image when the slider is moved
+        self.update(self.amp_slider.val)
+
+    def update(self, val):
+        # when slider moves, this function is called
+        self.updated_img_1, self.mask = clean_image(self.img_1, val)
+        self.ax_img_1.set_array(self.updated_img_1)
+        self.updated_img_0 = self.img_0 * self.mask
+        self.ax_img_0.set_array(self.updated_img_0)
+        self.fig.canvas.draw_idle()
+
+    def get_img_and_mask(self):
+        # function to retrieve the current image and mask
+        return self.updated_img, self.mask
+
+
 class click_insertion_points(object):
     """
     Click on the insertion points.
@@ -428,7 +498,6 @@ def manual_lv_segmentation(
     n_points: int,
     settings: dict,
     colormaps: dict,
-    thr_mask: NDArray,
 ):
     """
     Manually define the epicardial and endocardial contours and the insertion points
@@ -450,10 +519,12 @@ def manual_lv_segmentation(
         number of points to interpolate the contours
     settings : dict
     colormaps : dict
-    thr_mask: NDArray
     """
     lv_masks = mask_3c.copy()
     lv_masks[lv_masks == 2] = 0
+
+    # threshold mask
+    thr_mask = np.ones(mask_3c.shape)
 
     n_slices = lv_masks.shape[0]
     # dictionary to store the segmentation splines and insertion points for each slice
@@ -548,12 +619,12 @@ def manual_lv_segmentation(
         else:
             fig, ax = plt.subplots(2, 1, figsize=(16, 8))
         # leave some space for the buttons
-        fig.subplots_adjust(left=0.2)
+        fig.subplots_adjust(left=0.2, bottom=0.25)
         # axis where ROIs will be drawn
-        ax[0].imshow(ha_maps[slice_idx], colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
+        ax_img_0 = ax[0].imshow(ha_maps[slice_idx], colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
         ax[0].axis("off")
         # axis where latest ROIs will be shown
-        ax[1].imshow(average_maps[slice_idx], cmap="Greys_r")
+        ax_img_1 = ax[1].imshow(average_maps[slice_idx], cmap="Greys_r", vmin=0, vmax=0.65)
         ax[1].axis("off")
 
         # add the buttons to the figure
@@ -570,7 +641,22 @@ def manual_lv_segmentation(
         ax_ip = fig.add_axes([0.05, 0.55, 0.10, 0.05])
         button_ip = Button(ax_ip, "i.p.")
         button_ip.on_clicked(lambda x: callback.click(x, second_axis_lines))
+        # slider stuff
+        threshold_slider_and_scroll = scrool_slider(
+            fig,
+            ax[0],
+            ha_maps[slice_idx],
+            ax_img_0,
+            ax[1],
+            average_maps[slice_idx],
+            ax_img_1,
+        )
+        fig.canvas.mpl_connect("scroll_event", threshold_slider_and_scroll.on_scroll)
+
         plt.show()
+
+        # retrieve the threshold mask
+        thr_mask[slice_idx] = threshold_slider_and_scroll.mask
 
         # store segmentation information from the buttons' callbacks
         segmentation[slice_idx] = {}
