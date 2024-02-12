@@ -31,7 +31,7 @@ def get_ha_e2a_maps(
     circ_vecs = local_cardiac_coordinates["circ"][coords]
     long_vecs = local_cardiac_coordinates["long"][coords]
     radi_vecs = local_cardiac_coordinates["radi"][coords]
-    # HA
+
     ha_map = np.zeros(mask.shape)
     ta_map = np.zeros(mask.shape)
     e2a_map = np.zeros(mask.shape)
@@ -179,6 +179,11 @@ def get_tensor_orientation_maps(
     """
 
     ha, ta, e2a = get_ha_e2a_maps(mask_3c, local_cardiac_coordinates, dti["eigenvectors"])
+
+    # the orientation maps from above should be nan outside the LV re
+    ha[mask_3c != 1] = np.nan
+    ta[mask_3c != 1] = np.nan
+    e2a[mask_3c != 1] = np.nan
 
     var_names = ["HA"]
     for var in var_names:

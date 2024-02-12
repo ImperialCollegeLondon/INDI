@@ -562,7 +562,7 @@ def get_ha_line_profiles(
     # loop over each slice
     for slice_idx in slices:
         # current HA map
-        c_HA = HA[slice_idx]
+        c_HA = np.copy(HA[slice_idx])
         # current U-Net mask
         c_mask = np.copy(mask_3c[slice_idx])
         # make the mask binary, remove RV and all non LV myocardium is 0
