@@ -1571,7 +1571,8 @@ def get_lv_segments(
             segments_and_points[(slice_idx, segment_idx + 1)] = points
 
     # prepare the output
-    segments_mask = np.zeros(mask_3c.shape)
+    segments_mask = np.empty(mask_3c.shape)
+    segments_mask[:] = np.nan
     for slice_idx in slices:
         for curr_segment in range(1, (LV_free_wall_n_segs + LV_septal_wall_n_segs + 1)):
             if (slice_idx, curr_segment) in segments_and_points.keys():
@@ -1580,8 +1581,6 @@ def get_lv_segments(
                     segments_and_points[slice_idx, curr_segment][:, 0],
                     segments_and_points[slice_idx, curr_segment][:, 1],
                 ] = curr_segment
-
-    segments_mask = np.where(np.isnan(segments_mask), 0, segments_mask)
 
     logger.debug("LV segmentation in sectors done.")
 
