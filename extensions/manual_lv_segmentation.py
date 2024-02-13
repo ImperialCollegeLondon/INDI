@@ -633,19 +633,19 @@ def manual_lv_segmentation(
         epi_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "epicardium.png"))
         ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.10])
         ax_epi.axis("off")
-        button_epi = Button(ax_epi, label="epi", image=epi_icon)
+        button_epi = Button(ax_epi, label="", image=epi_icon)
         button_epi.on_clicked(callback.epi)
         # endo button
         endo_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "endocardium.png"))
         ax_endo = fig.add_axes([0.05, 0.60, 0.10, 0.10])
         ax_endo.axis("off")
-        button_endo = Button(ax_endo, "endo", image=endo_icon)
+        button_endo = Button(ax_endo, label="", image=endo_icon)
         button_endo.on_clicked(callback.endo)
         # insertion points button
         ip_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "insertion_points.png"))
         ax_ip = fig.add_axes([0.05, 0.45, 0.10, 0.10])
         ax_ip.axis("off")
-        button_ip = Button(ax_ip, "i.p.", image=ip_icon)
+        button_ip = Button(ax_ip, label="", image=ip_icon)
         button_ip.on_clicked(lambda x: callback.click(x, second_axis_lines))
         # slider stuff
         threshold_slider_and_scroll = scrool_slider(
