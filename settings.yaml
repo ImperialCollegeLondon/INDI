@@ -11,14 +11,14 @@ start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/steam_se_15_30/STE
 # anon, reg, main
 workflow_mode: main
 
-# se, steam 
+# se, steam
 sequence_type: steam
 
 # ========================================================================================
 # DEBUGGING
 # ========================================================================================
 # True, False
-debug: True
+debug: False
 # True, False
 registration_extra_debug: False
 
