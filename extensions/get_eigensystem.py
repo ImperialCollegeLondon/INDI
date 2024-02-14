@@ -233,7 +233,7 @@ def get_eigensystem(
     neg_vals = vals[vals < 0]
 
     info["n_negative_eigenvalues"] = int(len(neg_vals))
-    info["percentage_negative_eigenvalues"] = len(neg_vals) / vals.size * 100
+    info["percentage_negative_eigenvalues"] = str(int((len(neg_vals) / vals.size) * 100))
     logger.debug(
         "Number of negative eigenvalues: "
         + str(info["n_negative_eigenvalues"])

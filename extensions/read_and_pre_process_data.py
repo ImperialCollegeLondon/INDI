@@ -210,6 +210,8 @@ def estimate_rr_interval(data: pd.DataFrame) -> [pd.DataFrame, NDArray]:
     # get median time delta, and replace values above 4x the median with nan
     median_time = np.nanmedian(time_delta)
     time_delta[time_delta > 4 * median_time] = np.nan
+    # convert to ms
+    time_delta = time_delta * 1e3
     # add time delta to the dataframe
     data["estimated_rr_interval"] = time_delta
     # replace nans with the next non-nan value
@@ -369,9 +371,9 @@ def adjust_b_val_and_dir(
             c_nominal_interval = data.loc[idx, "nominal_interval"]
             c_estimated_rr_interval = data.loc[idx, "estimated_rr_interval"]
             if c_nominal_interval != 0.0:
-                c_b_value = c_b_value * (c_nominal_interval / 1000) / (assumed_rr_int / 1000)
+                c_b_value = c_b_value * (c_nominal_interval * 1e-3) / (assumed_rr_int * 1e-3)
             else:
-                c_b_value = c_b_value * (c_estimated_rr_interval) / (assumed_rr_int / 1000)
+                c_b_value = c_b_value * (c_estimated_rr_interval * 1e-3) / (assumed_rr_int * 1e-3)
 
             # add the adjusted b-value to the database
             data.at[idx, "b_value"] = c_b_value
@@ -501,9 +503,9 @@ def create_2d_montage_from_database(
             cc_img_stack = np.reshape(
                 cc_img_stack, (cc_img_stack.shape[0], cc_img_stack.shape[1] * cc_img_stack.shape[2]), order="F"
             )
-            montage[
-                idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_img_stack.shape[1]
-            ] = cc_img_stack
+            montage[idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_img_stack.shape[1]] = (
+                cc_img_stack
+            )
 
             # repeat for mask
             cc_mask_stack = c_highlight_stack[key]
@@ -511,9 +513,9 @@ def create_2d_montage_from_database(
             cc_mask_stack = np.reshape(
                 cc_mask_stack, (cc_mask_stack.shape[0], cc_mask_stack.shape[1] * cc_mask_stack.shape[2]), order="F"
             )
-            montage_mask[
-                idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]
-            ] = cc_mask_stack
+            montage_mask[idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]] = (
+                cc_mask_stack
+            )
 
         # save montages in a figure
         fig = plt.figure(figsize=(len(c_img_stack), max_number_of_images))
