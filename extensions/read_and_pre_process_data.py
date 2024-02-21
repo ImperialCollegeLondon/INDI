@@ -503,9 +503,9 @@ def create_2d_montage_from_database(
             cc_img_stack = np.reshape(
                 cc_img_stack, (cc_img_stack.shape[0], cc_img_stack.shape[1] * cc_img_stack.shape[2]), order="F"
             )
-            montage[idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_img_stack.shape[1]] = (
-                cc_img_stack
-            )
+            montage[
+                idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_img_stack.shape[1]
+            ] = cc_img_stack
 
             # repeat for mask
             cc_mask_stack = c_highlight_stack[key]
@@ -513,9 +513,9 @@ def create_2d_montage_from_database(
             cc_mask_stack = np.reshape(
                 cc_mask_stack, (cc_mask_stack.shape[0], cc_mask_stack.shape[1] * cc_mask_stack.shape[2]), order="F"
             )
-            montage_mask[idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]] = (
-                cc_mask_stack
-            )
+            montage_mask[
+                idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]
+            ] = cc_mask_stack
 
         # save montages in a figure
         fig = plt.figure(figsize=(len(c_img_stack), max_number_of_images))
