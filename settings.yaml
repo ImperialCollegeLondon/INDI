@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Volumes/PF_SSD/SSD_WORK/WORK_2/XE2A/NIH_pre_clinical/in_vivo/2014_11_24/
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/steam_se_15_30
 
 # anon, reg, main
 workflow_mode: main
@@ -18,9 +18,9 @@ sequence_type: steam
 # DEBUGGING
 # ========================================================================================
 # True, False
-debug: False
+debug: True
 # True, False
-registration_extra_debug: False
+registration_extra_debug: True
 
 # ========================================================================================
 # IMAGE REGISTRATION

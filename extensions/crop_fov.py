@@ -127,6 +127,7 @@ def record_image_registration(
     img_pre_reg: dict,
     img_post_reg: dict,
     ref_images: NDArray,
+    deformation_field: dict,
     mask: NDArray,
     slices: NDArray,
     settings: dict,
@@ -224,6 +225,12 @@ def record_image_registration(
 
         logger.debug("Saving extra debug information for the registration...")
 
+        step = 3
+        X, Y = np.meshgrid(
+            np.arange(0, deformation_field[slice_idx]["grid"][1].shape[1], step),
+            np.arange(0, deformation_field[slice_idx]["grid"][1].shape[0], step),
+        )
+
         for slice_idx in slices:
             n_imgs = len(img_pre_reg[slice_idx])
             for img_idx in range(n_imgs):
@@ -236,35 +243,60 @@ def record_image_registration(
 
                 plt.figure(figsize=(5, 5))
 
-                plt.subplot(2, 3, 1)
+                plt.subplot(3, 3, 1)
                 plt.imshow(c_ref)
                 plt.axis("off")
                 plt.title("reference", fontsize=7)
 
-                plt.subplot(2, 3, 2)
+                plt.subplot(3, 3, 2)
                 plt.imshow(c_img_post)
                 plt.axis("off")
                 plt.title("registered", fontsize=7)
 
-                plt.subplot(2, 3, 3)
+                plt.subplot(3, 3, 3)
                 plt.imshow(c_img_pre)
                 plt.axis("off")
                 plt.title("original", fontsize=7)
 
-                plt.subplot(2, 3, 4)
+                plt.subplot(3, 3, 4)
                 plt.imshow(comp_1)
                 plt.axis("off")
                 plt.title("checkerboard", fontsize=7)
 
-                plt.subplot(2, 3, 5)
+                plt.subplot(3, 3, 5)
                 plt.imshow(comp_2)
                 plt.axis("off")
                 plt.title("diff", fontsize=7)
 
-                plt.subplot(2, 3, 6)
+                plt.subplot(3, 3, 6)
                 plt.imshow(comp_3)
                 plt.axis("off")
                 plt.title("blend", fontsize=7)
+
+                plt.subplot(3, 3, 7)
+                plt.imshow(c_img_post)
+                plt.imshow(
+                    deformation_field[slice_idx]["grid"][img_idx, :, :],
+                    alpha=deformation_field[slice_idx]["grid"][img_idx, :, :],
+                    vmin=0,
+                    vmax=2,
+                    cmap="Oranges",
+                )
+                plt.axis("off")
+                plt.title("deformation grid", fontsize=7)
+
+                plt.subplot(3, 3, 8)
+                plt.imshow(c_img_post, vmin=np.min(c_img_post), vmax=np.max(c_img_post) * 2)
+                plt.quiver(
+                    X,
+                    Y,
+                    -deformation_field[slice_idx]["field"][img_idx, ::step, ::step, 0],
+                    deformation_field[slice_idx]["field"][img_idx, ::step, ::step, 1],
+                    edgecolor="tab:blue",
+                    facecolor="tab:orange",
+                )
+                plt.axis("off")
+                plt.title("deformation field", fontsize=7)
 
                 plt.tight_layout(pad=1.0)
                 plt.savefig(
@@ -287,9 +319,10 @@ def crop_fov(
     segmentation: dict,
     slices: NDArray,
     average_images: NDArray,
-    img_pre_reg: NDArray,
-    img_post_reg: NDArray,
-    ref_images: NDArray,
+    img_pre_reg: dict,
+    img_post_reg: dict,
+    ref_images: dict,
+    deformation_field: dict,
     info: dict,
     logger: logging.Logger,
     settings: dict,
@@ -352,7 +385,25 @@ def crop_fov(
                 crop_mask.any(0),
             )
         ]
-    record_image_registration(img_pre_reg, img_post_reg, ref_images, mask_3c, slices, settings, logger)
+        # TODO make this a loop
+        deformation_field[slice]["field"] = deformation_field[slice]["field"][
+            np.ix_(
+                np.repeat(True, deformation_field[slice]["field"].shape[0]),
+                crop_mask.any(1),
+                crop_mask.any(0),
+            )
+        ]
+        deformation_field[slice]["grid"] = deformation_field[slice]["grid"][
+            np.ix_(
+                np.repeat(True, deformation_field[slice]["grid"].shape[0]),
+                crop_mask.any(1),
+                crop_mask.any(0),
+            )
+        ]
+
+    record_image_registration(
+        img_pre_reg, img_post_reg, ref_images, deformation_field, mask_3c, slices, settings, logger
+    )
 
     if settings["debug"]:
         create_2d_montage_from_database(

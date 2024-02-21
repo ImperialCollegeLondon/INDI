@@ -85,7 +85,9 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # DWIs registration
     # =========================================================
-    data, img_pre_reg, img_post_reg, ref_images = image_registration(data, slices, info, settings, logger)
+    data, img_pre_reg, img_post_reg, ref_images, deformation_field = image_registration(
+        data, slices, info, settings, logger
+    )
 
     # =========================================================
     # Option to perform only registration
@@ -131,6 +133,7 @@ for current_folder in all_to_be_analysed_folders:
         img_pre_reg,
         img_post_reg,
         ref_images,
+        deformation_field,
         info,
         logger,
         settings,
