@@ -203,7 +203,7 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
 def get_average_images(
     slices: NDArray,
     img_size: tuple,
-    img_post_reg: NDArray,
+    registration_image_data: dict,
     settings: dict,
     logger: logging.Logger,
 ) -> NDArray:
@@ -226,8 +226,8 @@ def get_average_images(
 
     # get average image for each slice
     average_images = np.empty([n_slices, img_size[0], img_size[1]])
-    for idx, slice in enumerate(slices):
-        average_images[idx] = np.mean(img_post_reg[slice], axis=0)
+    for slice_idx in slices:
+        average_images[slice_idx] = np.mean(registration_image_data["img_post_reg"][slice_idx], axis=0)
 
     average_images = average_images.astype(float)
     # normalise each average image separately

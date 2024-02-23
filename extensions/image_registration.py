@@ -134,24 +134,25 @@ def registration_loop(
         #     )
 
     # loop over slices
-    img_post_reg = {}
-    img_pre_reg = {}
-    deformation_field = {}
+    registration_image_data = {}
+    registration_image_data["img_post_reg"] = {}
+    registration_image_data["img_pre_reg"] = {}
+    registration_image_data["deformation_field"] = {}
     for slice_idx in slices:
         # store images after registration
-        img_post_reg[slice_idx] = np.empty(
+        registration_image_data["img_post_reg"][slice_idx] = np.empty(
             [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1]]
         )
         # store images before registration
-        img_pre_reg[slice_idx] = np.empty(
+        registration_image_data["img_pre_reg"][slice_idx] = np.empty(
             [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1]]
         )
         # store deformation field
-        deformation_field[slice_idx] = {}
-        deformation_field[slice_idx]["field"] = np.zeros(
+        registration_image_data["deformation_field"][slice_idx] = {}
+        registration_image_data["deformation_field"][slice_idx]["field"] = np.zeros(
             [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1], 2]
         )
-        deformation_field[slice_idx]["grid"] = np.zeros(
+        registration_image_data["deformation_field"][slice_idx]["grid"] = np.zeros(
             [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1]]
         )
 
@@ -195,7 +196,7 @@ def registration_loop(
             mov_all = np.ascontiguousarray(np.array(mov_all, dtype=np.float32))
 
             # store images before registration
-            img_pre_reg[slice_idx] = np.copy(mov_all)
+            registration_image_data["img_pre_reg"][slice_idx] = np.copy(mov_all)
 
             logger.info("Slice " + str(slice_idx).zfill(2) + ": Starting groupwise registration. Please hold...")
 
@@ -214,7 +215,7 @@ def registration_loop(
             img_reg[np.isnan(img_reg)] = 0
 
             # store images after registration
-            img_post_reg[slice_idx] = np.copy(img_reg)
+            registration_image_data["img_post_reg"][slice_idx] = np.copy(img_reg)
 
             # replace images in the dataframe
             for i in current_entries.index:
@@ -227,13 +228,13 @@ def registration_loop(
             for i in tqdm(range(ref_images[slice_idx]["n_images"]), desc="Registering images"):
                 if i == ref_images[slice_idx]["index"]:
                     # here the current image is the reference, so we do not perform registration
-                    img_pre_reg[slice_idx][i] = np.asarray(mov_all[i], dtype=np.float32)
-                    img_reg = img_pre_reg[slice_idx][i]
+                    registration_image_data["img_pre_reg"][slice_idx][i] = np.asarray(mov_all[i], dtype=np.float32)
+                    img_reg = registration_image_data["img_pre_reg"][slice_idx][i]
 
                 else:
                     # moving image
                     mov = np.asarray(mov_all[i], dtype=np.float32)
-                    img_pre_reg[slice_idx][i] = mov
+                    registration_image_data["img_pre_reg"][slice_idx][i] = mov
 
                     # run registration
                     # elastix
@@ -254,7 +255,7 @@ def registration_loop(
                         # get the deformation field
                         def_field = itk.transformix_deformation_field(mov, result_transform_parameters)
                         def_field = np.asarray(def_field).astype(np.float32)
-                        deformation_field[slice_idx]["field"][i] = def_field
+                        registration_image_data["deformation_field"][slice_idx]["field"][i] = def_field
                         # get the deformation grid
                         grid_img = get_grid_image(info["img_size"], 10)
                         grid_img_itk = itk.GetImageFromArray(grid_img)
@@ -262,7 +263,7 @@ def registration_loop(
                         grid_img_transformed_np = itk.GetArrayFromImage(grid_img_transformed)
                         grid_img_transformed_np[grid_img_transformed_np < 0.1] = 0
                         grid_img_transformed_np[grid_img_transformed_np >= 0.1] = 0.6
-                        deformation_field[slice_idx]["grid"][i] = grid_img_transformed_np
+                        registration_image_data["deformation_field"][slice_idx]["grid"][i] = grid_img_transformed_np
 
                     # basic quick rigid
                     elif settings["registration"] == "quick_rigid":
@@ -288,9 +289,9 @@ def registration_loop(
                 data.at[current_entries.index[i], "image"] = img_reg
 
                 # store images post registration
-                img_post_reg[slice_idx][i] = img_reg
+                registration_image_data["img_post_reg"][slice_idx][i] = img_reg
 
-    return data, img_pre_reg, img_post_reg, deformation_field
+    return data, registration_image_data
 
 
 def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict, logger: logging.Logger) -> dict:
@@ -503,7 +504,7 @@ def plot_ref_images(ref_images: dict, slices: NDArray, settings: dict):
 
 def image_registration(
     data: pd.DataFrame, slices: NDArray, info: dict, settings: dict, logger: logging.Logger
-) -> tuple[pd.DataFrame, dict, dict, dict, dict]:
+) -> tuple[pd.DataFrame, dict, dict]:
     """
     Image registration
 
@@ -554,9 +555,7 @@ def image_registration(
         plot_ref_images(ref_images, slices, settings)
 
         # run the registration loop
-        data, img_pre_reg, img_post_reg, deformation_field = registration_loop(
-            data, ref_images, slices, info, settings, logger
-        )
+        data, registration_image_data = registration_loop(data, ref_images, slices, info, settings, logger)
 
         logger.info("Image registration done")
 
@@ -568,10 +567,8 @@ def image_registration(
         # saving registration extras
         np.savez_compressed(
             os.path.join(settings["session"], "image_registration_extras.npz"),
-            img_pre_reg=img_pre_reg,
-            img_post_reg=img_post_reg,
+            registration_image_data=registration_image_data,
             ref_images=ref_images,
-            deformation_field=deformation_field,
         )
 
     else:
@@ -591,13 +588,15 @@ def image_registration(
         data["image"] = data_loaded_basic["image"]
         # also load the extra saved data
         npzfile = np.load(os.path.join(settings["session"], "image_registration_extras.npz"), allow_pickle=True)
-        img_pre_reg = npzfile["img_pre_reg"].item()
-        img_post_reg = npzfile["img_post_reg"].item()
+        registration_image_data = npzfile["registration_image_data"].item()
         ref_images = npzfile["ref_images"].item()
-        deformation_field = npzfile["deformation_field"].item()
         logger.info("Image registration loaded")
 
         # plot reference images
         plot_ref_images(ref_images, slices, settings)
 
-    return data, img_pre_reg, img_post_reg, ref_images, deformation_field
+    return (
+        data,
+        registration_image_data,
+        ref_images,
+    )

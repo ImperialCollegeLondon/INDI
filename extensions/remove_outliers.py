@@ -65,7 +65,12 @@ def remove_outliers_ai(
 
 
 def manual_image_removal(
-    data: pd.DataFrame, info: dict, settings: dict, slices: NDArray, logger: logging.Logger
+    data: pd.DataFrame,
+    info: dict,
+    registration_image_data: dict,
+    settings: dict,
+    slices: NDArray,
+    logger: logging.Logger,
 ) -> [pd.DataFrame, pd.DataFrame, dict, NDArray]:
     """
     Manual removal of images. A matplotlib window will open, and we can select images to be removed.
@@ -86,16 +91,19 @@ def manual_image_removal(
     array with indices of rejected images in the original dataframe
 
     """
-    # this is an empty dataframe to store all rejected data
-    rejected_images_data = pd.DataFrame(columns=list(data.columns))
     # store also original dataframe before any image removal
     data_original = data.copy()
 
+    # now we need to collect all the index positions of the rejected frames
+    stored_indices_all_slices = []
+    stored_indices_per_slice = {}
     # loop over the slices
     for slice_idx in slices:
+        stored_indices_per_slice[slice_idx] = []
+
         # dataframe with current slice
         c_df = data.loc[data["slice_integer"] == slice_idx].copy()
-
+        c_df = c_df.reset_index()
         # initiate maximum number of images found for each b-val and dir combination
         max_number_of_images = 0
 
@@ -186,8 +194,9 @@ def manual_image_removal(
         fig.canvas.mpl_connect("button_press_event", onclick_select)
         plt.show()
 
-        # now we have to loop over all selected images
-        # remove them from the dataframe data
+        # store the indices of the rejected images
+        # indices for all slices together
+        # indices within each slice
         for item in store_selected_images:
             c_bval = item[0]
             c_dir = item[1]
@@ -198,35 +207,30 @@ def manual_image_removal(
             c_table = c_table[(c_table["b_value_original"] == c_bval)]
             c_filename = c_table.iloc[c_idx]["file_name"]
 
-            # # not a good idea to do this
-            # # move file to rejected folder
-            # origin = os.path.join(settings["dicom_folder"], c_filename)
-            # destination = os.path.join(settings["dicom_folder"], "rejected_images", c_filename)
-            # shutil.move(origin, destination)
+            # store the index of the rejected image
+            stored_indices_all_slices.append(c_table[(c_table["file_name"] == c_filename)]["index"].iloc[0])
+            stored_indices_per_slice[slice_idx].append(c_table[(c_table["file_name"] == c_filename)]["index"].index[0])
 
-            # remove row from the dataframe
-            data.drop(data[data.file_name == c_filename].index, inplace=True)
-            rejected_images_data = pd.concat([rejected_images_data, c_table.iloc[c_idx].to_frame().T])
+    # TODO continue here
+    # store indices in descending order
+    stored_indices_all_slices.sort(reverse=True)
+    for slice_idx in slices:
+        stored_indices_per_slice[slice_idx].sort(reverse=True)
 
     # store original dataframe with all images and also as an attribute
     # the indices of the rejected frames
     # this dataframe will be used to plot all dwis with red labels on the rejected ones
-    rejected_indices = rejected_images_data.index.values
+    rejected_indices = stored_indices_all_slices
     data_original.attrs["rejected_images"] = rejected_indices
+    data_original.attrs["rejected_images_per_slice"] = stored_indices_per_slice
     save_path = os.path.join(settings["session"], "image_manual_removal.zip")
     data_original.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
 
-    # display some info
-    info["n_files"] = len(data)
-    data.reset_index(drop=True, inplace=True)
-    info["n_images_rejected"] = len(rejected_indices)
-    logger.info("Number of images rejected: " + str(info["n_images_rejected"]))
-
-    return data_original, data, info, rejected_indices
+    return data_original, rejected_indices, stored_indices_per_slice
 
 
 def remove_outliers(
-    data: pd.DataFrame, slices: NDArray, settings: dict, info: dict, logger: logging
+    data: pd.DataFrame, slices: NDArray, registration_image_data: dict, settings: dict, info: dict, logger: logging
 ) -> [pd.DataFrame, dict, NDArray]:
     """
     Remove Outliers: remove outliers, and display all DWIs in a montage
@@ -255,15 +259,44 @@ def remove_outliers(
             # load initial database with rejected images included
             data_original = pd.read_pickle(os.path.join(settings["session"], "image_manual_removal.zip"))
             rejected_indices = data_original.attrs["rejected_images"]
+            stored_indices_per_slice = data_original.attrs["rejected_images_per_slice"]
             info["n_images_rejected"] = len(rejected_indices)
             logger.debug("Number of images rejected: " + str(info["n_images_rejected"]))
+
+            # remove the rejected images from the dataframe and also from the registration_image_data
+            # data = data_original.drop(index=rejected_indices)
         else:
             # Manual image removal
             logger.info("Starting manual image removal...")
             # if not os.path.exists(os.path.join(settings["dicom_folder"], "rejected_images")):
             #     os.makedirs(os.path.join(settings["dicom_folder"], "rejected_images"))
-            data_original, data, info, rejected_indices = manual_image_removal(data, info, settings, slices, logger)
+            data_original, rejected_indices, stored_indices_per_slice = manual_image_removal(
+                data, info, registration_image_data, settings, slices, logger
+            )
             logger.info("Manual image removal done.")
+
+        # remove the rejected images from the dataframe and also from the registration_image_data
+        data = data_original.drop(index=rejected_indices)
+        data.reset_index(drop=True, inplace=True)
+        info["n_files"] = len(data)
+        info["n_images_rejected"] = len(rejected_indices)
+        logger.info("Number of images rejected: " + str(info["n_images_rejected"]))
+
+        for slice_idx in slices:
+            for idx in stored_indices_per_slice[slice_idx]:
+                registration_image_data["img_post_reg"][slice_idx] = np.delete(
+                    registration_image_data["img_post_reg"][slice_idx], idx, axis=0
+                )
+                registration_image_data["img_pre_reg"][slice_idx] = np.delete(
+                    registration_image_data["img_pre_reg"][slice_idx], idx, axis=0
+                )
+                registration_image_data["deformation_field"][slice_idx]["field"] = np.delete(
+                    registration_image_data["deformation_field"][slice_idx]["field"], idx, axis=0
+                )
+                registration_image_data["deformation_field"][slice_idx]["grid"] = np.delete(
+                    registration_image_data["deformation_field"][slice_idx]["grid"], idx, axis=0
+                )
+
     else:
         # no image removal to be done
         logger.info("No image removal to be done.")
@@ -274,28 +307,29 @@ def remove_outliers(
     # remove outliers with AI
     # =========================================================
     if settings["remove_outliers_with_ai"]:
-        data_new, rows_to_drop = remove_outliers_ai(data, info, settings, slices, logger, threshold=0.25)
-        logger.info("Removed outliers with AI")
-        if settings["debug"]:
-            create_2d_montage_from_database(
-                data,
-                "b_value_original",
-                "direction_original",
-                info,
-                settings,
-                slices,
-                "dwis_outliers_with_ai",
-                settings["debug_folder"],
-                rows_to_drop,
-            )
-            logger.info("2d montage of DWIs after outlier removal with AI")
-
-        # copy dataframe with removed images to the data variable
-        data = data_new.reset_index(drop=True)
-        del data_new
-        # update number of dicom files
-        info["n_files"] = data.shape[0]
-        logger.debug("DWIs after outlier removal with AI: " + str(info["n_files"]))
+        pass
+        # data_new, rows_to_drop = remove_outliers_ai(data, info, settings, slices, logger, threshold=0.25)
+        # logger.info("Removed outliers with AI")
+        # if settings["debug"]:
+        #     create_2d_montage_from_database(
+        #         data,
+        #         "b_value_original",
+        #         "direction_original",
+        #         info,
+        #         settings,
+        #         slices,
+        #         "dwis_outliers_with_ai",
+        #         settings["debug_folder"],
+        #         rows_to_drop,
+        #     )
+        #     logger.info("2d montage of DWIs after outlier removal with AI")
+        #
+        # # copy dataframe with removed images to the data variable
+        # data = data_new.reset_index(drop=True)
+        # del data_new
+        # # update number of dicom files
+        # info["n_files"] = data.shape[0]
+        # logger.debug("DWIs after outlier removal with AI: " + str(info["n_files"]))
 
     # =========================================================
     # display all DWIs in a montage
@@ -312,4 +346,8 @@ def remove_outliers(
         rejected_indices,
     )
 
+    # TODO
+    # check if variable data has the images removed when loading, and also add the registration_image_data var
+    # I don't think that the variable data is correct when loading the file!
+    # also check for multislice data.
     return data, info, slices

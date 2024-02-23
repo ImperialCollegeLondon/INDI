@@ -85,9 +85,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # DWIs registration
     # =========================================================
-    data, img_pre_reg, img_post_reg, ref_images, deformation_field = image_registration(
-        data, slices, info, settings, logger
-    )
+    data, registration_image_data, ref_images = image_registration(data, slices, info, settings, logger)
 
     # =========================================================
     # Option to perform only registration
@@ -99,7 +97,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Remove outliers
     # =========================================================
-    [data, info, slices] = remove_outliers(data, slices, settings, info, logger)
+    [data, info, slices] = remove_outliers(data, slices, registration_image_data, settings, info, logger)
 
     # =========================================================
     # Average images
@@ -108,7 +106,7 @@ for current_folder in all_to_be_analysed_folders:
     average_images = get_average_images(
         slices,
         info["img_size"],
-        img_post_reg,
+        registration_image_data,
         settings,
         logger,
     )
@@ -130,10 +128,8 @@ for current_folder in all_to_be_analysed_folders:
         segmentation,
         slices,
         average_images,
-        img_pre_reg,
-        img_post_reg,
+        registration_image_data,
         ref_images,
-        deformation_field,
         info,
         logger,
         settings,
