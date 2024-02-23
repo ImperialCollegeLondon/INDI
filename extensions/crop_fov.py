@@ -385,7 +385,8 @@ def crop_fov(
                 crop_mask.any(0),
             )
         ]
-        # TODO make this a loop
+
+        # crop the deformation field
         deformation_field[slice]["field"] = deformation_field[slice]["field"][
             np.ix_(
                 np.repeat(True, deformation_field[slice]["field"].shape[0]),
@@ -393,6 +394,8 @@ def crop_fov(
                 crop_mask.any(0),
             )
         ]
+
+        # crop the deformation grid
         deformation_field[slice]["grid"] = deformation_field[slice]["grid"][
             np.ix_(
                 np.repeat(True, deformation_field[slice]["grid"].shape[0]),
