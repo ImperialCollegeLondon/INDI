@@ -261,10 +261,7 @@ def remove_outliers(
             rejected_indices = data_original.attrs["rejected_images"]
             stored_indices_per_slice = data_original.attrs["rejected_images_per_slice"]
             info["n_images_rejected"] = len(rejected_indices)
-            logger.debug("Number of images rejected: " + str(info["n_images_rejected"]))
 
-            # remove the rejected images from the dataframe and also from the registration_image_data
-            # data = data_original.drop(index=rejected_indices)
         else:
             # Manual image removal
             logger.info("Starting manual image removal...")
