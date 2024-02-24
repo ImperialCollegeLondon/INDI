@@ -182,6 +182,175 @@ def get_data(settings: dict, info: dict) -> Tuple[pd.DataFrame, dict]:
     return df, info
 
 
+def get_data_modern_dicoms(settings: dict, info: dict) -> Tuple[pd.DataFrame, dict]:
+    """
+    Read all the DICOM files in data_folder_path and store important info
+    in a dataframe and some header info in a dictionary
+
+    Parameters
+    ----------
+    settings: dict
+    info: dict
+
+    Returns
+    -------
+    df: dataframe with the DICOM diffusion information
+    info: dictionary with useful info
+    """
+    data_folder_path = settings["dicom_folder"]
+
+    # list DICOM files
+    included_extensions = ["dcm", "DCM", "IMA"]
+    list_dicoms = [fn for fn in os.listdir(data_folder_path) if any(fn.endswith(ext) for ext in included_extensions)]
+    list_dicoms.sort()
+
+    # collect some header info in a dictionary from the first DICOM
+    ds = pydicom.dcmread(open(os.path.join(data_folder_path, list_dicoms[0]), "rb"))
+
+    # get DICOM header fields
+    def dictify(ds):
+        """Turn a pydicom Dataset into a dict with keys derived from the Element tags.
+
+        Parameters
+        ----------
+        ds : pydicom.dataset.Dataset
+            The Dataset to dictify
+
+        Returns
+        -------
+        output : dict
+        """
+        output = dict()
+        for elem in ds:
+            if elem.VR != "SQ":
+                output[elem.keyword] = elem.value
+            else:
+                output[elem.keyword] = [dictify(item) for item in elem]
+        return output
+
+    dicom_header_fields = dictify(ds)
+
+    # yaml_file = os.path.join(settings["code_path"], "extensions", "dicom_header_collect.yaml")
+    # with open(yaml_file) as f:
+    #     dicom_header_fields = yaml.load(f.read(), Loader=yaml.Loader)
+
+    header_info = {}
+    # image comments
+    header_info["image_comments"] = (
+        dicom_header_fields["ImageComments"] if "ImageComments" in dicom_header_fields.keys() else None
+    )
+
+    # image orientation patient
+    temp_val = dicom_header_fields["PerFrameFunctionalGroupsSequence"][0]["PlaneOrientationSequence"][0][
+        "ImageOrientationPatient"
+    ]
+    header_info["image_orientation_patient"] = [float(i) for i in temp_val]
+
+    # pixel spacing
+    temp_val = dicom_header_fields["PerFrameFunctionalGroupsSequence"][0]["PixelMeasuresSequence"][0]["PixelSpacing"]
+    header_info["pixel_spacing"] = [float(i) for i in temp_val]
+
+    # create a dataframe with all DICOM values
+    df = []
+
+    for idx, file_name in enumerate(list_dicoms):
+        # read DICOM
+        ds = pydicom.dcmread(open(os.path.join(data_folder_path, file_name), "rb"))
+        # loop over the dictionary of header fields and collect them for this DICOM file
+        c_dicom_header = dictify(ds)
+
+        # append values (will be a row in the dataframe)
+        df.append(
+            (
+                # file name
+                file_name,
+                # array of pixel values
+                ds.pixel_array,
+                # b-value or zero if not a field
+                (
+                    c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0]["DiffusionBValue"]
+                    if "DiffusionBValue"
+                    in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0].keys()
+                    else 0
+                ),
+                # diffusion directions, or [1, 1, 1] normalised if not a field
+                tuple(
+                    [
+                        float(i)
+                        for i in (
+                            c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0][
+                                "DiffusionGradientDirectionSequence"
+                            ][0]["DiffusionGradientOrientation"]
+                            if "DiffusionGradientDirectionSequence"
+                            in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0].keys()
+                            and c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0][
+                                "DiffusionDirectionality"
+                            ]
+                            != "NONE"
+                            else [1 / math.sqrt(3), 1 / math.sqrt(3), 1 / math.sqrt(3)]
+                        )
+                    ]
+                ),
+                # image position
+                tuple(
+                    [
+                        float(i)
+                        for i in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["PlanePositionSequence"][0][
+                            "ImagePositionPatient"
+                        ]
+                    ]
+                ),
+                # nominal interval
+                float(
+                    c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["CardiacSynchronizationSequence"][0][
+                        "RRIntervalTimeNominal"
+                    ]
+                ),
+                # acquisition time
+                c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["FrameContentSequence"][0][
+                    "FrameAcquisitionDateTime"
+                ][8:],
+                # acquisition date
+                c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["FrameContentSequence"][0][
+                    "FrameAcquisitionDateTime"
+                ][:8],
+                # False if diffusion direction is a field
+                (
+                    False
+                    if c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0][
+                        "DiffusionDirectionality"
+                    ]
+                    == "BMATRIX"
+                    else True
+                ),
+                # dictionary with header fields
+                c_dicom_header,
+            )
+        )
+    df = pd.DataFrame(
+        df,
+        columns=[
+            "file_name",
+            "image",
+            "b_value",
+            "direction",
+            "image_position",
+            "nominal_interval",
+            "acquisition_time",
+            "acquisition_date",
+            "dir_in_image_plane",
+            "header",
+        ],
+    )
+    df = df.sort_values("file_name")
+    df = df.reset_index(drop=True)
+
+    # merge dictionaries into info
+    info = {**info, **header_info}
+
+    return df, info
+
+
 def estimate_rr_interval(data: pd.DataFrame) -> [pd.DataFrame, NDArray]:
     """
     This function will estimate the RR interval from the DICOM header
@@ -264,7 +433,7 @@ def plot_b_values_adjustment(data: pd.DataFrame, settings: dict):
     plt.legend(["nominal", "adjusted RR"])
     plt.xlabel("image #")
     plt.ylabel("nominal intervals")
-    plt.ylim([-0.25, 4])
+    plt.ylim([0, 2000])
     plt.tick_params(axis="both", which="major", labelsize=5)
     plt.title("nominal intervals", fontsize=7)
     plt.tight_layout(pad=1.0)
@@ -589,7 +758,8 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     if settings["workflow_mode"] == "anon":
         logger.debug("WORKFLOW MODE: ANON. Reading DICOM files.")
 
-        data, info = get_data(settings, info)
+        # data, info = get_data(settings, info)
+        data, info = get_data_modern_dicoms(settings, info)
 
         # number of dicom files
         info["n_files"] = data.shape[0]
@@ -685,11 +855,12 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         # =========================================================
         # DELETE DICOM FILES
         # =========================================================
-        def delete_file(row):
-            file_path = os.path.join(settings["dicom_folder"], row["file_name"])
-            os.remove(file_path)
+        # TODO fix this
+        # def delete_file(row):
+        #     file_path = os.path.join(settings["dicom_folder"], row["file_name"])
+        #     os.remove(file_path)
 
-        data.apply(delete_file, axis=1)
+        # data.apply(delete_file, axis=1)
         logger.info("ALL DICOMS DELETED!")
 
     else:

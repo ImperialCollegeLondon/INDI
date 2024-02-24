@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/outliers
+start_folder: /Users/pf/Desktop/Vol1/STEAM
 
 # anon, reg, main
 workflow_mode: main
