@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pydicom
-import yaml
 from numpy.typing import NDArray
 
 
@@ -66,120 +65,6 @@ def data_summary_plots(data: pd.DataFrame, info: dict, settings: dict):
         transparent=False,
     )
     plt.close()
-
-
-def get_data(settings: dict, info: dict) -> Tuple[pd.DataFrame, dict]:
-    """
-    Read all the DICOM files in data_folder_path and store important info
-    in a dataframe and some header info in a dictionary
-
-    Parameters
-    ----------
-    settings: dict
-    info: dict
-
-    Returns
-    -------
-    df: dataframe with the DICOM diffusion information
-    info: dictionary with useful info
-    """
-    data_folder_path = settings["dicom_folder"]
-
-    # list DICOM files
-    included_extensions = ["dcm", "DCM", "IMA"]
-    list_dicoms = [fn for fn in os.listdir(data_folder_path) if any(fn.endswith(ext) for ext in included_extensions)]
-    list_dicoms.sort()
-
-    # collect some header info in a dictionary from the first DICOM
-    ds = pydicom.dcmread(open(os.path.join(data_folder_path, list_dicoms[0]), "rb"))
-    # get DICOM header fields from yaml file
-    yaml_file = os.path.join(settings["code_path"], "extensions", "dicom_header_collect.yaml")
-    with open(yaml_file) as f:
-        dicom_header_fields = yaml.load(f.read(), Loader=yaml.Loader)
-
-    header_info = {}
-    # image comments
-    header_info["image_comments"] = (
-        ds[dicom_header_fields["DICOM_header_classic"]["image_comments"]]._value
-        if dicom_header_fields["DICOM_header_classic"]["image_comments"] in ds
-        else None
-    )
-
-    # image orientation patient
-    temp_val = ds[dicom_header_fields["DICOM_header_classic"]["image_orientation_patient"]].value
-    header_info["image_orientation_patient"] = [float(i) for i in temp_val]
-
-    # pixel spacing
-    temp_val = ds[dicom_header_fields["DICOM_header_classic"]["pixel_spacing"]].value
-    header_info["pixel_spacing"] = [float(i) for i in temp_val]
-
-    # create a dataframe with all DICOM values
-    df = []
-
-    for idx, file_name in enumerate(list_dicoms):
-        # read DICOM
-        ds = pydicom.dcmread(open(os.path.join(data_folder_path, file_name), "rb"))
-        # loop over the dictionary of header fields and collect them for this DICOM file
-        c_dicom_header = {}
-        for key, value in dicom_header_fields["DICOM_header_classic"].items():
-            if dicom_header_fields["DICOM_header_classic"][key] in ds:
-                c_dicom_header[key] = ds[dicom_header_fields["DICOM_header_classic"][key]]
-
-        # append values (will be a row in the dataframe)
-        df.append(
-            (
-                # file name
-                file_name,
-                # array of pixel values
-                ds.pixel_array,
-                # b-value or zero if not a field
-                (
-                    ds[dicom_header_fields["DICOM_header_classic"]["b_value"]]._value
-                    if dicom_header_fields["DICOM_header_classic"]["b_value"] in ds
-                    else 0
-                ),
-                # diffusion directions, or [1, 1, 1] normalised if not a field
-                (
-                    ds[dicom_header_fields["DICOM_header_classic"]["diffusiongradientdirection"]]._value
-                    if dicom_header_fields["DICOM_header_classic"]["diffusiongradientdirection"] in ds
-                    else [1 / math.sqrt(3), 1 / math.sqrt(3), 1 / math.sqrt(3)]
-                ),
-                # image position
-                tuple(ds[dicom_header_fields["DICOM_header_classic"]["image_position_patient"]].value),
-                # nominal interval
-                float(ds["NominalInterval"]._value),
-                # acquisition time
-                ds[dicom_header_fields["DICOM_header_classic"]["acquisition_time"]].value,
-                # acquisition date
-                ds[dicom_header_fields["DICOM_header_classic"]["acquisition_date"]].value,
-                # False if diffusion direction is a field
-                False if dicom_header_fields["DICOM_header_classic"]["diffusiongradientdirection"] in ds else True,
-                # dictionary with header fields
-                c_dicom_header,
-            )
-        )
-    df = pd.DataFrame(
-        df,
-        columns=[
-            "file_name",
-            "image",
-            "b_value",
-            "direction",
-            "image_position",
-            "nominal_interval",
-            "acquisition_time",
-            "acquisition_date",
-            "dir_in_image_plane",
-            "header",
-        ],
-    )
-    df = df.sort_values("file_name")
-    df = df.reset_index(drop=True)
-
-    # merge dictionaries into info
-    info = {**info, **header_info}
-
-    return df, info
 
 
 def sort_by_date_time(df):
@@ -359,7 +244,7 @@ def get_diffusion_direction_in_plane_bool(c_dicom_header, dicom_type):
             return True
 
 
-def get_data_old_or_modern_dicoms(settings: dict, info: dict, logger) -> Tuple[pd.DataFrame, dict]:
+def get_data_old_or_modern_dicoms(list_dicoms: list, settings: dict, info: dict, logger) -> Tuple[pd.DataFrame, dict]:
     """
     Read all the DICOM files in data_folder_path and store important info
     in a dataframe and some header info in a dictionary
@@ -376,11 +261,6 @@ def get_data_old_or_modern_dicoms(settings: dict, info: dict, logger) -> Tuple[p
     """
     data_folder_path = settings["dicom_folder"]
 
-    # list DICOM files
-    included_extensions = ["dcm", "DCM", "IMA"]
-    list_dicoms = [fn for fn in os.listdir(data_folder_path) if any(fn.endswith(ext) for ext in included_extensions)]
-    list_dicoms.sort()
-
     # collect some header info in a dictionary from the first DICOM
     ds = pydicom.dcmread(open(os.path.join(data_folder_path, list_dicoms[0]), "rb"))
 
@@ -388,10 +268,10 @@ def get_data_old_or_modern_dicoms(settings: dict, info: dict, logger) -> Tuple[p
     dicom_type = 0
     if "PerFrameFunctionalGroupsSequence" in ds:
         dicom_type = 2
-        logger.debug("Modern DICOMs found.")
+        logger.debug("DICOM type: Modern")
     else:
         dicom_type = 1
-        logger.debug("Old DICOMs found.")
+        logger.debug("DICOM type: Old")
 
     # get DICOM header fields
     def dictify(ds):
@@ -894,10 +774,20 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     # - load the dataframe data and continue with the processing
     # =========================================================
 
-    if settings["workflow_mode"] == "anon":
-        logger.debug("WORKFLOW MODE: ANON. Reading DICOM files.")
+    # Check for DICOM files
+    included_extensions = ["dcm", "DCM", "IMA"]
+    list_dicoms = [
+        fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
+    ]
 
-        data, info = get_data_old_or_modern_dicoms(settings, info, logger)
+    if len(list_dicoms) > 0:
+        list_dicoms.sort()
+        logger.debug("DICOM files found.")
+
+        # if settings["workflow_mode"] == "anon":
+        #     logger.debug("WORKFLOW MODE: ANON. Reading DICOM files.")
+
+        data, info = get_data_old_or_modern_dicoms(list_dicoms, settings, info, logger)
 
         # number of dicom files
         info["n_files"] = data.shape[0]
@@ -921,7 +811,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         # slices is going to be a list of all the integers
         slices = data.slice_integer.unique()
 
-        logger.debug("Number of dicom files: " + str(info["n_files"]))
+        logger.debug("Number of DICOMs: " + str(info["n_files"]))
         logger.debug("Number of slices: " + str(n_slices))
         logger.debug("Image size: " + str(info["img_size"]))
 
@@ -993,16 +883,16 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         # =========================================================
         # DELETE DICOM FILES
         # =========================================================
-        # TODO fix this
+        # TODO fix this, I need to zip them with a password
         # def delete_file(row):
         #     file_path = os.path.join(settings["dicom_folder"], row["file_name"])
         #     os.remove(file_path)
 
         # data.apply(delete_file, axis=1)
-        logger.info("ALL DICOMS DELETED!")
+        # logger.info("ALL DICOMS DELETED!")
 
     else:
-        logger.debug("WORKFLOW MODE: MAIN. Reading dataframe data.")
+        logger.debug("No DICOM found. Reading dataframe data.")
 
         # read the dataframe
         save_path = os.path.join(settings["dicom_folder"], "data.zip")
@@ -1014,7 +904,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             [info, slices] = pickle.load(f)
 
         n_slices = len(slices)
-        logger.debug("Number of dicom files: " + str(info["n_files"]))
+        logger.debug("Number of DICOMs: " + str(info["n_files"]))
         logger.debug("Number of slices: " + str(n_slices))
         logger.debug("Image size: " + str(info["img_size"]))
 
