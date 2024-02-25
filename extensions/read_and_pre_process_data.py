@@ -3,6 +3,7 @@ import math
 import os
 import pickle
 import re
+import shutil
 from datetime import datetime
 from typing import Tuple
 
@@ -10,7 +11,9 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import py7zr
 import pydicom
+from dotenv import dotenv_values
 from numpy.typing import NDArray
 
 
@@ -779,8 +782,12 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     list_dicoms = [
         fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
     ]
-
     if len(list_dicoms) > 0:
+        dicom_files_present = True
+    else:
+        dicom_files_present = False
+
+    if dicom_files_present:
         list_dicoms.sort()
         logger.debug("DICOM files found.")
 
@@ -880,16 +887,35 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         with h5py.File(save_path, "w") as hf:
             hf.create_dataset("pixel_values", data=image_pixel_values, compression="gzip", compression_opts=9)
 
-        # =========================================================
-        # DELETE DICOM FILES
-        # =========================================================
-        # TODO fix this, I need to zip them with a password
-        # def delete_file(row):
-        #     file_path = os.path.join(settings["dicom_folder"], row["file_name"])
-        #     os.remove(file_path)
+        if settings["workflow_mode"] == "anon":
+            # =========================================================
+            # ARCHIVE DICOM FILES
+            # =========================================================
+            # TODO fix this, I need to zip them with a password
 
-        # data.apply(delete_file, axis=1)
-        # logger.info("ALL DICOMS DELETED!")
+            # create folder to store DICOMs
+            dicom_archive_folder = os.path.join(settings["dicom_folder"], "dicom_archive")
+            if not os.path.exists(dicom_archive_folder):
+                os.makedirs(dicom_archive_folder)
+
+            # move all DICOMs to the archive folder
+            def move_file(row):
+                file_path = os.path.join(settings["dicom_folder"], row["file_name"])
+                shutil.move(file_path, os.path.join(dicom_archive_folder, row["file_name"]))
+
+            data.apply(move_file, axis=1)
+
+            # load password from .env file
+            env_vars = dotenv_values(os.path.join(settings["code_path"], ".env"))
+
+            # now encrypt folder with 7zip
+            with py7zr.SevenZipFile(
+                os.path.join(settings["dicom_folder"], "dicom_archive.7z"), "w", password=env_vars["ARCHIVE_PASS"]
+            ) as archive:
+                archive.writeall(dicom_archive_folder, "dicom_archive")
+
+            # DELETE FOLDER WITH DICOMS!
+            shutil.rmtree(dicom_archive_folder)
 
     else:
         logger.debug("No DICOM found. Reading dataframe data.")
