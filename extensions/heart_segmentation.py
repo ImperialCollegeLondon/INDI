@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from extensions.extensions import get_cylindrical_coordinates_short_axis
+from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
 from extensions.get_tensor_orientation_maps import get_ha_e2a_maps
 from extensions.manual_lv_segmentation import manual_lv_segmentation, plot_manual_lv_segmentation
 from extensions.tensor_fittings import dipy_tensor_fit
@@ -139,5 +139,9 @@ def heart_segmentation(
             colormaps,
         )
         logger.info("Manual LV segmentation done")
+
+    # sometimes there are holes between the myocardium and rest of the heart mask, fill them here
+    for slice_idx in slices:
+        mask_3c[slice_idx] = close_small_holes(mask_3c[slice_idx])
 
     return segmentation, mask_3c

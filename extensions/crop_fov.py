@@ -124,8 +124,7 @@ def crop_images(
 
 
 def record_image_registration(
-    img_pre_reg: dict,
-    img_post_reg: dict,
+    registration_image_data: dict,
     ref_images: NDArray,
     mask: NDArray,
     slices: NDArray,
@@ -133,11 +132,13 @@ def record_image_registration(
     logger: logging.Logger,
 ):
     """
-    Save registration results as line profiles and animated GIF
+    Save registration results as line profiles, animated GIF,
+    and optionally as montages for each frame
 
     Parameters
     ----------
-    img_pre_reg: images before registration
+    registration_image_data: dict with registration info: images before and after registration,
+        and also displacement field, and grid image with displacement field applied to it
     img_post_reg: images after registration
     mask: U-Net mask of the heart
     slices: array with slice position arrays
@@ -156,14 +157,21 @@ def record_image_registration(
         count = (lv_mask[slice_idx] == 1).sum()
         x_center, y_center = np.round(np.argwhere(lv_mask[slice_idx] == 1).sum(0) / count)
 
-        store_h_lp_pre = img_pre_reg[slice_idx][:, int(x_center - 1) : int(x_center + 2) :, :]
+        # store the line profiles for the images before and after registration
+        store_h_lp_pre = registration_image_data["img_pre_reg"][slice_idx][
+            :, int(x_center - 1) : int(x_center + 2) :, :
+        ]
         store_h_lp_pre = np.mean(store_h_lp_pre, axis=1)
-        store_h_lp_post = img_post_reg[slice_idx][:, int(x_center - 1) : int(x_center + 2) :, :]
+        store_h_lp_post = registration_image_data["img_post_reg"][slice_idx][
+            :, int(x_center - 1) : int(x_center + 2) :, :
+        ]
         store_h_lp_post = np.mean(store_h_lp_post, axis=1)
 
-        store_v_lp_pre = img_pre_reg[slice_idx][:, :, int(y_center - 1) : int(y_center + 2)]
+        store_v_lp_pre = registration_image_data["img_pre_reg"][slice_idx][:, :, int(y_center - 1) : int(y_center + 2)]
         store_v_lp_pre = np.mean(store_v_lp_pre, axis=2)
-        store_v_lp_post = img_post_reg[slice_idx][:, :, int(y_center - 1) : int(y_center + 2)]
+        store_v_lp_post = registration_image_data["img_post_reg"][slice_idx][
+            :, :, int(y_center - 1) : int(y_center + 2)
+        ]
         store_v_lp_post = np.mean(store_v_lp_post, axis=2)
 
         plt.figure(figsize=(5, 5))
@@ -200,7 +208,7 @@ def record_image_registration(
         # save the registration results for each slice as an animated gif
         # this time with mask
         for slice_idx in slices:
-            post_reg_array = img_post_reg[slice_idx]
+            post_reg_array = registration_image_data["img_post_reg"][slice_idx]
             gif_images = []
             for idx in range(post_reg_array.shape[0]):
                 c_img = post_reg_array[idx] * (1 / post_reg_array[idx].max())
@@ -224,47 +232,93 @@ def record_image_registration(
 
         logger.debug("Saving extra debug information for the registration...")
 
+        # step of the vector field for the displacement transform
+        step = 3
+
         for slice_idx in slices:
-            n_imgs = len(img_pre_reg[slice_idx])
+            X, Y = np.meshgrid(
+                np.arange(0, registration_image_data["deformation_field"][slice_idx]["grid"][1].shape[1], step),
+                np.arange(0, registration_image_data["deformation_field"][slice_idx]["grid"][1].shape[0], step),
+            )
+
+            # number of frames
+            n_imgs = len(registration_image_data["img_pre_reg"][slice_idx])
+
+            # make montage with:
+            # - reference image
+            # - current image with and without registration
+            # - 3 image comparisons for reference and registered image
+            # - displacement field and grid with displacement field applied to it
             for img_idx in range(n_imgs):
                 c_ref = np.divide(ref_images[slice_idx]["image"], np.max(ref_images[slice_idx]["image"]))
-                c_img_pre = np.divide(img_pre_reg[slice_idx][img_idx], np.max(img_pre_reg[slice_idx][img_idx]))
-                c_img_post = np.divide(img_post_reg[slice_idx][img_idx], np.max(img_post_reg[slice_idx][img_idx]))
+                c_img_pre = np.divide(
+                    registration_image_data["img_pre_reg"][slice_idx][img_idx],
+                    np.max(registration_image_data["img_pre_reg"][slice_idx][img_idx]),
+                )
+                c_img_post = np.divide(
+                    registration_image_data["img_post_reg"][slice_idx][img_idx],
+                    np.max(registration_image_data["img_post_reg"][slice_idx][img_idx]),
+                )
                 comp_1 = compare_images(c_ref, c_img_post, method="checkerboard")
                 comp_2 = compare_images(c_ref, c_img_post, method="diff")
                 comp_3 = compare_images(c_ref, c_img_post, method="blend")
 
                 plt.figure(figsize=(5, 5))
 
-                plt.subplot(2, 3, 1)
+                plt.subplot(3, 3, 1)
                 plt.imshow(c_ref)
                 plt.axis("off")
                 plt.title("reference", fontsize=7)
 
-                plt.subplot(2, 3, 2)
+                plt.subplot(3, 3, 2)
                 plt.imshow(c_img_post)
                 plt.axis("off")
                 plt.title("registered", fontsize=7)
 
-                plt.subplot(2, 3, 3)
+                plt.subplot(3, 3, 3)
                 plt.imshow(c_img_pre)
                 plt.axis("off")
                 plt.title("original", fontsize=7)
 
-                plt.subplot(2, 3, 4)
+                plt.subplot(3, 3, 4)
                 plt.imshow(comp_1)
                 plt.axis("off")
                 plt.title("checkerboard", fontsize=7)
 
-                plt.subplot(2, 3, 5)
+                plt.subplot(3, 3, 5)
                 plt.imshow(comp_2)
                 plt.axis("off")
                 plt.title("diff", fontsize=7)
 
-                plt.subplot(2, 3, 6)
+                plt.subplot(3, 3, 6)
                 plt.imshow(comp_3)
                 plt.axis("off")
                 plt.title("blend", fontsize=7)
+
+                plt.subplot(3, 3, 7)
+                plt.imshow(c_img_post)
+                plt.imshow(
+                    registration_image_data["deformation_field"][slice_idx]["grid"][img_idx, :, :],
+                    alpha=registration_image_data["deformation_field"][slice_idx]["grid"][img_idx, :, :],
+                    vmin=0,
+                    vmax=2,
+                    cmap="Oranges",
+                )
+                plt.axis("off")
+                plt.title("deformation grid", fontsize=7)
+
+                plt.subplot(3, 3, 8)
+                plt.imshow(c_img_post, vmin=np.min(c_img_post), vmax=np.max(c_img_post) * 2)
+                plt.quiver(
+                    X,
+                    Y,
+                    -registration_image_data["deformation_field"][slice_idx]["field"][img_idx, ::step, ::step, 0],
+                    registration_image_data["deformation_field"][slice_idx]["field"][img_idx, ::step, ::step, 1],
+                    edgecolor="tab:blue",
+                    facecolor="tab:orange",
+                )
+                plt.axis("off")
+                plt.title("deformation field", fontsize=7)
 
                 plt.tight_layout(pad=1.0)
                 plt.savefig(
@@ -287,9 +341,8 @@ def crop_fov(
     segmentation: dict,
     slices: NDArray,
     average_images: NDArray,
-    img_pre_reg: NDArray,
-    img_post_reg: NDArray,
-    ref_images: NDArray,
+    registration_image_data: dict,
+    ref_images: dict,
     info: dict,
     logger: logging.Logger,
     settings: dict,
@@ -305,8 +358,8 @@ def crop_fov(
     segmentation: segmentation information
     slices: array with slice positions
     average_images: average image of each slice
-    img_pre_reg: images before registration
-    img_post_reg: images after registration
+    registration_image_data: dict with registration info: images before and after registration,
+        and also displacement field, and grid image with displacement field applied to it
     ref_images: reference images
     info: useful info dictionary
     logger: logger
@@ -337,22 +390,48 @@ def crop_fov(
     )
     logger.info("Images cropped based on segmentation.")
 
-    for slice in slices:
-        img_pre_reg[slice] = img_pre_reg[slice][
+    for slice_idx in slices:
+        # crop the images before registration
+        registration_image_data["img_pre_reg"][slice_idx] = registration_image_data["img_pre_reg"][slice_idx][
             np.ix_(
-                np.repeat(True, img_pre_reg[slice].shape[0]),
+                np.repeat(True, registration_image_data["img_pre_reg"][slice_idx].shape[0]),
                 crop_mask.any(1),
                 crop_mask.any(0),
             )
         ]
-        img_post_reg[slice] = img_post_reg[slice][
+
+        # crop the images after registration
+        registration_image_data["img_post_reg"][slice_idx] = registration_image_data["img_post_reg"][slice_idx][
             np.ix_(
-                np.repeat(True, img_post_reg[slice].shape[0]),
+                np.repeat(True, registration_image_data["img_post_reg"][slice_idx].shape[0]),
                 crop_mask.any(1),
                 crop_mask.any(0),
             )
         ]
-    record_image_registration(img_pre_reg, img_post_reg, ref_images, mask_3c, slices, settings, logger)
+
+        # crop the deformation field
+        registration_image_data["deformation_field"][slice_idx]["field"] = registration_image_data[
+            "deformation_field"
+        ][slice_idx]["field"][
+            np.ix_(
+                np.repeat(True, registration_image_data["deformation_field"][slice_idx]["field"].shape[0]),
+                crop_mask.any(1),
+                crop_mask.any(0),
+            )
+        ]
+
+        # crop the deformation grid
+        registration_image_data["deformation_field"][slice_idx]["grid"] = registration_image_data["deformation_field"][
+            slice_idx
+        ]["grid"][
+            np.ix_(
+                np.repeat(True, registration_image_data["deformation_field"][slice_idx]["grid"].shape[0]),
+                crop_mask.any(1),
+                crop_mask.any(0),
+            )
+        ]
+
+    record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
 
     if settings["debug"]:
         create_2d_montage_from_database(

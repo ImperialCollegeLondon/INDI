@@ -54,14 +54,11 @@ dti, settings, logger, log_format, all_to_be_analysed_folders = initial_setup(sc
 
 # Warning about deleting DICOM data
 if settings["workflow_mode"] == "anon":
-    answer = query_yes_no(
-        "Are you sure you want to delete all DICOM files? "
-        "Make sure DICOMs are backed up somewhere else before saying yes!"
-    )
+    answer = query_yes_no("Are you sure you want to archive all DICOM files?")
     if answer:
-        logger.info("DELETING DICOM DATA TO ALL DATASETS FOUND!")
+        logger.info("Archiving DICOMs in an encrypted 7z file!")
     else:
-        logger.error("Exiting, no permission to delete DICOM data.")
+        logger.error("Exiting, no permission to archive DICOM data.")
         sys.exit()
 
 
@@ -85,7 +82,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # DWIs registration
     # =========================================================
-    data, img_pre_reg, img_post_reg, ref_images = image_registration(data, slices, info, settings, logger)
+    data, registration_image_data, ref_images = image_registration(data, slices, info, settings, logger)
 
     # =========================================================
     # Option to perform only registration
@@ -97,7 +94,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Remove outliers
     # =========================================================
-    [data, info, slices] = remove_outliers(data, slices, settings, info, logger)
+    [data, info, slices] = remove_outliers(data, slices, registration_image_data, settings, info, logger)
 
     # =========================================================
     # Average images
@@ -106,7 +103,7 @@ for current_folder in all_to_be_analysed_folders:
     average_images = get_average_images(
         slices,
         info["img_size"],
-        img_post_reg,
+        registration_image_data,
         settings,
         logger,
     )
@@ -128,8 +125,7 @@ for current_folder in all_to_be_analysed_folders:
         segmentation,
         slices,
         average_images,
-        img_pre_reg,
-        img_post_reg,
+        registration_image_data,
         ref_images,
         info,
         logger,

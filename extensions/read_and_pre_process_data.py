@@ -3,6 +3,7 @@ import math
 import os
 import pickle
 import re
+import shutil
 from datetime import datetime
 from typing import Tuple
 
@@ -10,8 +11,9 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import py7zr
 import pydicom
-import yaml
+from dotenv import dotenv_values
 from numpy.typing import NDArray
 
 
@@ -68,13 +70,338 @@ def data_summary_plots(data: pd.DataFrame, info: dict, settings: dict):
     plt.close()
 
 
-def get_data(settings: dict, info: dict) -> Tuple[pd.DataFrame, dict]:
+def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Sort the dataframe by acquisition date and time
+
+    Parameters
+    ----------
+    df: dataframe with diffusion database
+
+    Returns
+    -------
+    dataframe with sorted values
+    """
+    df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date"] + " " + df["acquisition_time"])
+    df = df.sort_values("acquisition_date_time")
+    df = df.reset_index(drop=True)
+    return df
+
+
+def collect_global_header_info(dicom_header_fields: dict, dicom_type: int) -> dict:
+    """
+    Collect global header information from the fist dicom
+
+    Parameters
+    ----------
+    dicom_header_fields
+    dicom_type
+
+    Returns
+    -------
+
+    header_info dict
+
+    """
+
+    header_info = {}
+
+    # image comments
+    if dicom_type == 2:
+        header_info["image_comments"] = (
+            dicom_header_fields["ImageComments"] if "ImageComments" in dicom_header_fields.keys() else None
+        )
+    elif dicom_type == 1:
+        header_info["image_comments"] = (
+            dicom_header_fields["ImageComments"] if "ImageComments" in dicom_header_fields.keys() else None
+        )
+
+    # image orientation patient
+    if dicom_type == 2:
+        temp_val = dicom_header_fields["PerFrameFunctionalGroupsSequence"][0]["PlaneOrientationSequence"][0][
+            "ImageOrientationPatient"
+        ]
+        header_info["image_orientation_patient"] = [float(i) for i in temp_val]
+    elif dicom_type == 1:
+        temp_val = dicom_header_fields["ImageOrientationPatient"]
+        header_info["image_orientation_patient"] = [float(i) for i in temp_val]
+
+    # pixel spacing
+    if dicom_type == 2:
+        temp_val = dicom_header_fields["PerFrameFunctionalGroupsSequence"][0]["PixelMeasuresSequence"][0][
+            "PixelSpacing"
+        ]
+        header_info["pixel_spacing"] = [float(i) for i in temp_val]
+    elif dicom_type == 1:
+        temp_val = dicom_header_fields["PixelSpacing"]
+        header_info["pixel_spacing"] = [float(i) for i in temp_val]
+
+    # slice thickness
+    if dicom_type == 2:
+        temp_val = dicom_header_fields["PerFrameFunctionalGroupsSequence"][0]["PixelMeasuresSequence"][0][
+            "SliceThickness"
+        ]
+        header_info["slice_thickness"] = float(temp_val)
+    elif dicom_type == 1:
+        temp_val = dicom_header_fields["SliceThickness"]
+        header_info["slice_thickness"] = float(temp_val)
+
+    return header_info
+
+
+def get_b_value(c_dicom_header: dict, dicom_type: int) -> float:
+    """
+    Get b-value from a dict with the DICOM header.
+    If no b-value fond, then return 0.0
+
+    Parameters
+    ----------
+    c_dicom_header
+    dicom_type
+
+    Returns
+    -------
+    b_value
+
+    """
+    if dicom_type == 2:
+        if "DiffusionBValue" in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0].keys():
+            return c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0]["DiffusionBValue"]
+        else:
+            return 0.0
+
+    elif dicom_type == 1:
+        if "DiffusionBValue" in c_dicom_header.keys():
+            return c_dicom_header["DiffusionBValue"]
+        else:
+            return 0.0
+
+
+def get_diffusion_directions(c_dicom_header: dict, dicom_type: int) -> Tuple:
+    """
+    Get diffusion direction 3D vector.
+    If no direction found, then return a normalised vector [1/sqrt(3), 1/sqrt(3), 1/sqrt(3)].
+    This makes sense for the STEAM because of the spoilers. For the SE if no direction, then b-value
+    will be 0, and this gradient is not significant.
+
+    Parameters
+    ----------
+    c_dicom_header
+    dicom_type
+
+    Returns
+    -------
+    Diffusion direction
+
+    """
+    if dicom_type == 2:
+        if (
+            "DiffusionGradientDirectionSequence"
+            in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0].keys()
+            and c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0][
+                "DiffusionDirectionality"
+            ]
+            != "NONE"
+        ):
+            val = tuple(
+                [
+                    float(i)
+                    for i in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0][
+                        "DiffusionGradientDirectionSequence"
+                    ][0]["DiffusionGradientOrientation"]
+                ]
+            )
+            return val
+        else:
+            return (1 / math.sqrt(3), 1 / math.sqrt(3), 1 / math.sqrt(3))
+
+    elif dicom_type == 1:
+        if "DiffusionGradientDirection" in c_dicom_header:
+            return tuple([float(i) for i in c_dicom_header["DiffusionGradientDirection"]])
+        else:
+            return (1 / math.sqrt(3), 1 / math.sqrt(3), 1 / math.sqrt(3))
+
+
+def get_image_position(c_dicom_header: dict, dicom_type: int) -> Tuple:
+    """
+    Get the image position patient info from the DICOM header
+
+    Parameters
+    ----------
+    c_dicom_header
+    dicom_type
+
+    Returns
+    -------
+    image position patient
+
+    """
+    if dicom_type == 2:
+        val = tuple(
+            [
+                float(i)
+                for i in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["PlanePositionSequence"][0][
+                    "ImagePositionPatient"
+                ]
+            ]
+        )
+
+        return val
+
+    elif dicom_type == 1:
+        val = tuple([float(i) for i in c_dicom_header["ImagePositionPatient"]])
+
+        return val
+
+
+def get_nominal_interval(c_dicom_header: dict, dicom_type: int) -> float:
+    """
+    Get the nominal interval from the DICOM header
+
+    Parameters
+    ----------
+    c_dicom_header
+    dicom_type
+
+    Returns
+    -------
+    Nominal interval
+
+    """
+    if dicom_type == 2:
+        val = float(
+            c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["CardiacSynchronizationSequence"][0][
+                "RRIntervalTimeNominal"
+            ]
+        )
+        return val
+
+    elif dicom_type == 1:
+        val = float(c_dicom_header["NominalInterval"])
+        return val
+
+
+def get_acquisition_time(c_dicom_header: dict, dicom_type: int) -> str:
+    """
+    Get acquisition time string
+
+    Parameters
+    ----------
+    c_dicom_header
+    dicom_type
+
+    Returns
+    -------
+    Acquisition time
+
+    """
+    if dicom_type == 2:
+        return c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["FrameContentSequence"][0][
+            "FrameAcquisitionDateTime"
+        ][8:]
+
+    elif dicom_type == 1:
+        return c_dicom_header["AcquisitionTime"]
+
+
+def get_acquisition_date(c_dicom_header: dict, dicom_type: int) -> str:
+    """
+    Get acquisition date string.
+
+    Parameters
+    ----------
+    c_dicom_header
+    dicom_type
+
+    Returns
+    -------
+    Acquisition date
+
+    """
+    if dicom_type == 2:
+        return c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["FrameContentSequence"][0][
+            "FrameAcquisitionDateTime"
+        ][:8]
+
+    elif dicom_type == 1:
+        return c_dicom_header["AcquisitionDate"]
+
+
+def get_diffusion_direction_in_plane_bool(c_dicom_header: dict, dicom_type: int) -> bool:
+    """
+    Get boolean if the direction given is in the image plane or not.
+    For the STEAM sequence the spoiler gradients of the b0 are in the image plane,
+    but the standard diffusion directions are not for the SE and STEAM.
+
+    Parameters
+    ----------
+    c_dicom_header
+    dicom_type
+
+    Returns
+    -------
+    boolean
+
+    """
+    if dicom_type == 2:
+        if (
+            c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0]["DiffusionDirectionality"]
+            == "BMATRIX"
+        ):
+            return False
+        else:
+            return True
+
+    elif dicom_type == 1:
+        if "DiffusionGradientDirection" in c_dicom_header:
+            return False
+        else:
+            return True
+
+
+# get DICOM header fields
+def dictify(ds: pydicom.dataset.Dataset) -> dict:
+    """
+    Turn a pydicom Dataset into a dict with keys derived from the Element tags.
+    Private info is not collected, because we cannot access it with the keyword.
+    So we need to manually fish the diffusion information in the old DICOMs.
+
+    Parameters
+    ----------
+    ds : pydicom.dataset.Dataset
+        The Dataset to dictify
+
+    Returns
+    -------
+    DICOM header as a dict
+    """
+
+    output = dict()
+    # iterate over all non private fields
+    for elem in ds:
+        if elem.VR != "SQ":
+            output[elem.keyword] = elem.value
+        else:
+            output[elem.keyword] = [dictify(item) for item in elem]
+
+    # add manually private diffusion fields if they exist
+    if [0x0019, 0x100C] in ds:
+        output["DiffusionBValue"] = ds[0x0019, 0x100C].value
+    if [0x0019, 0x100E] in ds:
+        output["DiffusionGradientDirection"] = ds[0x0019, 0x100E].value
+    return output
+
+
+def get_data_old_or_modern_dicoms(
+    list_dicoms: list, settings: dict, info: dict, logger: logging.Logger
+) -> Tuple[pd.DataFrame, dict]:
     """
     Read all the DICOM files in data_folder_path and store important info
     in a dataframe and some header info in a dictionary
 
     Parameters
     ----------
+    list_dicoms: list with DICOM files
     settings: dict
     info: dict
 
@@ -85,45 +412,39 @@ def get_data(settings: dict, info: dict) -> Tuple[pd.DataFrame, dict]:
     """
     data_folder_path = settings["dicom_folder"]
 
-    # list DICOM files
-    included_extensions = ["dcm", "DCM", "IMA"]
-    list_dicoms = [fn for fn in os.listdir(data_folder_path) if any(fn.endswith(ext) for ext in included_extensions)]
-    list_dicoms.sort()
-
     # collect some header info in a dictionary from the first DICOM
     ds = pydicom.dcmread(open(os.path.join(data_folder_path, list_dicoms[0]), "rb"))
-    # get DICOM header fields from yaml file
-    yaml_file = os.path.join(settings["code_path"], "extensions", "dicom_header_collect.yaml")
-    with open(yaml_file) as f:
-        dicom_header_fields = yaml.load(f.read(), Loader=yaml.Loader)
 
-    header_info = {}
-    # image comments
-    header_info["image_comments"] = (
-        ds[dicom_header_fields["DICOM_header_classic"]["image_comments"]]._value
-        if dicom_header_fields["DICOM_header_classic"]["image_comments"] in ds
-        else None
-    )
+    # check version of dicom
+    dicom_type = 0
+    if "PerFrameFunctionalGroupsSequence" in ds:
+        dicom_type = 2
+        logger.debug("DICOM type: Modern")
+    else:
+        dicom_type = 1
+        logger.debug("DICOM type: Legacy")
 
-    # image orientation patient
-    temp_val = ds[dicom_header_fields["DICOM_header_classic"]["image_orientation_patient"]].value
-    header_info["image_orientation_patient"] = [float(i) for i in temp_val]
+    # get DICOM header in a dict
+    dicom_header_fields = dictify(ds)
 
-    # pixel spacing
-    temp_val = ds[dicom_header_fields["DICOM_header_classic"]["pixel_spacing"]].value
-    header_info["pixel_spacing"] = [float(i) for i in temp_val]
+    # collect some global header info in a dictionary
+    header_info = collect_global_header_info(dicom_header_fields, dicom_type)
+
+    # load sensitive fields from csv into a dataframe
+    sensitive_fields = pd.read_csv(os.path.join(settings["code_path"], "extensions", "anon_fields.csv"))
 
     # create a dataframe with all DICOM values
     df = []
-
     for idx, file_name in enumerate(list_dicoms):
-        # read DICOM
+        # read current DICOM
         ds = pydicom.dcmread(open(os.path.join(data_folder_path, file_name), "rb"))
         # loop over the dictionary of header fields and collect them for this DICOM file
-        c_dicom_header = {}
-        for key, value in dicom_header_fields["DICOM_header_classic"].items():
-            if dicom_header_fields["DICOM_header_classic"][key] in ds:
-                c_dicom_header[key] = ds[dicom_header_fields["DICOM_header_classic"][key]]
+        c_dicom_header = dictify(ds)
+        # remove sensitive data
+        field_list = sensitive_fields["sensitive_fields"].tolist()
+        for field in field_list:
+            if field in c_dicom_header:
+                c_dicom_header.pop(field)
 
         # append values (will be a row in the dataframe)
         df.append(
@@ -133,27 +454,19 @@ def get_data(settings: dict, info: dict) -> Tuple[pd.DataFrame, dict]:
                 # array of pixel values
                 ds.pixel_array,
                 # b-value or zero if not a field
-                (
-                    ds[dicom_header_fields["DICOM_header_classic"]["b_value"]]._value
-                    if dicom_header_fields["DICOM_header_classic"]["b_value"] in ds
-                    else 0
-                ),
+                get_b_value(c_dicom_header, dicom_type),
                 # diffusion directions, or [1, 1, 1] normalised if not a field
-                (
-                    ds[dicom_header_fields["DICOM_header_classic"]["diffusiongradientdirection"]]._value
-                    if dicom_header_fields["DICOM_header_classic"]["diffusiongradientdirection"] in ds
-                    else [1 / math.sqrt(3), 1 / math.sqrt(3), 1 / math.sqrt(3)]
-                ),
+                get_diffusion_directions(c_dicom_header, dicom_type),
                 # image position
-                tuple(ds[dicom_header_fields["DICOM_header_classic"]["image_position_patient"]].value),
+                get_image_position(c_dicom_header, dicom_type),
                 # nominal interval
-                float(ds["NominalInterval"]._value),
+                get_nominal_interval(c_dicom_header, dicom_type),
                 # acquisition time
-                ds[dicom_header_fields["DICOM_header_classic"]["acquisition_time"]].value,
+                get_acquisition_time(c_dicom_header, dicom_type),
                 # acquisition date
-                ds[dicom_header_fields["DICOM_header_classic"]["acquisition_date"]].value,
+                get_acquisition_date(c_dicom_header, dicom_type),
                 # False if diffusion direction is a field
-                False if dicom_header_fields["DICOM_header_classic"]["diffusiongradientdirection"] in ds else True,
+                get_diffusion_direction_in_plane_bool(c_dicom_header, dicom_type),
                 # dictionary with header fields
                 c_dicom_header,
             )
@@ -173,10 +486,11 @@ def get_data(settings: dict, info: dict) -> Tuple[pd.DataFrame, dict]:
             "header",
         ],
     )
-    df = df.sort_values("file_name")
-    df = df.reset_index(drop=True)
 
-    # merge dictionaries into info
+    # Now we need to sort the dataframe by date and time
+    df = sort_by_date_time(df)
+
+    # merge header info into info
     info = {**info, **header_info}
 
     return df, info
@@ -264,7 +578,7 @@ def plot_b_values_adjustment(data: pd.DataFrame, settings: dict):
     plt.legend(["nominal", "adjusted RR"])
     plt.xlabel("image #")
     plt.ylabel("nominal intervals")
-    plt.ylim([-0.25, 4])
+    plt.ylim([0, 2000])
     plt.tick_params(axis="both", which="major", labelsize=5)
     plt.title("nominal intervals", fontsize=7)
     plt.tight_layout(pad=1.0)
@@ -503,9 +817,9 @@ def create_2d_montage_from_database(
             cc_img_stack = np.reshape(
                 cc_img_stack, (cc_img_stack.shape[0], cc_img_stack.shape[1] * cc_img_stack.shape[2]), order="F"
             )
-            montage[idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_img_stack.shape[1]] = (
-                cc_img_stack
-            )
+            montage[
+                idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_img_stack.shape[1]
+            ] = cc_img_stack
 
             # repeat for mask
             cc_mask_stack = c_highlight_stack[key]
@@ -513,9 +827,9 @@ def create_2d_montage_from_database(
             cc_mask_stack = np.reshape(
                 cc_mask_stack, (cc_mask_stack.shape[0], cc_mask_stack.shape[1] * cc_mask_stack.shape[2]), order="F"
             )
-            montage_mask[idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]] = (
-                cc_mask_stack
-            )
+            montage_mask[
+                idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]
+            ] = cc_mask_stack
 
         # save montages in a figure
         fig = plt.figure(figsize=(len(c_img_stack), max_number_of_images))
@@ -571,25 +885,24 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
 
     """
 
-    # =========================================================
-    # Here we have two routes: If settings["workflow_mode"] == "anon" then we will:
-    # - read the dicoms
-    # - remove any patient info
-    # - save all the data to
-    #   - a zipped dataframe
-    #   - some diffusion info in a csv file
-    #   - the info and slices to a pickled file
-    #   - the original pixel values to an HDF5 file for easy viewing
-    # - DELETE the DICOM FILES (WARNING, MAKE SURE YOU HAVE A BACKUP!)
+    # Check for DICOM files
+    included_extensions = ["dcm", "DCM", "IMA"]
+    list_dicoms = [
+        fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
+    ]
+    if len(list_dicoms) > 0:
+        dicom_files_present = True
+    else:
+        dicom_files_present = False
 
-    # If settings["workflow_mode"] == "main" then we will:
-    # - load the dataframe data and continue with the processing
-    # =========================================================
+    # If DICOMs are present, then we will read them and do our diffusion database.
+    # If DICOMs have been archived, then we will load the files with the diffusion database instead.
+    if dicom_files_present:
+        list_dicoms.sort()
+        logger.debug("DICOM files found.")
 
-    if settings["workflow_mode"] == "anon":
-        logger.debug("WORKFLOW MODE: ANON. Reading DICOM files.")
-
-        data, info = get_data(settings, info)
+        # read DICOM info
+        data, info = get_data_old_or_modern_dicoms(list_dicoms, settings, info, logger)
 
         # number of dicom files
         info["n_files"] = data.shape[0]
@@ -613,7 +926,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         # slices is going to be a list of all the integers
         slices = data.slice_integer.unique()
 
-        logger.debug("Number of dicom files: " + str(info["n_files"]))
+        logger.debug("Number of DICOMs: " + str(info["n_files"]))
         logger.debug("Number of slices: " + str(n_slices))
         logger.debug("Image size: " + str(info["img_size"]))
 
@@ -668,8 +981,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
                 "image_position",
                 "slice_integer",
                 "nominal_interval",
-                "acquisition_time",
-                "acquisition_date",
+                "acquisition_date_time",
                 "estimated_rr_interval",
             ],
             index=False,
@@ -682,18 +994,38 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         with h5py.File(save_path, "w") as hf:
             hf.create_dataset("pixel_values", data=image_pixel_values, compression="gzip", compression_opts=9)
 
-        # =========================================================
-        # DELETE DICOM FILES
-        # =========================================================
-        def delete_file(row):
-            file_path = os.path.join(settings["dicom_folder"], row["file_name"])
-            os.remove(file_path)
+        # if workflow is anon, we are going to archive the DICOMs
+        # in a 7z file with the password set in the .env file.
+        if settings["workflow_mode"] == "anon":
+            # =========================================================
+            # Aechive DICOM files in a 7z file
+            # =========================================================
+            # create folder to store DICOMs
+            dicom_archive_folder = os.path.join(settings["dicom_folder"], "dicom_archive")
+            if not os.path.exists(dicom_archive_folder):
+                os.makedirs(dicom_archive_folder)
 
-        data.apply(delete_file, axis=1)
-        logger.info("ALL DICOMS DELETED!")
+            # move all DICOMs to the archive folder
+            def move_file(row):
+                file_path = os.path.join(settings["dicom_folder"], row["file_name"])
+                shutil.move(file_path, os.path.join(dicom_archive_folder, row["file_name"]))
+
+            data.apply(move_file, axis=1)
+
+            # load password from .env file
+            env_vars = dotenv_values(os.path.join(settings["code_path"], ".env"))
+
+            # now encrypt folder with 7zip
+            with py7zr.SevenZipFile(
+                os.path.join(settings["dicom_folder"], "dicom_archive.7z"), "w", password=env_vars["ARCHIVE_PASS"]
+            ) as archive:
+                archive.writeall(dicom_archive_folder, "dicom_archive")
+
+            # DELETE FOLDER WITH DICOMS!
+            shutil.rmtree(dicom_archive_folder)
 
     else:
-        logger.debug("WORKFLOW MODE: MAIN. Reading dataframe data.")
+        logger.debug("No DICOM found. Reading diffusion database files previously created.")
 
         # read the dataframe
         save_path = os.path.join(settings["dicom_folder"], "data.zip")
@@ -705,7 +1037,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             [info, slices] = pickle.load(f)
 
         n_slices = len(slices)
-        logger.debug("Number of dicom files: " + str(info["n_files"]))
+        logger.debug("Number of DICOMs: " + str(info["n_files"]))
         logger.debug("Number of slices: " + str(n_slices))
         logger.debug("Image size: " + str(info["img_size"]))
 

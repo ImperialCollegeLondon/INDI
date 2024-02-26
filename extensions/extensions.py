@@ -19,6 +19,7 @@ import skimage.measure
 import xarray as xr
 import yaml
 from numpy.typing import NDArray
+from scipy import ndimage
 from skimage import morphology
 from skimage.measure import label, regionprops_table
 from sklearn.linear_model import LinearRegression
@@ -194,6 +195,33 @@ def clean_image(img: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArr
         clean_img[slice_idx] = img[slice_idx] * mask[slice_idx]
 
     return clean_img, mask, thresh
+
+
+def close_small_holes(mask: NDArray) -> NDArray:
+    """
+    Close small holes in the mask and add them to the rest of heart mask
+
+    Parameters
+    ----------
+    mask: mask with 0: background, 1: LV, 2: rest of heart
+
+    Returns
+    -------
+    mask with holes filled
+
+    """
+    # convert mask to binary
+    binary_mask = mask.astype(bool)
+    binary_mask = binary_mask.astype(int)
+
+    # close small holes in mask with size up to a square of 4x4
+    new_mask = ndimage.binary_closing(binary_mask, structure=np.ones((4, 4))).astype(int)
+    # get only the new pixels that should be filled
+    diff_mask = new_mask - binary_mask
+    # add those pixels to the rest of the heart label (value = 2).
+    mask[diff_mask == 1] = 2
+
+    return mask
 
 
 def get_cylindrical_coordinates_short_axis(
