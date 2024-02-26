@@ -13,7 +13,22 @@ from skimage.registration import phase_cross_correlation
 from tqdm import tqdm
 
 
-def get_grid_image(img_shape, grid_step):
+def get_grid_image(img_shape: NDArray, grid_step: int) -> NDArray:
+    """
+
+    Get an image with a regular grid. This is going to be deformed by the
+    displacement field of the registration
+
+    Parameters
+    ----------
+    img_shape
+    grid_step
+
+    Returns
+    -------
+    grid image
+
+    """
     grid_img = np.zeros(img_shape)
     for i in range(0, img_shape[0], grid_step):
         grid_img[i, :] = 1
@@ -24,10 +39,9 @@ def get_grid_image(img_shape, grid_step):
 
 def registration_loop(
     data: pd.DataFrame, ref_images: dict, slices: NDArray, info: dict, settings: dict, logger: logging.Logger
-) -> tuple[pd.DataFrame, dict, dict, dict]:
+) -> tuple[pd.DataFrame, dict]:
     """
-    Registration image loop. It will use differents parts of the code depending
-    the method of registration
+    Registration image loop. This is where we perform the registration of the DWIs.
 
     Parameters
     ----------
@@ -40,7 +54,7 @@ def registration_loop(
 
     Returns
     -------
-    dataframe with registered images, arrays with images pre- and post-registration
+    dataframe with registered images, dict with registration info
     """
 
     # ============================================================
@@ -133,21 +147,23 @@ def registration_loop(
         #         ),
         #     )
 
-    # loop over slices
+    # dicts to store information about the registration
     registration_image_data = {}
     registration_image_data["img_post_reg"] = {}
     registration_image_data["img_pre_reg"] = {}
     registration_image_data["deformation_field"] = {}
+
+    # loop over slices
     for slice_idx in slices:
-        # store images after registration
+        # initialise images after registration
         registration_image_data["img_post_reg"][slice_idx] = np.empty(
             [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1]]
         )
-        # store images before registration
+        # initialise images before registration
         registration_image_data["img_pre_reg"][slice_idx] = np.empty(
             [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1]]
         )
-        # store deformation field
+        # initialise deformation field and grid
         registration_image_data["deformation_field"][slice_idx] = {}
         registration_image_data["deformation_field"][slice_idx]["field"] = np.zeros(
             [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1], 2]
@@ -252,7 +268,7 @@ def registration_loop(
                             log_to_console=False,
                         )
 
-                        # get the deformation field
+                        # get the deformation field and apply it to the grid image
                         def_field = itk.transformix_deformation_field(mov, result_transform_parameters)
                         def_field = np.asarray(def_field).astype(np.float32)
                         registration_image_data["deformation_field"][slice_idx]["field"][i] = def_field

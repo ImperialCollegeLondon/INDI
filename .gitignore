@@ -1,12 +1,13 @@
-
+#pycharm config stuff
 .idea/
-
+# virtual env
 .venv/
 
-UNKNOWN.egg-info/
-
+# pycache
 __pycache__/
 
+# macOS
 .DS_Store
 
+# env file
 *.env

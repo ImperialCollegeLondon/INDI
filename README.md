@@ -62,10 +62,12 @@ Now pre-commit will run automatically on git commit. You can also run it manuall
 pre-commit run --all-files
 ```
 
-You will also need to create a file in the code root directory called `.env` with the following content:
+You will also need to create a file in the code root directory called `.env` with the following content: 
+`ARCHIVE_PASS=your_password`. Replace `your_password` with a robust string. 
+You can do this by running the following command:
 
 ```bash
-ARCHIVE_PASS=your_password
+echo "ARCHIVE_PASS=your_password" > .env
 ``` 
 This password will be used to encrypt DICOM files when using the option `workflow_mode: anon`.
 

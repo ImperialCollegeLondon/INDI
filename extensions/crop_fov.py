@@ -132,11 +132,13 @@ def record_image_registration(
     logger: logging.Logger,
 ):
     """
-    Save registration results as line profiles and animated GIF
+    Save registration results as line profiles, animated GIF,
+    and optionally as montages for each frame
 
     Parameters
     ----------
-    img_pre_reg: images before registration
+    registration_image_data: dict with registration info: images before and after registration,
+        and also displacement field, and grid image with displacement field applied to it
     img_post_reg: images after registration
     mask: U-Net mask of the heart
     slices: array with slice position arrays
@@ -155,6 +157,7 @@ def record_image_registration(
         count = (lv_mask[slice_idx] == 1).sum()
         x_center, y_center = np.round(np.argwhere(lv_mask[slice_idx] == 1).sum(0) / count)
 
+        # store the line profiles for the images before and after registration
         store_h_lp_pre = registration_image_data["img_pre_reg"][slice_idx][
             :, int(x_center - 1) : int(x_center + 2) :, :
         ]
@@ -229,6 +232,7 @@ def record_image_registration(
 
         logger.debug("Saving extra debug information for the registration...")
 
+        # step of the vector field for the displacement transform
         step = 3
 
         for slice_idx in slices:
@@ -237,8 +241,14 @@ def record_image_registration(
                 np.arange(0, registration_image_data["deformation_field"][slice_idx]["grid"][1].shape[0], step),
             )
 
+            # number of frames
             n_imgs = len(registration_image_data["img_pre_reg"][slice_idx])
 
+            # make montage with:
+            # - reference image
+            # - current image with and without registration
+            # - 3 image comparisons for reference and registered image
+            # - displacement field and grid with displacement field applied to it
             for img_idx in range(n_imgs):
                 c_ref = np.divide(ref_images[slice_idx]["image"], np.max(ref_images[slice_idx]["image"]))
                 c_img_pre = np.divide(
@@ -348,8 +358,8 @@ def crop_fov(
     segmentation: segmentation information
     slices: array with slice positions
     average_images: average image of each slice
-    img_pre_reg: images before registration
-    img_post_reg: images after registration
+    registration_image_data: dict with registration info: images before and after registration,
+        and also displacement field, and grid image with displacement field applied to it
     ref_images: reference images
     info: useful info dictionary
     logger: logger
@@ -381,6 +391,7 @@ def crop_fov(
     logger.info("Images cropped based on segmentation.")
 
     for slice_idx in slices:
+        # crop the images before registration
         registration_image_data["img_pre_reg"][slice_idx] = registration_image_data["img_pre_reg"][slice_idx][
             np.ix_(
                 np.repeat(True, registration_image_data["img_pre_reg"][slice_idx].shape[0]),
@@ -388,6 +399,8 @@ def crop_fov(
                 crop_mask.any(0),
             )
         ]
+
+        # crop the images after registration
         registration_image_data["img_post_reg"][slice_idx] = registration_image_data["img_post_reg"][slice_idx][
             np.ix_(
                 np.repeat(True, registration_image_data["img_post_reg"][slice_idx].shape[0]),

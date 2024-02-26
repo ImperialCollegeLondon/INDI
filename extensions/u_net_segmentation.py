@@ -214,7 +214,7 @@ def get_average_images(
     ----------
     slices: array with slice locations string
     img_size: image shape before cropping
-    img_post_reg: images after registration
+    registration_image_data: registration images and QC info
     settings
     logger
 

@@ -66,11 +66,8 @@ def remove_outliers_ai(
 
 def manual_image_removal(
     data: pd.DataFrame,
-    info: dict,
-    registration_image_data: dict,
     settings: dict,
     slices: NDArray,
-    logger: logging.Logger,
 ) -> [pd.DataFrame, pd.DataFrame, dict, NDArray]:
     """
     Manual removal of images. A matplotlib window will open, and we can select images to be removed.
@@ -194,9 +191,9 @@ def manual_image_removal(
         fig.canvas.mpl_connect("button_press_event", onclick_select)
         plt.show()
 
-        # store the indices of the rejected images
-        # indices for all slices together
-        # indices within each slice
+        # store the indices of the rejected images:
+        # - indices for all slices together
+        # - indices within each slice
         for item in store_selected_images:
             c_bval = item[0]
             c_dir = item[1]
@@ -211,7 +208,6 @@ def manual_image_removal(
             stored_indices_all_slices.append(c_table[(c_table["file_name"] == c_filename)]["index"].iloc[0])
             stored_indices_per_slice[slice_idx].append(c_table[(c_table["file_name"] == c_filename)]["index"].index[0])
 
-    # TODO continue here
     # store indices in descending order
     stored_indices_all_slices.sort(reverse=True)
     for slice_idx in slices:
@@ -239,6 +235,7 @@ def remove_outliers(
     ----------
     data: dataframe with images and diffusion info
     slices: array with slice integers
+    registration_image_data: dict with registration images and QC data
     settings
     info
     logger
@@ -265,11 +262,7 @@ def remove_outliers(
         else:
             # Manual image removal
             logger.info("Starting manual image removal...")
-            # if not os.path.exists(os.path.join(settings["dicom_folder"], "rejected_images")):
-            #     os.makedirs(os.path.join(settings["dicom_folder"], "rejected_images"))
-            data_original, rejected_indices, stored_indices_per_slice = manual_image_removal(
-                data, info, registration_image_data, settings, slices, logger
-            )
+            data_original, rejected_indices, stored_indices_per_slice = manual_image_removal(data, settings, slices)
             logger.info("Manual image removal done.")
 
         # remove the rejected images from the dataframe and also from the registration_image_data
@@ -343,8 +336,4 @@ def remove_outliers(
         rejected_indices,
     )
 
-    # TODO
-    # check if variable data has the images removed when loading, and also add the registration_image_data var
-    # I don't think that the variable data is correct when loading the file!
-    # also check for multislice data.
     return data, info, slices
