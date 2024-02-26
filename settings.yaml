@@ -6,10 +6,10 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/STEAM_SYS_old_dicoms
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/cima_scans/STEAM
 
 # anon, reg, main
-workflow_mode: anon
+workflow_mode: main
 
 # se, steam
 sequence_type: steam

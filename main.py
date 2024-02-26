@@ -54,14 +54,11 @@ dti, settings, logger, log_format, all_to_be_analysed_folders = initial_setup(sc
 
 # Warning about deleting DICOM data
 if settings["workflow_mode"] == "anon":
-    answer = query_yes_no(
-        "Are you sure you want to delete all DICOM files? "
-        "Make sure DICOMs are backed up somewhere else before saying yes!"
-    )
+    answer = query_yes_no("Are you sure you want to archive all DICOM files?")
     if answer:
-        logger.info("DELETING DICOM DATA TO ALL DATASETS FOUND!")
+        logger.info("Archiving DICOMs in an encrypted 7z file!")
     else:
-        logger.error("Exiting, no permission to delete DICOM data.")
+        logger.error("Exiting, no permission to archive DICOM data.")
         sys.exit()
 
 

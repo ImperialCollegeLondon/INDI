@@ -270,6 +270,8 @@ def registration_loop(
 
                         # get the deformation field and apply it to the grid image
                         def_field = itk.transformix_deformation_field(mov, result_transform_parameters)
+                        os.remove("deformationField.raw")
+                        os.remove("deformationField.mhd")
                         def_field = np.asarray(def_field).astype(np.float32)
                         registration_image_data["deformation_field"][slice_idx]["field"][i] = def_field
                         # get the deformation grid
