@@ -149,7 +149,32 @@ def collect_global_header_info(dicom_header_fields: dict, dicom_type: int) -> di
     return header_info
 
 
-def get_b_value(c_dicom_header: dict, dicom_type: int) -> float:
+def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: int, frame_idx: int) -> NDArray:
+    """
+    Get the pixel array from the DICOM header
+
+    Parameters
+    ----------
+    ds
+    dicom_type
+    frame_idx
+
+    Returns
+    -------
+    pixel array
+
+    """
+    pixel_array = ds.pixel_array
+    if dicom_type == 2:
+        if pixel_array.ndim == 3:
+            return pixel_array[frame_idx]
+        elif pixel_array.ndim == 2:
+            return pixel_array[:, :]
+    elif dicom_type == 1:
+        return pixel_array
+
+
+def get_b_value(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> float:
     """
     Get b-value from a dict with the DICOM header.
     If no b-value fond, then return 0.0
@@ -158,6 +183,7 @@ def get_b_value(c_dicom_header: dict, dicom_type: int) -> float:
     ----------
     c_dicom_header
     dicom_type
+    frame_idx
 
     Returns
     -------
@@ -165,8 +191,13 @@ def get_b_value(c_dicom_header: dict, dicom_type: int) -> float:
 
     """
     if dicom_type == 2:
-        if "DiffusionBValue" in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0].keys():
-            return c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0]["DiffusionBValue"]
+        if (
+            "DiffusionBValue"
+            in c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["MRDiffusionSequence"][0].keys()
+        ):
+            return c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["MRDiffusionSequence"][0][
+                "DiffusionBValue"
+            ]
         else:
             return 0.0
 
@@ -177,7 +208,7 @@ def get_b_value(c_dicom_header: dict, dicom_type: int) -> float:
             return 0.0
 
 
-def get_diffusion_directions(c_dicom_header: dict, dicom_type: int) -> Tuple:
+def get_diffusion_directions(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> Tuple:
     """
     Get diffusion direction 3D vector.
     If no direction found, then return a normalised vector [1/sqrt(3), 1/sqrt(3), 1/sqrt(3)].
@@ -188,6 +219,7 @@ def get_diffusion_directions(c_dicom_header: dict, dicom_type: int) -> Tuple:
     ----------
     c_dicom_header
     dicom_type
+    frame_idx
 
     Returns
     -------
@@ -197,8 +229,8 @@ def get_diffusion_directions(c_dicom_header: dict, dicom_type: int) -> Tuple:
     if dicom_type == 2:
         if (
             "DiffusionGradientDirectionSequence"
-            in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0].keys()
-            and c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0][
+            in c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["MRDiffusionSequence"][0].keys()
+            and c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["MRDiffusionSequence"][0][
                 "DiffusionDirectionality"
             ]
             != "NONE"
@@ -206,7 +238,7 @@ def get_diffusion_directions(c_dicom_header: dict, dicom_type: int) -> Tuple:
             val = tuple(
                 [
                     float(i)
-                    for i in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0][
+                    for i in c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["MRDiffusionSequence"][0][
                         "DiffusionGradientDirectionSequence"
                     ][0]["DiffusionGradientOrientation"]
                 ]
@@ -222,7 +254,7 @@ def get_diffusion_directions(c_dicom_header: dict, dicom_type: int) -> Tuple:
             return (1 / math.sqrt(3), 1 / math.sqrt(3), 1 / math.sqrt(3))
 
 
-def get_image_position(c_dicom_header: dict, dicom_type: int) -> Tuple:
+def get_image_position(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> Tuple:
     """
     Get the image position patient info from the DICOM header
 
@@ -230,6 +262,7 @@ def get_image_position(c_dicom_header: dict, dicom_type: int) -> Tuple:
     ----------
     c_dicom_header
     dicom_type
+    frame_idx
 
     Returns
     -------
@@ -240,7 +273,7 @@ def get_image_position(c_dicom_header: dict, dicom_type: int) -> Tuple:
         val = tuple(
             [
                 float(i)
-                for i in c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["PlanePositionSequence"][0][
+                for i in c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["PlanePositionSequence"][0][
                     "ImagePositionPatient"
                 ]
             ]
@@ -254,7 +287,7 @@ def get_image_position(c_dicom_header: dict, dicom_type: int) -> Tuple:
         return val
 
 
-def get_nominal_interval(c_dicom_header: dict, dicom_type: int) -> float:
+def get_nominal_interval(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> float:
     """
     Get the nominal interval from the DICOM header
 
@@ -262,6 +295,7 @@ def get_nominal_interval(c_dicom_header: dict, dicom_type: int) -> float:
     ----------
     c_dicom_header
     dicom_type
+    frame_idx
 
     Returns
     -------
@@ -270,7 +304,7 @@ def get_nominal_interval(c_dicom_header: dict, dicom_type: int) -> float:
     """
     if dicom_type == 2:
         val = float(
-            c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["CardiacSynchronizationSequence"][0][
+            c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["CardiacSynchronizationSequence"][0][
                 "RRIntervalTimeNominal"
             ]
         )
@@ -281,7 +315,7 @@ def get_nominal_interval(c_dicom_header: dict, dicom_type: int) -> float:
         return val
 
 
-def get_acquisition_time(c_dicom_header: dict, dicom_type: int) -> str:
+def get_acquisition_time(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> str:
     """
     Get acquisition time string
 
@@ -289,6 +323,7 @@ def get_acquisition_time(c_dicom_header: dict, dicom_type: int) -> str:
     ----------
     c_dicom_header
     dicom_type
+    frame_idx
 
     Returns
     -------
@@ -296,7 +331,7 @@ def get_acquisition_time(c_dicom_header: dict, dicom_type: int) -> str:
 
     """
     if dicom_type == 2:
-        return c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["FrameContentSequence"][0][
+        return c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["FrameContentSequence"][0][
             "FrameAcquisitionDateTime"
         ][8:]
 
@@ -304,7 +339,7 @@ def get_acquisition_time(c_dicom_header: dict, dicom_type: int) -> str:
         return c_dicom_header["AcquisitionTime"]
 
 
-def get_acquisition_date(c_dicom_header: dict, dicom_type: int) -> str:
+def get_acquisition_date(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> str:
     """
     Get acquisition date string.
 
@@ -312,6 +347,7 @@ def get_acquisition_date(c_dicom_header: dict, dicom_type: int) -> str:
     ----------
     c_dicom_header
     dicom_type
+    frame_idx
 
     Returns
     -------
@@ -319,7 +355,7 @@ def get_acquisition_date(c_dicom_header: dict, dicom_type: int) -> str:
 
     """
     if dicom_type == 2:
-        return c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["FrameContentSequence"][0][
+        return c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["FrameContentSequence"][0][
             "FrameAcquisitionDateTime"
         ][:8]
 
@@ -327,7 +363,7 @@ def get_acquisition_date(c_dicom_header: dict, dicom_type: int) -> str:
         return c_dicom_header["AcquisitionDate"]
 
 
-def get_diffusion_direction_in_plane_bool(c_dicom_header: dict, dicom_type: int) -> bool:
+def get_diffusion_direction_in_plane_bool(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> bool:
     """
     Get boolean if the direction given is in the image plane or not.
     For the STEAM sequence the spoiler gradients of the b0 are in the image plane,
@@ -337,6 +373,7 @@ def get_diffusion_direction_in_plane_bool(c_dicom_header: dict, dicom_type: int)
     ----------
     c_dicom_header
     dicom_type
+    frame_idx
 
     Returns
     -------
@@ -345,7 +382,9 @@ def get_diffusion_direction_in_plane_bool(c_dicom_header: dict, dicom_type: int)
     """
     if dicom_type == 2:
         if (
-            c_dicom_header["PerFrameFunctionalGroupsSequence"][0]["MRDiffusionSequence"][0]["DiffusionDirectionality"]
+            c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["MRDiffusionSequence"][0][
+                "DiffusionDirectionality"
+            ]
             == "BMATRIX"
         ):
             return False
@@ -420,9 +459,13 @@ def get_data_old_or_modern_dicoms(
     if "PerFrameFunctionalGroupsSequence" in ds:
         dicom_type = 2
         logger.debug("DICOM type: Modern")
+        # How many images in one file?
+        n_images_per_file = len(ds.PerFrameFunctionalGroupsSequence)
+        logger.debug("Number of images per DICOM: " + str(n_images_per_file))
     else:
         dicom_type = 1
         logger.debug("DICOM type: Legacy")
+        n_images_per_file = 1
 
     # get DICOM header in a dict
     dicom_header_fields = dictify(ds)
@@ -446,31 +489,33 @@ def get_data_old_or_modern_dicoms(
             if field in c_dicom_header:
                 c_dicom_header.pop(field)
 
-        # append values (will be a row in the dataframe)
-        df.append(
-            (
-                # file name
-                file_name,
-                # array of pixel values
-                ds.pixel_array,
-                # b-value or zero if not a field
-                get_b_value(c_dicom_header, dicom_type),
-                # diffusion directions, or [1, 1, 1] normalised if not a field
-                get_diffusion_directions(c_dicom_header, dicom_type),
-                # image position
-                get_image_position(c_dicom_header, dicom_type),
-                # nominal interval
-                get_nominal_interval(c_dicom_header, dicom_type),
-                # acquisition time
-                get_acquisition_time(c_dicom_header, dicom_type),
-                # acquisition date
-                get_acquisition_date(c_dicom_header, dicom_type),
-                # False if diffusion direction is a field
-                get_diffusion_direction_in_plane_bool(c_dicom_header, dicom_type),
-                # dictionary with header fields
-                c_dicom_header,
+        # loop over each frame within each file
+        for frame_idx in range(n_images_per_file):
+            # append values (will be a row in the dataframe)
+            df.append(
+                (
+                    # file name
+                    file_name,
+                    # array of pixel values
+                    get_pixel_array(ds, dicom_type, frame_idx),
+                    # b-value or zero if not a field
+                    get_b_value(c_dicom_header, dicom_type, frame_idx),
+                    # diffusion directions, or [1, 1, 1] normalised if not a field
+                    get_diffusion_directions(c_dicom_header, dicom_type, frame_idx),
+                    # image position
+                    get_image_position(c_dicom_header, dicom_type, frame_idx),
+                    # nominal interval
+                    get_nominal_interval(c_dicom_header, dicom_type, frame_idx),
+                    # acquisition time
+                    get_acquisition_time(c_dicom_header, dicom_type, frame_idx),
+                    # acquisition date
+                    get_acquisition_date(c_dicom_header, dicom_type, frame_idx),
+                    # False if diffusion direction is a field
+                    get_diffusion_direction_in_plane_bool(c_dicom_header, dicom_type, frame_idx),
+                    # dictionary with header fields
+                    c_dicom_header,
+                )
             )
-        )
     df = pd.DataFrame(
         df,
         columns=[

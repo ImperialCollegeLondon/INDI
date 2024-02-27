@@ -1406,6 +1406,7 @@ def export_to_hdf5(dti: dict, settings: dict):
 
 
 def export_results(
+    data: pd.DataFrame,
     dti: dict,
     info: dict,
     settings: dict,
@@ -1417,10 +1418,12 @@ def export_results(
 ):
     """
 
-    Export results to disk: VTK, PNGs, Xarray, pickled dictionary and YAML.
+    Export results to disk: VTK, PNGs, HDF5, pickled dictionary and YAML.
 
     Parameters
     ----------
+    data: pd.DataFrame
+        dataframe with the diffusion images and info
     dti : dict
         DTI maps
     info : dict
@@ -1438,6 +1441,9 @@ def export_results(
     colormaps : dict
         DTI tailored colormaps
     """
+
+    # export database
+
     # plot eigenvectors and tensor in VTK format
     export_vectors_tensors_vtk(dti, info, settings, mask_3c)
 
