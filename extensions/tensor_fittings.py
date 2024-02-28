@@ -208,8 +208,8 @@ def dipy_tensor_fit(
 
     logger.info("Starting tensor fitting with method: " + method)
 
-    tensor = np.empty([info["img_size"][0], info["img_size"][1], 3, 3, len(slices)])
-    s0 = np.empty([info["img_size"][0], info["img_size"][1], len(slices)])
+    tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3, info["n_slices"]])
+    s0 = np.zeros([info["img_size"][0], info["img_size"][1], info["n_slices"]])
     residuals_img = {}
     residuals_map = {}
 

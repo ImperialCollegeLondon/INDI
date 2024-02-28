@@ -6,13 +6,13 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/Zohya/SIT_tractography/in_vivo/tractography_scans/ss
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/cima_scans/Vol7/highresolution1.8mm_2slice
 
 # anon, reg, main
 workflow_mode: main
 
 # se, steam
-sequence_type: steam
+sequence_type: se
 
 # ========================================================================================
 # DEBUGGING
@@ -59,7 +59,7 @@ assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
 # remove slices integers
-remove_slices: [0, 10, 11, 12, 13]
+remove_slices: []
 
 # ========================================================================================
 # AI MODELS

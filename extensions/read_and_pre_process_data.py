@@ -961,7 +961,7 @@ def reorder_by_slice(data, settings, info, logger):
 
     # slices is going to be a list of all the integers
     slices = data.slice_integer.unique()
-    n_slices = len(slices)
+    # n_slices = len(slices)
     info["n_slices"] = n_slices
 
     return data, info, slices, n_slices

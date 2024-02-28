@@ -167,7 +167,7 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
     common_path = "/usr/local/dtcmr/unet_ensemble/"
     n_ensemble = settings["n_ensemble"]
     n_classes = 3
-    predicted_label_3c = np.empty(shape=(n_ensemble, img.shape[0], img.shape[1], img.shape[2], n_classes))
+    predicted_label_3c = np.zeros(shape=(n_ensemble, img.shape[0], img.shape[1], img.shape[2], n_classes))
     img = np.expand_dims(img, axis=-1)
 
     # loop over all models
@@ -186,7 +186,7 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
     mean_predicted_labels = np.mean(predicted_label_3c, axis=0)
 
     # We need to discretise the labels to the highest probability class
-    mask_3c = np.empty((img.shape[0], img.shape[1], img.shape[2]))
+    mask_3c = np.zeros((img.shape[0], img.shape[1], img.shape[2]))
     for i in range(n_slices):
         current_predicted_labels_3c = mean_predicted_labels[i, :, :, :]
         mask_3c[i, :, :] = np.argmax(current_predicted_labels_3c, axis=2)
@@ -203,6 +203,7 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
 def get_average_images(
     slices: NDArray,
     img_size: tuple,
+    n_slices: int,
     registration_image_data: dict,
     settings: dict,
     logger: logging.Logger,
@@ -222,10 +223,9 @@ def get_average_images(
     -------
 
     """
-    n_slices = len(slices)
 
     # get average image for each slice
-    average_images = np.empty([n_slices, img_size[0], img_size[1]])
+    average_images = np.zeros([n_slices, img_size[0], img_size[1]])
     for slice_idx in slices:
         average_images[slice_idx] = np.mean(registration_image_data["img_post_reg"][slice_idx], axis=0)
 
@@ -311,6 +311,7 @@ def plot_segmentation_unet(n_slices: int, slices: NDArray, mask_3c: NDArray, ave
 def u_net_segment_heart(
     average_images: NDArray,
     slices: NDArray,
+    n_slices: int,
     settings: dict,
     logger: logging.Logger,
 ) -> NDArray:
@@ -326,8 +327,6 @@ def u_net_segment_heart(
     -------
     Segmented mask and average image for each slice
     """
-    n_slices = len(slices)
-
     mask_3c = u_net_segmentation_3ch(average_images, n_slices, settings, logger)
 
     mask_3c = clean_mask(mask_3c)

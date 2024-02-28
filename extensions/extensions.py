@@ -160,7 +160,7 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     save_vtk_file(vectors, tensors, maps, "eigensystem", os.path.join(settings["results"], "data"))
 
 
-def clean_image(img: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArray, NDArray, float]:
+def clean_image(img: NDArray, slices: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArray, NDArray, float]:
     """
     Clean images by thresholding.
 
@@ -181,7 +181,7 @@ def clean_image(img: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArr
     mask = np.zeros(img.shape)
     thresh = np.zeros(n_slices)
 
-    for slice_idx in range(n_slices):
+    for slice_idx in slices:
         if blur:
             # blur the image to denoise
             img[slice_idx] = skimage.filters.gaussian(img[slice_idx], sigma=2.0)
@@ -228,6 +228,7 @@ def get_cylindrical_coordinates_short_axis(
     mask: NDArray,
     mag_image: NDArray,
     slices: NDArray,
+    n_slices: int,
     settings: dict,
 ) -> [dict]:
     """
@@ -246,17 +247,14 @@ def get_cylindrical_coordinates_short_axis(
     heart_coordinates as a dictionary with radi, circ, long arrays
     """
 
-    # number of slices
-    n_slices = len(slices)
-
     # the three orthogonal vectors
     long = np.zeros((mask.shape + (3,)))
     circ = np.zeros((mask.shape + (3,)))
     radi = np.zeros((mask.shape + (3,)))
 
     centres = []
-    for slice in range(n_slices):
-        centres.append([mask[slice].shape[0] / 2, mask[slice].shape[1] / 2])
+    for slice_idx in slices:
+        centres.append([mask[slice_idx].shape[0] / 2, mask[slice_idx].shape[1] / 2])
 
     coords = np.where(mask == 1)
     n_points = len(coords[0])
@@ -322,7 +320,7 @@ def get_cylindrical_coordinates_short_axis(
 
 
 def get_cardiac_coordinates_short_axis(
-    mask: NDArray, segmentation: dict, slices, settings, dti: dict, average_images: NDArray
+    mask: NDArray, segmentation: dict, slices: NDArray, n_slices: int, settings, dti: dict, average_images: NDArray
 ) -> [dict, dict]:
     """
     Function to calculate the local cardiac coordinates for a short-axis plane
@@ -338,7 +336,7 @@ def get_cardiac_coordinates_short_axis(
     heart_coordinates as a dictionary with radi, circ, long arrays
     lv_centres: dictionary with the LV centres for each slice
     """
-    lv_centres = []
+    lv_centres = np.zeros([n_slices, 2], dtype=int)
 
     # the three orthogonal vectors
     long = np.zeros((mask.shape + (3,)))
@@ -360,7 +358,7 @@ def get_cardiac_coordinates_short_axis(
         # find the LV centre
         count = (lv_mask == 1).sum()
         x_center, y_center = np.round(np.argwhere(lv_mask == 1).sum(0) / count)
-        lv_centres.append([x_center, y_center])
+        lv_centres[slice_idx, :] = [x_center, y_center]
 
         phi_matrix[slice_idx] = np.zeros(lv_mask.shape)
 
@@ -709,7 +707,7 @@ def clean_mask(mask: NDArray) -> NDArray:
     """
 
     img_size = np.shape(mask)
-    clean_mask = np.empty([img_size[0], img_size[1], img_size[2]])
+    clean_mask = np.zeros([img_size[0], img_size[1], img_size[2]])
 
     for idx in range(img_size[0]):
         slice_mask = mask[idx]
@@ -1605,7 +1603,7 @@ def get_lv_segments(
             segments_and_points[(slice_idx, segment_idx + 1)] = points
 
     # prepare the output
-    segments_mask = np.empty(mask_3c.shape)
+    segments_mask = np.zeros(mask_3c.shape)
     segments_mask[:] = np.nan
     for slice_idx in slices:
         for curr_segment in range(1, (LV_free_wall_n_segs + LV_septal_wall_n_segs + 1)):
