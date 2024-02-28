@@ -1014,7 +1014,8 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         # =========================================================
         # export the dataframe to a zip file
         # =========================================================
-        # save the dataframe
+        # save the dataframe and the info dict
+        data.attrs["info"] = info
         save_path = os.path.join(settings["dicom_folder"], "data.zip")
         data.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
 
@@ -1058,6 +1059,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         # read the dataframe
         save_path = os.path.join(settings["dicom_folder"], "data.zip")
         data = pd.read_pickle(save_path)
+        info = data.attrs["info"]
 
     # now that we loaded the dicom information we need to organise it as
     # we cannot assume that the dicom files are in any particular order
@@ -1098,8 +1100,8 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     if settings["debug"]:
         create_2d_montage_from_database(
             data,
-            "b_value",
-            "direction",
+            "b_value_original",
+            "direction_original",
             info,
             settings,
             slices,
