@@ -580,7 +580,7 @@ def image_registration(
         # saving registration data
         save_path = os.path.join(settings["session"], "image_registration_data.zip")
         # table with only filename, image, acquisition time and date
-        data_basic = data[["file_name", "image", "acquisition_time", "acquisition_date"]]
+        data_basic = data[["file_name", "image", "acquisition_date_time"]]
         data_basic.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
         # saving registration extras
         np.savez_compressed(
@@ -594,7 +594,7 @@ def image_registration(
 
         # loading registration data
         data_loaded_basic = pd.read_pickle(os.path.join(settings["session"], "image_registration_data.zip"))
-        data_basic = data[["file_name", "image", "acquisition_time", "acquisition_date"]]
+        data_basic = data[["file_name", "image", "acquisition_date_time"]]
         # check if the original data basic table matches the loaded one (except the image column)
         if not data_basic.drop(columns=["image"]).equals(data_loaded_basic.drop(columns=["image"])):
             logger.error("Loaded Dataframe with registered images does not match pre-registered Dataframe!")
