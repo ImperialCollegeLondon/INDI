@@ -29,7 +29,7 @@ from extensions.manual_lv_segmentation import get_sa_contours
 from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
 
 
-def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, name: str, folder_path: str):
+def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
     """
     Export a dictionary of vectors and scalars to a vtk file
     :param vectors: dictionary of vectors
@@ -43,8 +43,36 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, name: str, folder
     # [slice, row, column, xyz]
     shape = vectors[next(iter(vectors))].shape
 
+    # get pixel position grid
+    pixel_positions = {}
+    # first in x and y
+    pixel_positions["rows"] = np.linspace(0, info["pixel_spacing"][0] * info["img_size"][0] - 1, info["img_size"][0])
+    pixel_positions["cols"] = np.linspace(0, info["pixel_spacing"][1] * info["img_size"][1] - 1, info["img_size"][1])
+    # then in z
+    # collect image positions
+    image_positions = []
+    for key_, name_ in info["integer_to_image_positions"].items():
+        image_positions.append(name_)
+    # calculate distances between slices
+    spacing_z = [
+        np.sqrt(
+            (image_positions[i][0] - image_positions[i + 1][0]) ** 2
+            + (image_positions[i][1] - image_positions[i + 1][1]) ** 2
+            + (image_positions[i][2] - image_positions[i + 1][2]) ** 2
+        )
+        for i in range(len(image_positions) - 1)
+    ]
+    spacing_z.insert(0, 0)
+    spacing_z = np.cumsum(np.array(spacing_z))
+
+    pixel_positions["slices"] = np.array(spacing_z)
+
     # Generate points in a meshgrid
-    x, y, z = np.mgrid[0 : shape[1], 0 : shape[2], 0 : shape[0]]
+    # rows = np.linspace(0, shape[1] - 1, shape[1])
+    # cols = np.linspace(0, shape[2] - 1, shape[2])
+    # slices = np.linspace(0, shape[0] - 1, shape[0]) * 10
+    # x, y, z = np.meshgrid(cols, rows, slices)
+    x, y, z = np.meshgrid(pixel_positions["cols"], pixel_positions["rows"], pixel_positions["slices"])
     pts = np.empty(z.shape + (3,), dtype=float)
     pts[..., 0] = x
     pts[..., 1] = y
@@ -57,7 +85,7 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, name: str, folder
 
     # we also need to rotate the tensors and vectors
     # swap x and y, then negate x and z
-    rot_a = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, -1]])
+    rot_a = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
     rot_b = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
     for vector_idx, vector_name in enumerate(vectors):
         vectors[vector_name] = np.matmul(vectors[vector_name], rot_a)
@@ -72,7 +100,7 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, name: str, folder
         tensors[tensor_name] = tensors[tensor_name].transpose(0, 2, 1, 3).copy()
         tensors[tensor_name].shape = int(tensors[tensor_name].size / 9), 9
     for scalar_idx, scalar_name in enumerate(scalars):
-        scalars[scalar_name] = scalars[scalar_name].T.copy()
+        scalars[scalar_name] = scalars[scalar_name].transpose(0, 2, 1).copy()
 
     # Create the dataset for the vector field
     sg = tvtk.StructuredGrid(dimensions=x.shape, points=pts)
@@ -157,7 +185,7 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     maps["mask"] = mask_3c
     maps["s0"] = dti["s0"]
 
-    save_vtk_file(vectors, tensors, maps, "eigensystem", os.path.join(settings["results"], "data"))
+    save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
 
 
 def clean_image(img: NDArray, slices: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArray, NDArray, float]:
@@ -312,9 +340,11 @@ def get_cylindrical_coordinates_short_axis(
         #         )
         #         plt.close()
 
-        maps = {"mag": mag_image, "mask": mask}
-        lcc = copy.deepcopy(local_cylindrical_coordinates)
-        save_vtk_file(lcc, {}, maps, "cylindrical_coordinates", settings["debug_folder"])
+        pass
+        # maps = {"mag": mag_image, "mask": mask}
+        # lcc = copy.deepcopy(local_cylindrical_coordinates)
+        # TODO: fix
+        # save_vtk_file(lcc, {}, maps, "cylindrical_coordinates", settings["debug_folder"])
 
     return local_cylindrical_coordinates
 
@@ -441,13 +471,15 @@ def get_cardiac_coordinates_short_axis(
             plt.close()
 
         # save local_cardiac_coordinates to a vtk file
-        maps = {"FA": dti["fa"], "MD": dti["md"], "mask": mask, "mean_img": average_images}
+        # maps = {"FA": dti["fa"], "MD": dti["md"], "mask": mask, "mean_img": average_images}
         # dictionaries and lists are mutable, so they will be modified also outside the function
         # so here, to prevent local_cardiac_coordinates dict to be modified I am creating a
         # deep copy.
-        lcc = copy.deepcopy(local_cardiac_coordinates)
+        # lcc = copy.deepcopy(local_cardiac_coordinates)
         if settings["debug"]:
-            save_vtk_file(lcc, {}, maps, "cardiac_coordinates", settings["debug_folder"])
+            pass
+            # TODO fix
+            # save_vtk_file(lcc, {}, maps, "cardiac_coordinates", settings["debug_folder"])
 
     return local_cardiac_coordinates, lv_centres, phi_matrix
 
