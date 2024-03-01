@@ -83,10 +83,8 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
     pts = pts.transpose(2, 1, 0, 3).copy()
     pts.shape = int(pts.size / 3), 3
 
-    # we also need to rotate the tensors and vectors
-    # swap x and y, then negate x and z
+    # we need to flip y in the vectors and tensors
     rot_a = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
-    rot_b = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
     for vector_idx, vector_name in enumerate(vectors):
         vectors[vector_name] = np.matmul(vectors[vector_name], rot_a)
         vectors[vector_name] = vectors[vector_name].transpose(0, 2, 1, 3).copy()
@@ -94,7 +92,7 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
     for tensor_idx, tensor_name in enumerate(tensors):
         _t = tensors[tensor_name].copy()
         _t = np.reshape(_t, (shape[0], shape[1], shape[2], 3, 3))
-        _t = np.matmul(rot_b, np.matmul(_t, rot_b.T))
+        _t = np.matmul(rot_a, np.matmul(_t, rot_a.T))
         _t = np.reshape(_t, (shape[0], shape[1], shape[2], 9))
         tensors[tensor_name] = _t.copy()
         tensors[tensor_name] = tensors[tensor_name].transpose(0, 2, 1, 3).copy()
@@ -104,9 +102,6 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
 
     # Create the dataset for the vector field
     sg = tvtk.StructuredGrid(dimensions=x.shape, points=pts)
-    scalar_idx = 0
-    vector_idx = 0
-    tensor_idx = 0
     counter = 0
     # loop over scalar maps
     for scalar_idx, scalar_name in enumerate(scalars):
@@ -147,7 +142,7 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
     write_data(sg, os.path.join(folder_path, name + ".vtk"))
 
 
-def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray):
+def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray):
     """
     Organise the data in order for the DTI maps to be exported in VTK format
 
@@ -184,6 +179,7 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     maps["FA"] = dti["fa"]
     maps["mask"] = mask_3c
     maps["s0"] = dti["s0"]
+    maps["mag_image"] = average_images
 
     save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
 
@@ -1415,7 +1411,7 @@ def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
     return ds
 
 
-def export_to_hdf5(dti: dict, settings: dict):
+def export_to_hdf5(dti: dict, mask_3c: NDArray, settings: dict):
     """
     Export DTI maps to HDF5
 
@@ -1429,6 +1425,7 @@ def export_to_hdf5(dti: dict, settings: dict):
         for name, key in dti.items():
             if isinstance(key, np.ndarray):
                 hf.create_dataset(name, data=key)
+        hf.create_dataset("mask", data=mask_3c)
 
     # # to read a map example
     # with h5py.File(os.path.join(settings["results"], "data", "DTI_maps" + ".h5"), "r") as hf:
@@ -1475,7 +1472,7 @@ def export_results(
     # export database
 
     # plot eigenvectors and tensor in VTK format
-    export_vectors_tensors_vtk(dti, info, settings, mask_3c)
+    export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)
 
     # plot results montage
     plot_results_montage(slices, mask_3c, average_images, dti, segmentation, colormaps, settings)
@@ -1484,12 +1481,18 @@ def export_results(
     # ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))
 
     # save results to h5 file
-    export_to_hdf5(dti, settings)
+    export_to_hdf5(dti, mask_3c, settings)
 
     # save to disk dti dictionary
     dti["info"] = info
     with open(os.path.join(settings["results"], "data", "DTI_data.dat"), "wb") as handle:
         pickle.dump(dti, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # save the final diffusion database
+    # save the dataframe and the info dict
+    data.attrs["mask"] = mask_3c
+    save_path = os.path.join(settings["results"], "data", "database.zip")
+    data.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
 
     # get git commit hash
     def get_git_revision_hash():

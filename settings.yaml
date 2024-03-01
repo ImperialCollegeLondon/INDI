@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/cima_scans/vol8
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/cima_scans/VOL11
 
 # anon, reg, main
 workflow_mode: main
@@ -33,7 +33,7 @@ registration: elastix_non_rigid
 registration_speed: fast
 
 # first, groupwise
-registration_reference_method: groupwise
+registration_reference_method: first
 
 # ========================================================================================
 # TENSOR FITTING
@@ -59,7 +59,7 @@ assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
 # remove slices integers
-remove_slices: [8,9]
+remove_slices: []
 
 # ========================================================================================
 # AI MODELS

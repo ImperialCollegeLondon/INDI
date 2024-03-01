@@ -555,7 +555,7 @@ def image_registration(
             for slice_idx in slices:
                 # dataframe for each slice
                 current_entries = data.loc[data["slice_integer"] == slice_idx]
-                # reference image will be the mean of all lower b-values
+                # get the reference image
                 ref_images[slice_idx] = get_ref_image(current_entries, slice_idx, settings, logger)
 
             # save reference images
