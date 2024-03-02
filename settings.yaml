@@ -6,13 +6,13 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/cima_scans/VOL11
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/in_vivo/5_slices_example
 
 # anon, reg, main
 workflow_mode: main
 
 # se, steam
-sequence_type: se
+sequence_type: steam
 
 # ========================================================================================
 # DEBUGGING
@@ -33,7 +33,7 @@ registration: elastix_non_rigid
 registration_speed: fast
 
 # first, groupwise
-registration_reference_method: first
+registration_reference_method: groupwise
 
 # ========================================================================================
 # TENSOR FITTING
