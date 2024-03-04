@@ -103,6 +103,7 @@ for current_folder in all_to_be_analysed_folders:
     average_images = get_average_images(
         slices,
         info["img_size"],
+        info["n_slices"],
         registration_image_data,
         settings,
         logger,
@@ -111,7 +112,9 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Heart segmentation
     # =========================================================
-    segmentation, mask_3c = heart_segmentation(data, average_images, slices, colormaps, settings, info, logger)
+    segmentation, mask_3c = heart_segmentation(
+        data, average_images, slices, info["n_slices"], colormaps, settings, info, logger
+    )
 
     # =========================================================
     # Crop FOV
@@ -182,7 +185,7 @@ for current_folder in all_to_be_analysed_folders:
     # Get cardiac coordinates
     # =========================================================
     local_cardiac_coordinates, lv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
-        mask_3c, segmentation, slices, settings, dti, average_images
+        mask_3c, segmentation, slices, info["n_slices"], settings, dti, average_images, info
     )
 
     # =========================================================
@@ -212,7 +215,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Plot main results and save data
     # =========================================================
-    export_results(dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps)
+    export_results(data, dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps)
 
     logger.info("============================================================")
     logger.info("====================== FINISHED ============================")

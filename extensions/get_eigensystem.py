@@ -151,7 +151,7 @@ def get_negative_eigenvalues_map(
 
     background_mask = np.copy(mask_3c)
     background_mask[background_mask > 0] = 1
-    negative_eig_map = np.empty([len(slices), info["img_size"][0], info["img_size"][1]])
+    negative_eig_map = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
     for slice_idx in slices:
         eig_1 = eigenvalues[slice_idx, :, :, 0] < 0
         eig_2 = eigenvalues[slice_idx, :, :, 1] < 0

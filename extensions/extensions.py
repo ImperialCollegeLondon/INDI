@@ -29,22 +29,50 @@ from extensions.manual_lv_segmentation import get_sa_contours
 from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
 
 
-def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, name: str, folder_path: str):
+def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
     """
-    Export a dictionary of vectors and scalars to a vtk file
-    :param vectors: dictionary of vectors
-    :param tensors: dictionary of tensors
-    :param scalars: dictionary of scalars
-    :param name: name of the file to be exported without extension
-    :param folder_path: path to the folder where the file will be saved
+
+    Parameters
+    ----------
+    vectors: dictionary with all the vectors fields
+    tensors: dictionary with all the tensor fields
+    scalars: dictionary with all the scalar maps
+    info: dict
+    name: filename
+    folder_path: save path
+
     """
 
     # shape of the vector field
     # [slice, row, column, xyz]
     shape = vectors[next(iter(vectors))].shape
 
+    # get pixel position grid
+    pixel_positions = {}
+    # first in x and y
+    pixel_positions["rows"] = np.linspace(0, info["pixel_spacing"][0] * info["img_size"][0] - 1, info["img_size"][0])
+    pixel_positions["cols"] = np.linspace(0, info["pixel_spacing"][1] * info["img_size"][1] - 1, info["img_size"][1])
+    # then in z
+    # collect image positions
+    image_positions = []
+    for key_, name_ in info["integer_to_image_positions"].items():
+        image_positions.append(name_)
+    # calculate distances between slices
+    spacing_z = [
+        np.sqrt(
+            (image_positions[i][0] - image_positions[i + 1][0]) ** 2
+            + (image_positions[i][1] - image_positions[i + 1][1]) ** 2
+            + (image_positions[i][2] - image_positions[i + 1][2]) ** 2
+        )
+        for i in range(len(image_positions) - 1)
+    ]
+    spacing_z.insert(0, 0)
+    spacing_z = np.cumsum(np.array(spacing_z))
+
+    pixel_positions["slices"] = np.array(spacing_z)
+
     # Generate points in a meshgrid
-    x, y, z = np.mgrid[0 : shape[1], 0 : shape[2], 0 : shape[0]]
+    x, y, z = np.meshgrid(pixel_positions["cols"], pixel_positions["rows"], pixel_positions["slices"])
     pts = np.empty(z.shape + (3,), dtype=float)
     pts[..., 0] = x
     pts[..., 1] = y
@@ -55,10 +83,8 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, name: str, folder
     pts = pts.transpose(2, 1, 0, 3).copy()
     pts.shape = int(pts.size / 3), 3
 
-    # we also need to rotate the tensors and vectors
-    # swap x and y, then negate x and z
-    rot_a = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, -1]])
-    rot_b = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
+    # we need to flip y in the vectors and tensors
+    rot_a = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
     for vector_idx, vector_name in enumerate(vectors):
         vectors[vector_name] = np.matmul(vectors[vector_name], rot_a)
         vectors[vector_name] = vectors[vector_name].transpose(0, 2, 1, 3).copy()
@@ -66,19 +92,16 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, name: str, folder
     for tensor_idx, tensor_name in enumerate(tensors):
         _t = tensors[tensor_name].copy()
         _t = np.reshape(_t, (shape[0], shape[1], shape[2], 3, 3))
-        _t = np.matmul(rot_b, np.matmul(_t, rot_b.T))
+        _t = np.matmul(rot_a, np.matmul(_t, rot_a.T))
         _t = np.reshape(_t, (shape[0], shape[1], shape[2], 9))
         tensors[tensor_name] = _t.copy()
         tensors[tensor_name] = tensors[tensor_name].transpose(0, 2, 1, 3).copy()
         tensors[tensor_name].shape = int(tensors[tensor_name].size / 9), 9
     for scalar_idx, scalar_name in enumerate(scalars):
-        scalars[scalar_name] = scalars[scalar_name].T.copy()
+        scalars[scalar_name] = scalars[scalar_name].transpose(0, 2, 1).copy()
 
     # Create the dataset for the vector field
     sg = tvtk.StructuredGrid(dimensions=x.shape, points=pts)
-    scalar_idx = 0
-    vector_idx = 0
-    tensor_idx = 0
     counter = 0
     # loop over scalar maps
     for scalar_idx, scalar_name in enumerate(scalars):
@@ -119,7 +142,7 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, name: str, folder
     write_data(sg, os.path.join(folder_path, name + ".vtk"))
 
 
-def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray):
+def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray):
     """
     Organise the data in order for the DTI maps to be exported in VTK format
 
@@ -129,9 +152,8 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     info: dictionary with info
     settings: dictionary with info
     mask_3c: numpy array with LV and RV mask
+    average_images: Array with average image for each slice
 
-    Returns
-    -------
 
     """
     vectors = {}
@@ -156,24 +178,26 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     maps["FA"] = dti["fa"]
     maps["mask"] = mask_3c
     maps["s0"] = dti["s0"]
+    maps["mag_image"] = average_images
 
-    save_vtk_file(vectors, tensors, maps, "eigensystem", os.path.join(settings["results"], "data"))
+    save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
 
 
-def clean_image(img: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArray, NDArray, float]:
+def clean_image(img: NDArray, slices: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArray, NDArray, float]:
     """
-    Clean images by thresholding.
 
-    Args:
-        img (NDArray): image, array of floats scaled [0 1]
-        factor (float, optional): Threshold reduction factor [0 1]. 1 means no reduction. Defaults to 0.5.
-        blur image option
+    Parameters
+    ----------
+    img: image, array of floats scaled [0 1]
+    slices: array with slice integers
+    factor: Threshold reduction factor [0 1]. 1 means no reduction. Defaults to 0.5.
+    blur image option
 
-    Returns:
-        clean_img (NDArray): cleaned image
-        mask (NDArray): threshold mask
-        thresh (float): threshold value used = Otsu's x factor
-
+    Returns
+    -------
+    clean_img (NDArray): cleaned image
+    mask (NDArray): threshold mask
+    thresh (float): threshold value used = Otsu's x factor
     """
 
     n_slices = img.shape[0]
@@ -181,7 +205,7 @@ def clean_image(img: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArr
     mask = np.zeros(img.shape)
     thresh = np.zeros(n_slices)
 
-    for slice_idx in range(n_slices):
+    for slice_idx in slices:
         if blur:
             # blur the image to denoise
             img[slice_idx] = skimage.filters.gaussian(img[slice_idx], sigma=2.0)
@@ -229,6 +253,7 @@ def get_cylindrical_coordinates_short_axis(
     mag_image: NDArray,
     slices: NDArray,
     settings: dict,
+    info: dict,
 ) -> [dict]:
     """
     Function to calculate an approximate version of the local cardiac coordinates for a short-axis plane
@@ -239,6 +264,7 @@ def get_cylindrical_coordinates_short_axis(
     mag_image: average images after registration
     slices: list of slices
     settings: yaml settings
+    info: dict
 
 
     Returns
@@ -246,17 +272,14 @@ def get_cylindrical_coordinates_short_axis(
     heart_coordinates as a dictionary with radi, circ, long arrays
     """
 
-    # number of slices
-    n_slices = len(slices)
-
     # the three orthogonal vectors
     long = np.zeros((mask.shape + (3,)))
     circ = np.zeros((mask.shape + (3,)))
     radi = np.zeros((mask.shape + (3,)))
 
     centres = []
-    for slice in range(n_slices):
-        centres.append([mask[slice].shape[0] / 2, mask[slice].shape[1] / 2])
+    for slice_idx in slices:
+        centres.append([mask[slice_idx].shape[0] / 2, mask[slice_idx].shape[1] / 2])
 
     coords = np.where(mask == 1)
     n_points = len(coords[0])
@@ -316,29 +339,40 @@ def get_cylindrical_coordinates_short_axis(
 
         maps = {"mag": mag_image, "mask": mask}
         lcc = copy.deepcopy(local_cylindrical_coordinates)
-        save_vtk_file(lcc, {}, maps, "cylindrical_coordinates", settings["debug_folder"])
+        save_vtk_file(lcc, {}, maps, info, "cylindrical_coordinates", settings["debug_folder"])
 
     return local_cylindrical_coordinates
 
 
 def get_cardiac_coordinates_short_axis(
-    mask: NDArray, segmentation: dict, slices, settings, dti: dict, average_images: NDArray
+    mask: NDArray,
+    segmentation: dict,
+    slices: NDArray,
+    n_slices: int,
+    settings,
+    dti: dict,
+    average_images: NDArray,
+    info: dict,
 ) -> [dict, dict]:
     """
     Function to calculate the local cardiac coordinates for a short-axis plane
     (radial, circumferential, and longitudinal vectors)
 
     mask: hearts masks
-    segmentation:
+    segmentation: dict with segmentation info
+    slices: array with slice integers
+    n_slices: int with number of slices
+    settings: dict
     dti: dictionary with DTI maps
     average_images: normalised average image per slice
+    info: dict
 
     Returns
     -------
     heart_coordinates as a dictionary with radi, circ, long arrays
     lv_centres: dictionary with the LV centres for each slice
     """
-    lv_centres = []
+    lv_centres = np.zeros([n_slices, 2], dtype=int)
 
     # the three orthogonal vectors
     long = np.zeros((mask.shape + (3,)))
@@ -360,7 +394,7 @@ def get_cardiac_coordinates_short_axis(
         # find the LV centre
         count = (lv_mask == 1).sum()
         x_center, y_center = np.round(np.argwhere(lv_mask == 1).sum(0) / count)
-        lv_centres.append([x_center, y_center])
+        lv_centres[slice_idx, :] = [x_center, y_center]
 
         phi_matrix[slice_idx] = np.zeros(lv_mask.shape)
 
@@ -449,7 +483,7 @@ def get_cardiac_coordinates_short_axis(
         # deep copy.
         lcc = copy.deepcopy(local_cardiac_coordinates)
         if settings["debug"]:
-            save_vtk_file(lcc, {}, maps, "cardiac_coordinates", settings["debug_folder"])
+            save_vtk_file(lcc, {}, maps, info, "cardiac_coordinates", settings["debug_folder"])
 
     return local_cardiac_coordinates, lv_centres, phi_matrix
 
@@ -709,7 +743,7 @@ def clean_mask(mask: NDArray) -> NDArray:
     """
 
     img_size = np.shape(mask)
-    clean_mask = np.empty([img_size[0], img_size[1], img_size[2]])
+    clean_mask = np.zeros([img_size[0], img_size[1], img_size[2]])
 
     for idx in range(img_size[0]):
         slice_mask = mask[idx]
@@ -1385,13 +1419,14 @@ def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
     return ds
 
 
-def export_to_hdf5(dti: dict, settings: dict):
+def export_to_hdf5(dti: dict, mask_3c: NDArray, settings: dict):
     """
     Export DTI maps to HDF5
 
     Parameters
     ----------
     dti: dict with DTI maps
+    mask_3c: segmentation mask
     settings: dict with settings
 
     """
@@ -1399,6 +1434,7 @@ def export_to_hdf5(dti: dict, settings: dict):
         for name, key in dti.items():
             if isinstance(key, np.ndarray):
                 hf.create_dataset(name, data=key)
+        hf.create_dataset("mask", data=mask_3c)
 
     # # to read a map example
     # with h5py.File(os.path.join(settings["results"], "data", "DTI_maps" + ".h5"), "r") as hf:
@@ -1406,6 +1442,7 @@ def export_to_hdf5(dti: dict, settings: dict):
 
 
 def export_results(
+    data: pd.DataFrame,
     dti: dict,
     info: dict,
     settings: dict,
@@ -1417,10 +1454,12 @@ def export_results(
 ):
     """
 
-    Export results to disk: VTK, PNGs, Xarray, pickled dictionary and YAML.
+    Export results to disk: VTK, PNGs, HDF5, pickled dictionary and YAML.
 
     Parameters
     ----------
+    data: pd.DataFrame
+        dataframe with the diffusion images and info
     dti : dict
         DTI maps
     info : dict
@@ -1438,8 +1477,9 @@ def export_results(
     colormaps : dict
         DTI tailored colormaps
     """
+
     # plot eigenvectors and tensor in VTK format
-    export_vectors_tensors_vtk(dti, info, settings, mask_3c)
+    export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)
 
     # plot results montage
     plot_results_montage(slices, mask_3c, average_images, dti, segmentation, colormaps, settings)
@@ -1448,12 +1488,18 @@ def export_results(
     # ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))
 
     # save results to h5 file
-    export_to_hdf5(dti, settings)
+    export_to_hdf5(dti, mask_3c, settings)
 
     # save to disk dti dictionary
     dti["info"] = info
     with open(os.path.join(settings["results"], "data", "DTI_data.dat"), "wb") as handle:
         pickle.dump(dti, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # save the final diffusion database
+    # save the dataframe and the info dict
+    data.attrs["mask"] = mask_3c
+    save_path = os.path.join(settings["results"], "data", "database.zip")
+    data.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
 
     # get git commit hash
     def get_git_revision_hash():
@@ -1599,7 +1645,7 @@ def get_lv_segments(
             segments_and_points[(slice_idx, segment_idx + 1)] = points
 
     # prepare the output
-    segments_mask = np.empty(mask_3c.shape)
+    segments_mask = np.zeros(mask_3c.shape)
     segments_mask[:] = np.nan
     for slice_idx in slices:
         for curr_segment in range(1, (LV_free_wall_n_segs + LV_septal_wall_n_segs + 1)):

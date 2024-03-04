@@ -16,6 +16,7 @@ def heart_segmentation(
     data: pd.DataFrame,
     average_images: NDArray,
     slices: NDArray,
+    n_slices: int,
     colormaps: dict,
     settings: dict,
     info: dict,
@@ -29,6 +30,7 @@ def heart_segmentation(
     data
     average_images
     slices
+    n_slices
     colormaps
     settings
     info
@@ -60,7 +62,9 @@ def heart_segmentation(
                 thr_mask,
                 average_images,
                 slices,
+                n_slices,
                 settings,
+                info,
             )
 
             tensor, _, _, _, info = dipy_tensor_fit(
@@ -100,11 +104,11 @@ def heart_segmentation(
         else:
             # segment heart with U-Net
             logger.info("U-Net ensemble size: " + str(settings["n_ensemble"]))
-            mask_3c = u_net_segment_heart(average_images, slices, settings, logger)
+            mask_3c = u_net_segment_heart(average_images, slices, info["n_slices"], settings, logger)
             logger.info("U-Net ensemble segmentation done")
     else:
         logger.info("U-Net segmentation is False")
-        mask_3c = np.zeros((len(slices), info["img_size"][0], info["img_size"][1]), dtype="uint8")
+        mask_3c = np.zeros((info["n_slices"], info["img_size"][0], info["img_size"][1]), dtype="uint8")
 
     # Manual LV segmentation
     # check if LV manual segmentation has been previously saved

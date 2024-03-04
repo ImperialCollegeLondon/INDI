@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/cima_scans/STEAM
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/in_vivo/5_slices_example
 
 # anon, reg, main
 workflow_mode: main
@@ -20,7 +20,7 @@ sequence_type: steam
 # True, False
 debug: True
 # True, False
-registration_extra_debug: True
+registration_extra_debug: False
 
 # ========================================================================================
 # IMAGE REGISTRATION
@@ -58,6 +58,8 @@ remove_outliers_with_ai: False
 assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
+# remove slices integers
+remove_slices: []
 
 # ========================================================================================
 # AI MODELS

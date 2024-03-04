@@ -44,7 +44,7 @@ def remove_outliers_ai(
     """
 
     # gather images from dataframe
-    dwis = np.empty([info["n_files"], info["img_size"][0], info["img_size"][1]])
+    dwis = np.zeros([info["n_files"], info["img_size"][0], info["img_size"][1]])
     for i in range(info["n_files"]):
         # moving image
         dwis[i] = data.loc[i, "image"]

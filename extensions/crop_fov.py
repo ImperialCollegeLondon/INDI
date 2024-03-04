@@ -28,6 +28,7 @@ def crop_images(
 
     Parameters
     ----------
+    dti: dict with DTI maps
     data: dataframe with the diffusion images
     mask_3c: segmentation mask of the heart
     segmentation: segmentation information
@@ -36,6 +37,7 @@ def crop_images(
     ref_images: reference images
     info: useful info dictionary
     logger: logger
+    settings: dict
 
     Returns
     -------
@@ -47,7 +49,6 @@ def crop_images(
     """
 
     n_entries, _ = data.shape
-    n_slices = len(slices)
 
     global_crop_mask = sum(mask_3c[i] for i in range(mask_3c.shape[0]))
     crop_mask = global_crop_mask != 0
@@ -64,8 +65,8 @@ def crop_images(
     ] = True
 
     # crop the U-Net masks and average images
-    mask_3c = mask_3c[np.ix_(np.repeat(True, n_slices), crop_mask.any(1), crop_mask.any(0))]
-    average_images = average_images[np.ix_(np.repeat(True, n_slices), crop_mask.any(1), crop_mask.any(0))]
+    mask_3c = mask_3c[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
+    average_images = average_images[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     for slice_str in slices:
         if ref_images[slice_str]["image"] is not None:
             ref_images[slice_str]["image"] = ref_images[slice_str]["image"][np.ix_(crop_mask.any(1), crop_mask.any(0))]
