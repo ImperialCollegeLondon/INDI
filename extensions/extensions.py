@@ -254,6 +254,7 @@ def get_cylindrical_coordinates_short_axis(
     slices: NDArray,
     n_slices: int,
     settings: dict,
+    info: dict,
 ) -> [dict]:
     """
     Function to calculate an approximate version of the local cardiac coordinates for a short-axis plane
@@ -336,17 +337,22 @@ def get_cylindrical_coordinates_short_axis(
         #         )
         #         plt.close()
 
-        pass
-        # maps = {"mag": mag_image, "mask": mask}
-        # lcc = copy.deepcopy(local_cylindrical_coordinates)
-        # TODO: fix
-        # save_vtk_file(lcc, {}, maps, "cylindrical_coordinates", settings["debug_folder"])
+        maps = {"mag": mag_image, "mask": mask}
+        lcc = copy.deepcopy(local_cylindrical_coordinates)
+        save_vtk_file(lcc, {}, maps, info, "cylindrical_coordinates", settings["debug_folder"])
 
     return local_cylindrical_coordinates
 
 
 def get_cardiac_coordinates_short_axis(
-    mask: NDArray, segmentation: dict, slices: NDArray, n_slices: int, settings, dti: dict, average_images: NDArray
+    mask: NDArray,
+    segmentation: dict,
+    slices: NDArray,
+    n_slices: int,
+    settings,
+    dti: dict,
+    average_images: NDArray,
+    info: dict,
 ) -> [dict, dict]:
     """
     Function to calculate the local cardiac coordinates for a short-axis plane
@@ -467,15 +473,13 @@ def get_cardiac_coordinates_short_axis(
             plt.close()
 
         # save local_cardiac_coordinates to a vtk file
-        # maps = {"FA": dti["fa"], "MD": dti["md"], "mask": mask, "mean_img": average_images}
+        maps = {"FA": dti["fa"], "MD": dti["md"], "mask": mask, "mean_img": average_images}
         # dictionaries and lists are mutable, so they will be modified also outside the function
         # so here, to prevent local_cardiac_coordinates dict to be modified I am creating a
         # deep copy.
-        # lcc = copy.deepcopy(local_cardiac_coordinates)
+        lcc = copy.deepcopy(local_cardiac_coordinates)
         if settings["debug"]:
-            pass
-            # TODO fix
-            # save_vtk_file(lcc, {}, maps, "cardiac_coordinates", settings["debug_folder"])
+            save_vtk_file(lcc, {}, maps, info, "cardiac_coordinates", settings["debug_folder"])
 
     return local_cardiac_coordinates, lv_centres, phi_matrix
 

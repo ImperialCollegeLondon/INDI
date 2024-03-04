@@ -185,7 +185,7 @@ for current_folder in all_to_be_analysed_folders:
     # Get cardiac coordinates
     # =========================================================
     local_cardiac_coordinates, lv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
-        mask_3c, segmentation, slices, info["n_slices"], settings, dti, average_images
+        mask_3c, segmentation, slices, info["n_slices"], settings, dti, average_images, info
     )
 
     # =========================================================
