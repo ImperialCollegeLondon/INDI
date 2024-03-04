@@ -28,6 +28,7 @@ def crop_images(
 
     Parameters
     ----------
+    dti: dict with DTI maps
     data: dataframe with the diffusion images
     mask_3c: segmentation mask of the heart
     segmentation: segmentation information
@@ -36,6 +37,7 @@ def crop_images(
     ref_images: reference images
     info: useful info dictionary
     logger: logger
+    settings: dict
 
     Returns
     -------

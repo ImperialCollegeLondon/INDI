@@ -31,12 +31,16 @@ from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as
 
 def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
     """
-    Export a dictionary of vectors and scalars to a vtk file
-    :param vectors: dictionary of vectors
-    :param tensors: dictionary of tensors
-    :param scalars: dictionary of scalars
-    :param name: name of the file to be exported without extension
-    :param folder_path: path to the folder where the file will be saved
+
+    Parameters
+    ----------
+    vectors: dictionary with all the vectors fields
+    tensors: dictionary with all the tensor fields
+    scalars: dictionary with all the scalar maps
+    info: dict
+    name: filename
+    folder_path: save path
+
     """
 
     # shape of the vector field
@@ -68,10 +72,6 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
     pixel_positions["slices"] = np.array(spacing_z)
 
     # Generate points in a meshgrid
-    # rows = np.linspace(0, shape[1] - 1, shape[1])
-    # cols = np.linspace(0, shape[2] - 1, shape[2])
-    # slices = np.linspace(0, shape[0] - 1, shape[0]) * 10
-    # x, y, z = np.meshgrid(cols, rows, slices)
     x, y, z = np.meshgrid(pixel_positions["cols"], pixel_positions["rows"], pixel_positions["slices"])
     pts = np.empty(z.shape + (3,), dtype=float)
     pts[..., 0] = x
@@ -152,9 +152,8 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     info: dictionary with info
     settings: dictionary with info
     mask_3c: numpy array with LV and RV mask
+    average_images: Array with average image for each slice
 
-    Returns
-    -------
 
     """
     vectors = {}
@@ -186,18 +185,19 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
 
 def clean_image(img: NDArray, slices: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArray, NDArray, float]:
     """
-    Clean images by thresholding.
 
-    Args:
-        img (NDArray): image, array of floats scaled [0 1]
-        factor (float, optional): Threshold reduction factor [0 1]. 1 means no reduction. Defaults to 0.5.
-        blur image option
+    Parameters
+    ----------
+    img: image, array of floats scaled [0 1]
+    slices: array with slice integers
+    factor: Threshold reduction factor [0 1]. 1 means no reduction. Defaults to 0.5.
+    blur image option
 
-    Returns:
-        clean_img (NDArray): cleaned image
-        mask (NDArray): threshold mask
-        thresh (float): threshold value used = Otsu's x factor
-
+    Returns
+    -------
+    clean_img (NDArray): cleaned image
+    mask (NDArray): threshold mask
+    thresh (float): threshold value used = Otsu's x factor
     """
 
     n_slices = img.shape[0]
@@ -252,7 +252,6 @@ def get_cylindrical_coordinates_short_axis(
     mask: NDArray,
     mag_image: NDArray,
     slices: NDArray,
-    n_slices: int,
     settings: dict,
     info: dict,
 ) -> [dict]:
@@ -265,6 +264,7 @@ def get_cylindrical_coordinates_short_axis(
     mag_image: average images after registration
     slices: list of slices
     settings: yaml settings
+    info: dict
 
 
     Returns
@@ -359,9 +359,13 @@ def get_cardiac_coordinates_short_axis(
     (radial, circumferential, and longitudinal vectors)
 
     mask: hearts masks
-    segmentation:
+    segmentation: dict with segmentation info
+    slices: array with slice integers
+    n_slices: int with number of slices
+    settings: dict
     dti: dictionary with DTI maps
     average_images: normalised average image per slice
+    info: dict
 
     Returns
     -------
@@ -1422,6 +1426,7 @@ def export_to_hdf5(dti: dict, mask_3c: NDArray, settings: dict):
     Parameters
     ----------
     dti: dict with DTI maps
+    mask_3c: segmentation mask
     settings: dict with settings
 
     """
@@ -1472,8 +1477,6 @@ def export_results(
     colormaps : dict
         DTI tailored colormaps
     """
-
-    # export database
 
     # plot eigenvectors and tensor in VTK format
     export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)

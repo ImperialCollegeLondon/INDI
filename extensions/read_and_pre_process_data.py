@@ -553,6 +553,7 @@ def estimate_rr_interval(data: pd.DataFrame, settings) -> [pd.DataFrame, NDArray
     Parameters
     ----------
     data: dataframe with diffusion database
+    settings: dict
 
     Returns:
     dataframe with added estimated RR interval column

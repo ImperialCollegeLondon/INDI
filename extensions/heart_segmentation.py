@@ -30,6 +30,7 @@ def heart_segmentation(
     data
     average_images
     slices
+    n_slices
     colormaps
     settings
     info

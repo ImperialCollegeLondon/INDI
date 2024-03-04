@@ -215,6 +215,7 @@ def get_average_images(
     ----------
     slices: array with slice locations string
     img_size: image shape before cropping
+    n_slice: int number of slices
     registration_image_data: registration images and QC info
     settings
     logger
@@ -320,6 +321,7 @@ def u_net_segment_heart(
     ----------
     average_images: average images array
     slices: array with slice locations string
+    n_slices: int number of slices
     settings: dictionary with useful info
     logger
 
