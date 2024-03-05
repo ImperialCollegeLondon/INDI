@@ -492,7 +492,6 @@ def get_mask_from_poly(poly, dims):
 
 def manual_lv_segmentation(
     mask_3c: NDArray,
-    slices: NDArray,
     average_maps: NDArray,
     ha_maps: NDArray,
     n_points: int,
@@ -523,204 +522,150 @@ def manual_lv_segmentation(
     lv_masks = mask_3c.copy()
     lv_masks[lv_masks == 2] = 0
 
-    # threshold mask
-    thr_mask = np.ones(mask_3c.shape)
-
-    n_slices = lv_masks.shape[0]
-    # dictionary to store the segmentation splines and insertion points for each slice
-    segmentation = {}
-    # loop over each slice
-    for slice_idx in slices:
-        # get the contours of the epicardium and endocardium if not all zeros
-        all_zeros = not np.any(lv_masks[slice_idx])
-        if all_zeros:
+    # get the contours of the epicardium and endocardium if not all zeros
+    all_zeros = not np.any(lv_masks)
+    if all_zeros:
+        epi_contour = np.array([])
+        endo_contour = np.array([])
+        second_axis_lines = {"epi": None, "endo": None, "ip": None}
+        seg_mask = {"epi": None, "endo": None}
+    else:
+        try:
+            # get endo and epi contours from mask
+            # interpolate the contours to a small number of points and
+            # delete the last point, which is equal to the first one
+            # use the points for the initial polygon
+            epi_contour, endo_contour = get_sa_contours(lv_masks)
+            epi_contour = spline_interpolate_contour(epi_contour, n_points=n_points, join_ends=False)
+            epi_contour = np.delete(epi_contour, -1, 0)
+            endo_contour = spline_interpolate_contour(endo_contour, n_points=n_points, join_ends=False)
+            endo_contour = np.delete(endo_contour, -1, 0)
+            second_axis_lines = {"epi": None, "endo": None, "ip": None}
+            seg_mask = {"epi": None, "endo": None}
+        except:
+            # if something goes wrong in finding the endo and epi lines. Most likely the U-Net
+            # mask does not have the right shape. So we need to manually draw the contours from scratch.
             epi_contour = np.array([])
             endo_contour = np.array([])
             second_axis_lines = {"epi": None, "endo": None, "ip": None}
             seg_mask = {"epi": None, "endo": None}
-        else:
-            try:
-                # get endo and epi contours from mask
-                # interpolate the contours to a small number of points and
-                # delete the last point, which is equal to the first one
-                # use the points for the initial polygon
-                epi_contour, endo_contour = get_sa_contours(lv_masks[slice_idx])
-                epi_contour = spline_interpolate_contour(epi_contour, n_points=n_points, join_ends=False)
-                epi_contour = np.delete(epi_contour, -1, 0)
-                endo_contour = spline_interpolate_contour(endo_contour, n_points=n_points, join_ends=False)
-                endo_contour = np.delete(endo_contour, -1, 0)
-                second_axis_lines = {"epi": None, "endo": None, "ip": None}
-                seg_mask = {"epi": None, "endo": None}
-            except:
-                # if something goes wrong in finding the endo and epi lines. Most likely the U-Net
-                # mask does not have the right shape. So we need to manually draw the contours from scratch.
-                epi_contour = np.array([])
-                endo_contour = np.array([])
-                second_axis_lines = {"epi": None, "endo": None, "ip": None}
-                seg_mask = {"epi": None, "endo": None}
 
-        class buttons:
-            """matplotlib figure buttons"""
+    class buttons:
+        """matplotlib figure buttons"""
 
-            def epi(self, event):
-                # draw epicardial contour
-                # disconnect previous polygons or on_click events if they exist
-                if hasattr(self, "epi_spline"):
-                    self.epi_spline.disconnect()
-                if hasattr(self, "endo_spline"):
-                    self.endo_spline.disconnect()
-                if hasattr(self, "ip"):
-                    plt.disconnect(self.ip.binding_id)
+        def epi(self, event):
+            # draw epicardial contour
+            # disconnect previous polygons or on_click events if they exist
+            if hasattr(self, "epi_spline"):
+                self.epi_spline.disconnect()
+            if hasattr(self, "endo_spline"):
+                self.endo_spline.disconnect()
+            if hasattr(self, "ip"):
+                plt.disconnect(self.ip.binding_id)
 
-                """draw the epicardial border"""
-                self.epi_spline = define_roi_border(
-                    event.canvas.figure.axes[0],
-                    "Click epicardial points",
-                    epi_contour,
-                    second_axis_lines,
-                    seg_mask,
-                    lv_masks[0].shape,
-                )
+            """draw the epicardial border"""
+            self.epi_spline = define_roi_border(
+                event.canvas.figure.axes[0],
+                "Click epicardial points",
+                epi_contour,
+                second_axis_lines,
+                seg_mask,
+                lv_masks.shape,
+            )
 
-            def endo(self, event):
-                # draw endocardial contour
-                # disconnect previous polygons or on_click events if they exist
-                if hasattr(self, "epi_spline"):
-                    self.epi_spline.disconnect()
-                if hasattr(self, "endo_spline"):
-                    self.endo_spline.disconnect()
-                if hasattr(self, "ip"):
-                    plt.disconnect(self.ip.binding_id)
+        def endo(self, event):
+            # draw endocardial contour
+            # disconnect previous polygons or on_click events if they exist
+            if hasattr(self, "epi_spline"):
+                self.epi_spline.disconnect()
+            if hasattr(self, "endo_spline"):
+                self.endo_spline.disconnect()
+            if hasattr(self, "ip"):
+                plt.disconnect(self.ip.binding_id)
 
-                """draw the endocardial border"""
-                self.endo_spline = define_roi_border(
-                    event.canvas.figure.axes[0],
-                    "Click endocardial points",
-                    endo_contour,
-                    second_axis_lines,
-                    seg_mask,
-                    lv_masks[0].shape,
-                )
+            """draw the endocardial border"""
+            self.endo_spline = define_roi_border(
+                event.canvas.figure.axes[0],
+                "Click endocardial points",
+                endo_contour,
+                second_axis_lines,
+                seg_mask,
+                lv_masks.shape,
+            )
 
-            def click(self, event, second_axis_lines):
-                # click on the two insertion points
-                # first anterior, then inferior
-                # disconnect previous polygons if they exist
-                event.canvas.figure.axes[0].set_title("Click on the anterior and then inferior insertion points.")
-                if hasattr(self, "epi_spline"):
-                    self.epi_spline.disconnect()
-                if hasattr(self, "endo_spline"):
-                    self.endo_spline.disconnect()
-                self.ip = click_insertion_points(event.canvas.figure.axes[0], second_axis_lines)
+        def click(self, event, second_axis_lines):
+            # click on the two insertion points
+            # first anterior, then inferior
+            # disconnect previous polygons if they exist
+            event.canvas.figure.axes[0].set_title("Click on the anterior and then inferior insertion points.")
+            if hasattr(self, "epi_spline"):
+                self.epi_spline.disconnect()
+            if hasattr(self, "endo_spline"):
+                self.endo_spline.disconnect()
+            self.ip = click_insertion_points(event.canvas.figure.axes[0], second_axis_lines)
 
-        # plot the magnitude image to be ROI'd
-        if mask_3c.shape[1] > mask_3c.shape[2]:
-            fig, ax = plt.subplots(1, 2, figsize=(16, 8))
-        else:
-            fig, ax = plt.subplots(2, 1, figsize=(16, 8))
-        # leave some space for the buttons
-        fig.subplots_adjust(left=0.2, bottom=0.2)
-        # axis where ROIs will be drawn
-        ax_img_0 = ax[0].imshow(ha_maps[slice_idx], colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
-        ax[0].axis("off")
-        # axis where latest ROIs will be shown
-        ax_img_1 = ax[1].imshow(average_maps[slice_idx], cmap="Greys_r", vmin=0, vmax=0.65)
-        ax[1].axis("off")
+    # plot the magnitude image to be ROI'd
+    if mask_3c.shape[0] > mask_3c.shape[1]:
+        fig, ax = plt.subplots(1, 2, figsize=(16, 8))
+    else:
+        fig, ax = plt.subplots(2, 1, figsize=(16, 8))
+    # leave some space for the buttons
+    fig.subplots_adjust(left=0.2, bottom=0.2)
+    # axis where ROIs will be drawn
+    ax_img_0 = ax[0].imshow(ha_maps, colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
+    ax[0].axis("off")
+    # axis where latest ROIs will be shown
+    ax_img_1 = ax[1].imshow(average_maps, cmap="Greys_r", vmin=0, vmax=0.65)
+    ax[1].axis("off")
 
-        # add the buttons to the figure
-        callback = buttons()
-        # epi button
-        epi_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "epicardium.png"))
-        ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.10])
-        ax_epi.axis("off")
-        button_epi = Button(ax_epi, label="", image=epi_icon)
-        button_epi.on_clicked(callback.epi)
-        # endo button
-        endo_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "endocardium.png"))
-        ax_endo = fig.add_axes([0.05, 0.60, 0.10, 0.10])
-        ax_endo.axis("off")
-        button_endo = Button(ax_endo, label="", image=endo_icon)
-        button_endo.on_clicked(callback.endo)
-        # insertion points button
-        ip_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "insertion_points.png"))
-        ax_ip = fig.add_axes([0.05, 0.45, 0.10, 0.10])
-        ax_ip.axis("off")
-        button_ip = Button(ax_ip, label="", image=ip_icon)
-        button_ip.on_clicked(lambda x: callback.click(x, second_axis_lines))
-        # slider stuff
-        threshold_slider_and_scroll = scrool_slider(
-            fig,
-            ax[0],
-            ha_maps[slice_idx],
-            ax_img_0,
-            ax[1],
-            average_maps[slice_idx],
-            ax_img_1,
-        )
-        fig.canvas.mpl_connect("scroll_event", threshold_slider_and_scroll.on_scroll)
-
-        plt.show()
-
-        # retrieve the threshold mask
-        thr_mask[slice_idx] = threshold_slider_and_scroll.mask
-
-        # store segmentation information from the buttons' callbacks
-        segmentation[slice_idx] = {}
-        segmentation[slice_idx]["epicardium"] = callback.epi_spline.spline_points
-        segmentation[slice_idx]["endocardium"] = callback.endo_spline.spline_points
-        segmentation[slice_idx]["anterior_ip"] = [
-            callback.ip.ip_x[0],
-            callback.ip.ip_y[0],
-        ]
-        segmentation[slice_idx]["inferior_ip"] = [
-            callback.ip.ip_x[1],
-            callback.ip.ip_y[1],
-        ]
-
-        # define the final mask_3c
-        mask_epi = get_mask_from_poly(
-            segmentation[slice_idx]["epicardium"].astype(np.int32),
-            lv_masks[slice_idx].shape,
-        )
-        mask_endo = get_mask_from_poly(
-            segmentation[slice_idx]["endocardium"].astype(np.int32),
-            lv_masks[slice_idx].shape,
-        )
-
-        # we need to remove the mask pixels that have been automatically thresholded out
-        mask_epi *= thr_mask[slice_idx]
-        # erode endo mask in order to keep the endo line inside the myocardial ROI
-        kernel = np.ones((2, 2), np.uint8)
-        mask_endo = cv.erode(mask_endo, kernel, iterations=1)
-        mask_endo *= thr_mask[slice_idx]
-
-        mask_lv = mask_epi - mask_endo
-        epi_contour, endo_contour = get_sa_contours(mask_lv)
-        epi_len = len(epi_contour)
-        endo_len = len(endo_contour)
-        epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
-        epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
-        endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
-        endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
-        segmentation[slice_idx]["epicardium"] = epi_contour
-        segmentation[slice_idx]["endocardium"] = endo_contour
-
-        all_channel_mask = mask_3c[slice_idx].copy()
-        all_channel_mask[all_channel_mask == 1] = 0
-        all_channel_mask = all_channel_mask + mask_lv
-        all_channel_mask[all_channel_mask == 3] = 1
-        mask_3c[slice_idx] = all_channel_mask
-
-    # save mask to an npz file
-    np.savez_compressed(
-        os.path.join(settings["session"], "manual_lv_segmentation.npz"),
-        mask_3c=mask_3c,
-        segmentation=segmentation,
+    # add the buttons to the figure
+    callback = buttons()
+    # epi button
+    epi_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "epicardium.png"))
+    ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.10])
+    ax_epi.axis("off")
+    button_epi = Button(ax_epi, label="", image=epi_icon)
+    button_epi.on_clicked(callback.epi)
+    # endo button
+    endo_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "endocardium.png"))
+    ax_endo = fig.add_axes([0.05, 0.60, 0.10, 0.10])
+    ax_endo.axis("off")
+    button_endo = Button(ax_endo, label="", image=endo_icon)
+    button_endo.on_clicked(callback.endo)
+    # insertion points button
+    ip_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "insertion_points.png"))
+    ax_ip = fig.add_axes([0.05, 0.45, 0.10, 0.10])
+    ax_ip.axis("off")
+    button_ip = Button(ax_ip, label="", image=ip_icon)
+    button_ip.on_clicked(lambda x: callback.click(x, second_axis_lines))
+    # slider stuff
+    threshold_slider_and_scroll = scrool_slider(
+        fig,
+        ax[0],
+        ha_maps,
+        ax_img_0,
+        ax[1],
+        average_maps,
+        ax_img_1,
     )
+    fig.canvas.mpl_connect("scroll_event", threshold_slider_and_scroll.on_scroll)
 
-    if settings["debug"]:
-        plot_manual_lv_segmentation(
-            n_slices, slices, segmentation, average_maps, mask_3c, settings, "lv_manual_mask", settings["debug_folder"]
-        )
+    plt.show()
 
-    return segmentation, mask_3c
+    # retrieve the threshold mask
+    thr_mask = threshold_slider_and_scroll.mask
+
+    # store segmentation information from the buttons' callbacks
+    segmentation = {}
+    segmentation["epicardium"] = callback.epi_spline.spline_points
+    segmentation["endocardium"] = callback.endo_spline.spline_points
+    segmentation["anterior_ip"] = [
+        callback.ip.ip_x[0],
+        callback.ip.ip_y[0],
+    ]
+    segmentation["inferior_ip"] = [
+        callback.ip.ip_x[1],
+        callback.ip.ip_y[1],
+    ]
+
+    return segmentation, thr_mask

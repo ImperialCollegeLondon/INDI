@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/in_vivo/5_slices_example
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/3_slices
 
 # anon, reg, main
 workflow_mode: main
