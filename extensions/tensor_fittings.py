@@ -208,7 +208,7 @@ def dipy_tensor_fit(
 
     logger.info("Starting tensor fitting with method: " + method)
 
-    tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3, info["n_slices"]])
+    tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3, mask_3c.shape[0]])
     s0 = np.zeros([info["img_size"][0], info["img_size"][1], info["n_slices"]])
     residuals_img = {}
     residuals_map = {}
@@ -218,7 +218,7 @@ def dipy_tensor_fit(
 
     # I need to do this per slice, because gtab might differ from slice to slice
     info["tensor fitting sigma"] = {}
-    for slice_idx in slices:
+    for idx, slice_idx in enumerate(slices):
         current_entries = data.loc[data["slice_integer"] == slice_idx]
         bvals = current_entries["b_value"].values
         bvecs = np.vstack(current_entries["direction"])
@@ -245,8 +245,8 @@ def dipy_tensor_fit(
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
 
         tenfit = tenmodel.fit(image_data)
-        tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
-        s0[..., slice_idx] = np.squeeze(tenfit.S0_hat)
+        tensor[..., idx] = np.squeeze(tenfit.quadratic_form)
+        s0[..., idx] = np.squeeze(tenfit.S0_hat)
 
         if not quick_mode:
             if method != "RESTORE":

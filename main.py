@@ -215,7 +215,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Plot main results and save data
     # =========================================================
-    export_results(data, dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps)
+    export_results(data, dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps, logger)
 
     logger.info("============================================================")
     logger.info("====================== FINISHED ============================")

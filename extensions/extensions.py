@@ -276,17 +276,17 @@ def get_cylindrical_coordinates_short_axis(
     long = np.zeros((mask.shape + (3,)))
     circ = np.zeros((mask.shape + (3,)))
     radi = np.zeros((mask.shape + (3,)))
-
-    centres = []
-    for slice_idx in slices:
-        centres.append([mask[slice_idx].shape[0] / 2, mask[slice_idx].shape[1] / 2])
-
-    coords = np.where(mask == 1)
-    n_points = len(coords[0])
-
-    # get phi matrix with angles [-pi pi]
     phi_matrix = np.zeros(mask.shape)
-    phi_matrix[coords] = -np.arctan2(coords[1] - centres[0][0], coords[2] - centres[0][1])
+
+    # centre of image as we don't know yet the centre of the LV
+    # we jut hope the two are close
+    centre_of_images = np.array([mask.shape[1] / 2, mask.shape[2] / 2])
+    coords = np.where(mask == 1)
+    centre_of_images_coords = centre_of_images[..., np.newaxis]
+    centre_of_images_coords = np.repeat(centre_of_images_coords, len(coords[0]), axis=1)
+    centre_of_images_coords = np.vstack((coords[0], centre_of_images_coords))
+    n_points = len(coords[0])
+    phi_matrix[coords] = -np.arctan2(coords[1] - centre_of_images_coords[1], coords[2] - centre_of_images_coords[2])
 
     long[coords] = [0, 0, 1]
 
@@ -309,37 +309,37 @@ def get_cylindrical_coordinates_short_axis(
     # output variable as a dictionary with all 3 vectors
     local_cylindrical_coordinates = {"long": long, "circ": circ, "radi": radi}
 
-    if settings["debug"]:
-        #     # plot the cardiac coordinates maps
-        #     direction_str = ["x", "y", "z"]
-        #     order_keys = ["long", "circ", "radi"]
-        #     for slice_idx, slice_str in enumerate(slices):
-        #         fig, ax = plt.subplots(3, 3)
-        #         for idx in range(3):
-        #             for direction in range(3):
-        #                 i = ax[idx, direction].imshow(
-        #                     local_cylindrical_coordinates[order_keys[idx]][slice_idx, :, :, direction], vmin=-1, vmax=1
-        #                 )
-        #                 ax[idx, direction].set_title(order_keys[idx] + ": " + direction_str[direction], fontsize=7)
-        #                 ax[idx, direction].axis("off")
-        #                 plt.tick_params(axis="both", which="major", labelsize=5)
-        #                 cbar = plt.colorbar(i)
-        #                 cbar.ax.tick_params(labelsize=5)
-        #         plt.tight_layout(pad=1.0)
-        #         plt.savefig(
-        #             os.path.join(
-        #                 settings["debug_folder"],
-        #                 "cardiac_coordinates_slice_" + slice_str + ".png",
-        #             ),
-        #             dpi=200,
-        #             pad_inches=0,
-        #             transparent=False,
-        #         )
-        #         plt.close()
+    # if settings["debug"]:
+    #     # plot the cardiac coordinates maps
+    #     direction_str = ["x", "y", "z"]
+    #     order_keys = ["long", "circ", "radi"]
+    #     for slice_idx, slice_str in enumerate(slices):
+    #         fig, ax = plt.subplots(3, 3)
+    #         for idx in range(3):
+    #             for direction in range(3):
+    #                 i = ax[idx, direction].imshow(
+    #                     local_cylindrical_coordinates[order_keys[idx]][slice_idx, :, :, direction], vmin=-1, vmax=1
+    #                 )
+    #                 ax[idx, direction].set_title(order_keys[idx] + ": " + direction_str[direction], fontsize=7)
+    #                 ax[idx, direction].axis("off")
+    #                 plt.tick_params(axis="both", which="major", labelsize=5)
+    #                 cbar = plt.colorbar(i)
+    #                 cbar.ax.tick_params(labelsize=5)
+    #         plt.tight_layout(pad=1.0)
+    #         plt.savefig(
+    #             os.path.join(
+    #                 settings["debug_folder"],
+    #                 "cardiac_coordinates_slice_" + slice_str + ".png",
+    #             ),
+    #             dpi=200,
+    #             pad_inches=0,
+    #             transparent=False,
+    #         )
+    #         plt.close()
 
-        maps = {"mag": mag_image, "mask": mask}
-        lcc = copy.deepcopy(local_cylindrical_coordinates)
-        save_vtk_file(lcc, {}, maps, info, "cylindrical_coordinates", settings["debug_folder"])
+    # maps = {"mag": mag_image, "mask": mask}
+    # lcc = copy.deepcopy(local_cylindrical_coordinates)
+    # save_vtk_file(lcc, {}, maps, info, "cylindrical_coordinates", settings["debug_folder"])
 
     return local_cylindrical_coordinates
 
@@ -1451,6 +1451,7 @@ def export_results(
     average_images: NDArray,
     segmentation: dict,
     colormaps: dict,
+    logger: logging.Logger,
 ):
     """
 
@@ -1476,7 +1477,10 @@ def export_results(
         LV segmentation info on LV borders and insertion points
     colormaps : dict
         DTI tailored colormaps
+    logger :
     """
+
+    logger.info("Exporting results to disk...")
 
     # plot eigenvectors and tensor in VTK format
     export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)
