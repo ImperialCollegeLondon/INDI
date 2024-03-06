@@ -218,7 +218,7 @@ def dipy_tensor_fit(
 
     # I need to do this per slice, because gtab might differ from slice to slice
     info["tensor fitting sigma"] = {}
-    for idx, slice_idx in enumerate(slices):
+    for slice_idx in slices:
         current_entries = data.loc[data["slice_integer"] == slice_idx]
         bvals = current_entries["b_value"].values
         bvecs = np.vstack(current_entries["direction"])
@@ -245,8 +245,8 @@ def dipy_tensor_fit(
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
 
         tenfit = tenmodel.fit(image_data)
-        tensor[..., idx] = np.squeeze(tenfit.quadratic_form)
-        s0[..., idx] = np.squeeze(tenfit.S0_hat)
+        tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
+        s0[..., slice_idx] = np.squeeze(tenfit.S0_hat)
 
         if not quick_mode:
             if method != "RESTORE":
@@ -259,10 +259,10 @@ def dipy_tensor_fit(
                 myo_pxs = np.flatnonzero(myo_mask[slice_idx])
                 res_img = np.squeeze(np.reshape(res, [res.shape[0] * res.shape[1], res.shape[2], res.shape[3]]))
                 res_img = np.nanmean(res_img[myo_pxs, :], axis=0)
-                residuals_img[slice] = res_img
+                residuals_img[slice_idx] = res_img
                 # estimate res per voxel
                 res_map = np.nanmean(np.squeeze(res), axis=2)
-                residuals_map[slice] = res_map
+                residuals_map[slice_idx] = res_map
 
                 z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
 

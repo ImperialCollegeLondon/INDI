@@ -67,25 +67,21 @@ def heart_segmentation(
             # get cylindrical coordinates
             local_cylindrical_coordinates = get_cylindrical_coordinates_short_axis(
                 thr_mask[[slice_idx], ...],
-                average_images[[slice_idx], ...],
-                slices[[slice_idx], ...],
-                settings,
-                info,
             )
 
             # get basic tensor
             tensor, _, _, _, info = dipy_tensor_fit(
-                slices[[slice_idx], ...],
+                [slice_idx],
                 data,
                 info,
                 settings,
-                thr_mask[[slice_idx], ...],
+                thr_mask,
                 logger,
                 "LS",
                 quick_mode=True,
             )
             # get basic HA map
-            _, prelim_eigenvectors = np.linalg.eigh(tensor[[0], ...])
+            _, prelim_eigenvectors = np.linalg.eigh(tensor[[slice_idx], ...])
             prelim_ha[slice_idx], _, _ = get_ha_e2a_maps(
                 thr_mask[[slice_idx], ...],
                 local_cylindrical_coordinates,

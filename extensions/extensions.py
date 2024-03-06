@@ -250,10 +250,6 @@ def close_small_holes(mask: NDArray) -> NDArray:
 
 def get_cylindrical_coordinates_short_axis(
     mask: NDArray,
-    mag_image: NDArray,
-    slices: NDArray,
-    settings: dict,
-    info: dict,
 ) -> [dict]:
     """
     Function to calculate an approximate version of the local cardiac coordinates for a short-axis plane
@@ -261,10 +257,6 @@ def get_cylindrical_coordinates_short_axis(
     centre on the FOV centre and the z-axis perpendicular to the image plane.
 
     mask: mask to where to calculate the vectors
-    mag_image: average images after registration
-    slices: list of slices
-    settings: yaml settings
-    info: dict
 
 
     Returns
@@ -717,7 +709,8 @@ def get_ha_line_profiles(
             plt.tight_layout(pad=1.0)
             plt.savefig(
                 os.path.join(
-                    settings["debug_folder"],
+                    settings["results"],
+                    "results_b",
                     "HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
                 dpi=200,

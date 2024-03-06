@@ -286,7 +286,13 @@ def registration_loop(
                     # basic quick rigid
                     elif settings["registration"] == "quick_rigid":
                         shift, error, diffphase = phase_cross_correlation(
-                            np.multiply(mask_arr, ref), np.multiply(mask_arr, mov), upsample_factor=100
+                            ref,
+                            mov,
+                            upsample_factor=100,
+                            disambiguate=True,
+                            reference_mask=mask,
+                            moving_mask=mask,
+                            overlap_ratio=0.5,
                         )
                         img_reg = fourier_shift(np.fft.fftn(mov), shift)
                         img_reg = np.abs(np.fft.ifftn(img_reg))
@@ -355,7 +361,25 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
                     + str(slice_idx).zfill(2)
                     + ": using the first image as reference, registration_reference_method = first"
                 )
-            ref_images["image"] = current_entries.at[index_pos[0], "image"]
+
+            c_img = current_entries.at[index_pos[0], "image"]
+            # normalise 0 to 1
+            c_img = (c_img - np.min(c_img)) / (np.max(c_img) - np.min(c_img))
+            # denoise image
+            from skimage.restoration import denoise_nl_means, estimate_sigma
+
+            # nlm config
+            patch_kw = dict(
+                patch_size=5,
+                patch_distance=6,
+                channel_axis=None,
+            )
+            # estimate the noise standard deviation from the noisy image
+            sigma_est = np.mean(estimate_sigma(c_img, channel_axis=None))
+            # fast algorithm, sigma provided
+            denoised_img = denoise_nl_means(c_img, h=10 * sigma_est, sigma=sigma_est, fast_mode=True, **patch_kw)
+
+            ref_images["image"] = denoised_img
             ref_images["index"] = index_pos
             ref_images["n_images"] = len(current_entries)
             ref_images["groupwise_reg_info"] = {}
@@ -492,19 +516,29 @@ def plot_ref_images(ref_images: dict, slices: NDArray, settings: dict):
                 plt.figure()
                 for i in range(n_images):
                     plt.subplot(4, n_images, i + 1)
-                    plt.imshow(img_pre[i])
+                    plt.imshow(img_pre[i], vmin=np.min(img_pre[i]), vmax=np.max(img_pre[i]) * 0.3, cmap="Greys_r")
                     plt.title(str(i) + "_pre")
                     plt.axis("off")
                     plt.subplot(4, n_images, i + n_images + 1)
-                    plt.imshow(img_reg[i])
+                    plt.imshow(img_reg[i], vmin=np.min(img_reg[i]), vmax=np.max(img_reg[i]) * 0.3, cmap="Greys_r")
                     plt.title(str(i) + "_reg")
                     plt.axis("off")
                     plt.subplot(4, n_images, i + 2 * n_images + 1)
-                    plt.imshow(abs(c_ref - img_pre[i]))
+                    plt.imshow(
+                        abs(c_ref - img_pre[i]),
+                        vmin=np.min(abs(c_ref - img_pre[i])),
+                        vmax=np.max(abs(c_ref - img_pre[i])) * 0.3,
+                        cmap="Greys_r",
+                    )
                     plt.title("diff_to_ref")
                     plt.axis("off")
                     plt.subplot(4, n_images, i + 3 * n_images + 1)
-                    plt.imshow(abs(c_ref - img_reg[i]))
+                    plt.imshow(
+                        abs(c_ref - img_pre[i]),
+                        vmin=np.min(abs(c_ref - img_reg[i])),
+                        vmax=np.max(abs(c_ref - img_reg[i])) * 0.3,
+                        cmap="Greys_r",
+                    )
                     plt.title("diff_to_ref")
                     plt.axis("off")
                 plt.tight_layout(pad=1.0)
