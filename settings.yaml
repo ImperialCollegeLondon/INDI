@@ -6,13 +6,13 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/10_slice_study/dtcmr_mag
+start_folder: /Users/pf/Desktop/DTCMRdata/STEAM_2.8mm
 
 # anon, reg, main
 workflow_mode: main
 
 # se, steam
-sequence_type: se
+sequence_type: steam
 
 # ========================================================================================
 # DEBUGGING
@@ -30,10 +30,10 @@ registration_extra_debug: False
 registration: elastix_non_rigid
 
 # fast, slow
-registration_speed: fast
+registration_speed: slow
 
-# first, groupwise
-registration_reference_method: first
+# best, groupwise
+registration_reference_method: best
 
 # ========================================================================================
 # TENSOR FITTING
@@ -59,7 +59,7 @@ assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
 # remove slices integers
-remove_slices: [0,1,2,9,10,11]
+remove_slices: []
 
 # ========================================================================================
 # AI MODELS

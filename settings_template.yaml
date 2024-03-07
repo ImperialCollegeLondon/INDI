@@ -32,7 +32,7 @@ registration: elastix_non_rigid
 # fast, slow
 registration_speed: fast
 
-# first, groupwise
+# best, groupwise
 registration_reference_method: groupwise
 
 # ========================================================================================

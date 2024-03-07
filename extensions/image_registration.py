@@ -348,7 +348,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
         index_pos = current_entries.index[current_entries["b_value_original"] == b_values[0]].tolist()
         n_images = len(index_pos)
 
-        if n_images < 2 or settings["registration_reference_method"] == "first":
+        if n_images < 2 or settings["registration_reference_method"] == "best":
             if n_images < 2:
                 logger.info(
                     "Slice "
@@ -359,10 +359,14 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
                 logger.info(
                     "Slice "
                     + str(slice_idx).zfill(2)
-                    + ": using the first image as reference, registration_reference_method = first"
+                    + ": using the strongest image as reference, registration_reference_method = best"
                 )
 
-            c_img = current_entries.at[index_pos[0], "image"]
+            # stack all possible reference images
+            image_stack = np.stack(current_entries["image"][index_pos].values)
+            image_stack_sum = np.sum(image_stack, axis=(1,2))
+            # get the image with the most signal
+            c_img = current_entries.at[index_pos[np.argmax(image_stack_sum)], "image"]
             # normalise 0 to 1
             c_img = (c_img - np.min(c_img)) / (np.max(c_img) - np.min(c_img))
             # denoise image
