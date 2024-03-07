@@ -58,6 +58,36 @@ def get_sa_contours(lv_mask):
     return epi_contour, endo_contour
 
 
+def get_endo_contour(lv_mask):
+    # get the contours of the epicardium
+    # From stackoverflow: In the hierarchy (hier), the fourth index tells you, to which outer
+    # (or parent) contour a possible inner (or child) contour is related. Most outer contours have an
+    # index of -1, all others have non-negative values. So I should get 2 contours. The epicardium
+    # should have the hierarchy x, x, x, -1. It should also be the longest contour.
+    c_mask = np.array(lv_mask * 255, dtype=np.uint8)
+    contours, hier = cv.findContours(c_mask, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+
+    # there might be loose regions/point creating additional small contours
+    # so we need to remove these and keep only the two longest
+    # get the length of each contour
+    contours_len = [len(contours[i]) for i in range(len(contours))]
+    # get the indices of the longest contours
+    idx = np.argsort(contours_len)[-1:]
+    # get the longest contours
+    contours = [contours[i] for i in idx]
+    # get the hierarchy of the longest contours
+    hier = np.stack([hier[0, i] for i in idx], axis=0)
+
+    # find epicardial contour
+    hier_matches = list(np.where(hier[:, 3] == -1))
+    # check there is only one epicardium
+    assert len(hier_matches) == 1, "We have detected more than one epicardium!"
+    hier_pos = hier_matches[0][0]
+    epi_contour = np.squeeze(contours[hier_pos])
+
+    return epi_contour
+
+
 class define_roi_border(object):
     """
     Define the ROI border with a polygon which will then be interpolated to a spline.
@@ -441,31 +471,33 @@ def plot_manual_lv_segmentation(
             color="tab:blue",
             alpha=0.5,
         )
-        plt.scatter(
-            segmentation[slice_idx]["endocardium"][:, 0],
-            segmentation[slice_idx]["endocardium"][:, 1],
-            marker=".",
-            s=2,
-            color="tab:red",
-            alpha=0.5,
-        )
-
-        plt.plot(
-            segmentation[slice_idx]["anterior_ip"][0],
-            segmentation[slice_idx]["anterior_ip"][1],
-            "2",
-            color="tab:orange",
-            markersize=10,
-            alpha=0.5,
-        )
-        plt.plot(
-            segmentation[slice_idx]["inferior_ip"][0],
-            segmentation[slice_idx]["inferior_ip"][1],
-            "1",
-            color="tab:orange",
-            markersize=10,
-            alpha=0.5,
-        )
+        if segmentation[slice_idx]["endocardium"].size != 0:
+            plt.scatter(
+                segmentation[slice_idx]["endocardium"][:, 0],
+                segmentation[slice_idx]["endocardium"][:, 1],
+                marker=".",
+                s=2,
+                color="tab:red",
+                alpha=0.5,
+            )
+        if segmentation[slice_idx]["anterior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["anterior_ip"][0],
+                segmentation[slice_idx]["anterior_ip"][1],
+                "2",
+                color="tab:orange",
+                markersize=10,
+                alpha=0.5,
+            )
+        if segmentation[slice_idx]["inferior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["inferior_ip"][0],
+                segmentation[slice_idx]["inferior_ip"][1],
+                "1",
+                color="tab:orange",
+                markersize=10,
+                alpha=0.5,
+            )
         plt.savefig(
             os.path.join(
                 save_path,
@@ -658,14 +690,22 @@ def manual_lv_segmentation(
     # store segmentation information from the buttons' callbacks
     segmentation = {}
     segmentation["epicardium"] = callback.epi_spline.spline_points
-    segmentation["endocardium"] = callback.endo_spline.spline_points
-    segmentation["anterior_ip"] = [
-        callback.ip.ip_x[0],
-        callback.ip.ip_y[0],
-    ]
-    segmentation["inferior_ip"] = [
-        callback.ip.ip_x[1],
-        callback.ip.ip_y[1],
-    ]
+    if hasattr(callback, 'endo_spline'):
+        segmentation["endocardium"] = callback.endo_spline.spline_points
+    else:
+        segmentation["endocardium"] = np.array([])
+
+    if hasattr(callback, 'ip'):
+        segmentation["anterior_ip"] = [
+            callback.ip.ip_x[0],
+            callback.ip.ip_y[0],
+        ]
+        segmentation["inferior_ip"] = [
+            callback.ip.ip_x[1],
+            callback.ip.ip_y[1],
+        ]
+    else:
+        segmentation["anterior_ip"] = np.array([])
+        segmentation["inferior_ip"] = np.array([])
 
     return segmentation, thr_mask

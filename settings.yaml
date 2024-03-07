@@ -6,13 +6,13 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/10_slice_study/dtcmr_mag
+start_folder: /Volumes/PF_SSD/SSD_WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/clean_no_endo
 
 # anon, reg, main
 workflow_mode: main
 
 # se, steam
-sequence_type: se
+sequence_type: steam
 
 # ========================================================================================
 # DEBUGGING
@@ -27,7 +27,7 @@ registration_extra_debug: False
 # ========================================================================================
 # none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid
 # elastix_groupwise (not working well at the moment)
-registration: elastix_non_rigid
+registration: none
 
 # fast, slow
 registration_speed: fast
@@ -59,7 +59,7 @@ assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
 # remove slices integers
-remove_slices: [0,1,2,9,10,11]
+remove_slices: []
 
 # ========================================================================================
 # AI MODELS
