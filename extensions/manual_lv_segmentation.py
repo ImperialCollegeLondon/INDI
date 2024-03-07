@@ -690,12 +690,12 @@ def manual_lv_segmentation(
     # store segmentation information from the buttons' callbacks
     segmentation = {}
     segmentation["epicardium"] = callback.epi_spline.spline_points
-    if hasattr(callback, 'endo_spline'):
+    if hasattr(callback, "endo_spline"):
         segmentation["endocardium"] = callback.endo_spline.spline_points
     else:
         segmentation["endocardium"] = np.array([])
 
-    if hasattr(callback, 'ip'):
+    if hasattr(callback, "ip"):
         segmentation["anterior_ip"] = [
             callback.ip.ip_x[0],
             callback.ip.ip_y[0],

@@ -9,9 +9,9 @@ from numpy.typing import NDArray
 from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
 from extensions.get_tensor_orientation_maps import get_ha_e2a_maps
 from extensions.manual_lv_segmentation import (
+    get_endo_contour,
     get_mask_from_poly,
     get_sa_contours,
-    get_endo_contour,
     manual_lv_segmentation,
     plot_manual_lv_segmentation,
     spline_interpolate_contour,
