@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Volumes/PF_SSD/SSD_WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/clean_no_endo
+start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/VOL11/mag
 
 # anon, reg, main
 workflow_mode: main
@@ -32,8 +32,8 @@ registration: none
 # fast, slow
 registration_speed: fast
 
-# first, groupwise
-registration_reference_method: first
+# best, groupwise
+registration_reference_method: best
 
 # ========================================================================================
 # TENSOR FITTING
@@ -77,4 +77,4 @@ n_ensemble: 5
 # True, False
 uformer_denoise: False
 # int: 1, 3, or 5
-uformer_breatholds: 3
+uformer_breatholds: 5

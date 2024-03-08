@@ -88,6 +88,14 @@ def manual_image_removal(
     array with indices of rejected images in the original dataframe
 
     """
+    # max relative signal in the images
+    if settings["sequence_type"] == "steam":
+        max_rel_signal = 0.75
+    elif settings["sequence_type"] == "se":
+        max_rel_signal = 0.5
+    else:
+        max_rel_signal = 1.0
+
     # store also original dataframe before any image removal
     data_original = data.copy()
 
@@ -150,7 +158,7 @@ def manual_image_removal(
         for idx, key in enumerate(c_img_stack):
             cc_img_stack = c_img_stack[key]
             for idx2, img in enumerate(cc_img_stack):
-                axs[idx, idx2].imshow(img, cmap="gray", vmin=np.min(img), vmax=np.max(img) * 0.35)
+                axs[idx, idx2].imshow(img, cmap="gray", vmin=np.min(img), vmax=np.max(img) * max_rel_signal)
                 axs[idx, idx2].text(
                     5,
                     5,
