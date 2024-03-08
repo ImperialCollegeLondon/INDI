@@ -10,6 +10,7 @@ import pandas as pd
 from numpy.typing import NDArray
 from scipy.ndimage import fourier_shift
 from skimage.registration import phase_cross_correlation
+from skimage.restoration import denoise_nl_means, estimate_sigma
 from tqdm import tqdm
 
 
@@ -35,6 +36,34 @@ def get_grid_image(img_shape: NDArray, grid_step: int) -> NDArray:
     for j in range(0, img_shape[1], grid_step):
         grid_img[:, j] = 1
     return grid_img
+
+
+def denoise_img_nlm(c_img: NDArray) -> NDArray:
+    """
+
+    Denoise image with non-local means
+
+    Parameters
+    ----------
+    c_img
+
+    Returns
+    -------
+    denoised image
+
+    """
+    # nlm config
+    patch_kw = dict(
+        patch_size=5,
+        patch_distance=6,
+        channel_axis=None,
+    )
+    # estimate the noise standard deviation from the noisy image
+    sigma_est = np.mean(estimate_sigma(c_img, channel_axis=None))
+    # fast algorithm, sigma provided
+    denoised_img = denoise_nl_means(c_img, h=10 * sigma_est, sigma=sigma_est, fast_mode=True, **patch_kw)
+
+    return denoised_img
 
 
 def registration_loop(
@@ -259,17 +288,19 @@ def registration_loop(
                         or settings["registration"] == "elastix_affine"
                         or settings["registration"] == "elastix_non_rigid"
                     ):
-                        mov = itk.GetImageFromArray(mov)
+                        # apply the registration to a denoised version (helps with registration of low SNR images)
+                        denoised_mov = denoise_img_nlm(mov)
+                        denoised_mov = itk.GetImageFromArray(denoised_mov)
                         img_reg, result_transform_parameters = itk.elastix_registration_method(
                             ref,
-                            mov,
+                            denoised_mov,
                             parameter_object=parameter_object,
                             fixed_mask=mask,
                             log_to_console=False,
                         )
 
                         # get the deformation field and apply it to the grid image
-                        def_field = itk.transformix_deformation_field(mov, result_transform_parameters)
+                        def_field = itk.transformix_deformation_field(denoised_mov, result_transform_parameters)
                         os.remove("deformationField.raw")
                         os.remove("deformationField.mhd")
                         def_field = np.asarray(def_field).astype(np.float32)
@@ -282,6 +313,10 @@ def registration_loop(
                         grid_img_transformed_np[grid_img_transformed_np < 0.1] = 0
                         grid_img_transformed_np[grid_img_transformed_np >= 0.1] = 0.6
                         registration_image_data["deformation_field"][slice_idx]["grid"][i] = grid_img_transformed_np
+                        # finally apply the deformation field to the moving image (without denoising)
+                        mov = itk.GetImageFromArray(mov)
+                        img_reg = itk.transformix_filter(mov, result_transform_parameters)
+                        img_reg = itk.GetArrayFromImage(img_reg)
 
                     # basic quick rigid
                     elif settings["registration"] == "quick_rigid":
@@ -301,7 +336,7 @@ def registration_loop(
                     elif settings["registration"] == "none":
                         img_reg = mov
                     else:
-                        logger.error("No method available fot registration: " + settings["registration"])
+                        logger.error("No method available for registration: " + settings["registration"])
                         sys.exit()
 
                     # store registered image
@@ -364,24 +399,14 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
 
             # stack all possible reference images
             image_stack = np.stack(current_entries["image"][index_pos].values)
-            image_stack_sum = np.sum(image_stack, axis=(1,2))
+            image_stack_sum = np.sum(image_stack, axis=(1, 2))
             # get the image with the most signal
             c_img = current_entries.at[index_pos[np.argmax(image_stack_sum)], "image"]
             # normalise 0 to 1
             c_img = (c_img - np.min(c_img)) / (np.max(c_img) - np.min(c_img))
-            # denoise image
-            from skimage.restoration import denoise_nl_means, estimate_sigma
 
-            # nlm config
-            patch_kw = dict(
-                patch_size=5,
-                patch_distance=6,
-                channel_axis=None,
-            )
-            # estimate the noise standard deviation from the noisy image
-            sigma_est = np.mean(estimate_sigma(c_img, channel_axis=None))
-            # fast algorithm, sigma provided
-            denoised_img = denoise_nl_means(c_img, h=10 * sigma_est, sigma=sigma_est, fast_mode=True, **patch_kw)
+            # denoise image
+            denoised_img = denoise_img_nlm(c_img)
 
             ref_images["image"] = denoised_img
             ref_images["index"] = index_pos
@@ -417,6 +442,10 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
             image_stack = np.ascontiguousarray(np.array(image_stack, dtype=np.float32))
             # store images before registration
             img_pre = image_stack
+
+            # denoise stack before masking
+            for i in range(image_stack.shape[0]):
+                image_stack[i] = denoise_img_nlm(image_stack[i])
 
             # create mask stack of the FOV central region
             mask = np.zeros([image_stack.shape[1], image_stack.shape[2]])

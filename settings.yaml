@@ -6,13 +6,13 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/Desktop/DTCMRdata/STEAM_2.8mm
+start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/VOL11/mag
 
 # anon, reg, main
 workflow_mode: main
 
 # se, steam
-sequence_type: steam
+sequence_type: se
 
 # ========================================================================================
 # DEBUGGING
@@ -30,7 +30,7 @@ registration_extra_debug: False
 registration: elastix_non_rigid
 
 # fast, slow
-registration_speed: slow
+registration_speed: fast
 
 # best, groupwise
 registration_reference_method: best
@@ -77,4 +77,4 @@ n_ensemble: 5
 # True, False
 uformer_denoise: False
 # int: 1, 3, or 5
-uformer_breatholds: 3
+uformer_breatholds: 5

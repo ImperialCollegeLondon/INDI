@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: path
+start_folder:
 
 # anon, reg, main
 workflow_mode: main
@@ -33,7 +33,7 @@ registration: elastix_non_rigid
 registration_speed: fast
 
 # best, groupwise
-registration_reference_method: groupwise
+registration_reference_method: best
 
 # ========================================================================================
 # TENSOR FITTING
@@ -57,7 +57,9 @@ remove_outliers_with_ai: False
 # float in msec
 assumed_rr_interval: 1000
 # float in msec
-calculated_real_b0: 33
+calculated_real_b0: 29
+# remove slices integers
+remove_slices: []
 
 # ========================================================================================
 # AI MODELS
@@ -75,4 +77,4 @@ n_ensemble: 5
 # True, False
 uformer_denoise: False
 # int: 1, 3, or 5
-uformer_breatholds: 3
+uformer_breatholds: 5
