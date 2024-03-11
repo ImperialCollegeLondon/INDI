@@ -875,24 +875,24 @@ def get_snr_maps(
         for slice_idx in slices:
             alphas_whole_heart = np.copy(mask_3c[slice_idx])
             alphas_whole_heart[alphas_whole_heart > 0.1] = 1
-        if len(snr[slice_idx]) > 0:
-            plt.figure(figsize=(3 * len(snr[slice_idx]), 3))
-            for idx, key in enumerate(snr[slice_idx]):
-                plt.subplot(1, len(snr[slice_idx]), idx + 1)
-                plt.imshow(average_images[slice_idx], cmap="Greys_r")
-                plt.imshow(snr[slice_idx][key], vmin=0, vmax=20, cmap="magma", alpha=alphas_whole_heart)
-                plt.axis("off")
-                plt.title(key, fontsize=7)
-                cbar = plt.colorbar(fraction=0.046, pad=0.04)
-                cbar.ax.tick_params(labelsize=7)
-            plt.tight_layout(pad=1.0)
-            plt.savefig(
-                os.path.join(settings["debug_folder"], "snr_maps_slice_" + str(slice_idx).zfill(2) + ".png"),
-                dpi=200,
-                pad_inches=0,
-                transparent=False,
-            )
-            plt.close()
+            if len(snr[slice_idx]) > 0:
+                plt.figure(figsize=(3 * len(snr[slice_idx]), 3))
+                for idx, key in enumerate(snr[slice_idx]):
+                    plt.subplot(1, len(snr[slice_idx]), idx + 1)
+                    plt.imshow(average_images[slice_idx], cmap="Greys_r")
+                    plt.imshow(snr[slice_idx][key], vmin=0, vmax=20, cmap="magma", alpha=alphas_whole_heart)
+                    plt.axis("off")
+                    plt.title(key, fontsize=7)
+                    cbar = plt.colorbar(fraction=0.046, pad=0.04)
+                    cbar.ax.tick_params(labelsize=7)
+                plt.tight_layout(pad=1.0)
+                plt.savefig(
+                    os.path.join(settings["debug_folder"], "snr_maps_slice_" + str(slice_idx).zfill(2) + ".png"),
+                    dpi=200,
+                    pad_inches=0,
+                    transparent=False,
+                )
+                plt.close()
 
     return snr, noise, snr_b0_lv, info
 

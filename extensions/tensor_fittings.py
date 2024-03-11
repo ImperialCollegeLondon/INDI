@@ -108,13 +108,14 @@ def get_residual_z_scores(residuals: NDArray) -> tuple[ndarray, ndarray, ndarray
     return z_scores, outliers, outliers_pos
 
 
-def plot_tensor_components(D: NDArray, mask_3c: NDArray, slices: NDArray, settings: dict):
+def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray, slices: NDArray, settings: dict):
     """
     Plot tensor components
 
     Parameters
     ----------
     D: diffusion tensor array
+    average_images: array with average images
     mask_3c: segmentation mask
     slices: array with slice positions
     settings: dictionary with useful info
@@ -130,46 +131,55 @@ def plot_tensor_components(D: NDArray, mask_3c: NDArray, slices: NDArray, settin
     myo_tensor = np.copy(D)
     myo_tensor[mask == 0] = np.nan
 
-    tensor_mean = np.nanmean(D)
-    tensor_std = np.nanstd(D)
+    tensor_mean = np.nanmean(myo_tensor)
+    tensor_std = np.nanstd(myo_tensor)
     vmin = tensor_mean - 3 * tensor_std
     vmax = tensor_mean + 3 * tensor_std
 
     for slice_idx in slices:
+        alphas_whole_heart = np.copy(mask_3c[slice_idx])
+        alphas_whole_heart[alphas_whole_heart > 0.1] = 1
+
         # imshow the tensor
         plt.figure(figsize=(15, 15))
         plt.subplot(3, 3, 1)
-        plt.imshow(D[slice_idx, :, :, 0, 0], vmin=vmin, vmax=vmax)
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
+        plt.imshow(D[slice_idx, :, :, 0, 0], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxx")
 
         plt.subplot(3, 3, 5)
-        plt.imshow(D[slice_idx, :, :, 1, 1], vmin=vmin, vmax=vmax)
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
+        plt.imshow(D[slice_idx, :, :, 1, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dyy")
 
         plt.subplot(3, 3, 9)
-        plt.imshow(D[slice_idx, :, :, 2, 2], vmin=vmin, vmax=vmax)
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
+        plt.imshow(D[slice_idx, :, :, 2, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.title("Dzz")
         plt.axis("off")
 
         plt.subplot(3, 3, 2)
-        plt.imshow(D[slice_idx, :, :, 0, 1], vmin=vmin, vmax=vmax)
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
+        plt.imshow(D[slice_idx, :, :, 0, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxy")
 
         plt.subplot(3, 3, 3)
-        plt.imshow(D[slice_idx, :, :, 0, 2], vmin=vmin, vmax=vmax)
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
+        plt.imshow(D[slice_idx, :, :, 0, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxz")
 
         plt.subplot(3, 3, 6)
-        plt.imshow(D[slice_idx, :, :, 1, 2], vmin=vmin, vmax=vmax)
+        plt.imshow(average_images[slice_idx], cmap="Greys_r")
+        plt.imshow(D[slice_idx, :, :, 1, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.title("Dyz")
         plt.axis("off")
@@ -304,6 +314,6 @@ def dipy_tensor_fit(
 
     if not quick_mode:
         if settings["debug"]:
-            plot_tensor_components(tensor, mask_3c, slices, settings)
+            plot_tensor_components(tensor, average_images, mask_3c, slices, settings)
 
     return tensor, s0, residuals_img, residuals_map, info
