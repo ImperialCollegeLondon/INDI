@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/10_slice_study/vol_3
+start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/MCSE
 
 # anon, reg, main
 workflow_mode: main
@@ -59,7 +59,7 @@ assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
 # remove slices integers
-remove_slices: [0,1,2,3,11]
+remove_slices: []
 
 # ========================================================================================
 # AI MODELS

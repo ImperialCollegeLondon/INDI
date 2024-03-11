@@ -7,7 +7,6 @@ import pandas as pd
 from numpy.typing import NDArray
 from skimage.util import compare_images
 
-from extensions.manual_lv_segmentation import plot_manual_lv_segmentation
 from extensions.read_and_pre_process_data import create_2d_montage_from_database
 
 
@@ -22,7 +21,7 @@ def crop_images(
     info: dict,
     logger: logging.Logger,
     settings: dict,
-) -> [dict, pd.DataFrame, NDArray, NDArray, dict, NDArray]:
+) -> [dict, pd.DataFrame, NDArray, dict, NDArray, dict, dict, NDArray]:
     """
     Crop images to the heart region as defined by the segmentation
 
@@ -41,9 +40,12 @@ def crop_images(
 
     Returns
     -------
+    dti: dict with dti maps
     data: dataframe with the diffusion images now cropped.
     mask_3c: U-Net mask of the heart now cropped.
+    segmentation: dict with segmentation info
     average_images: average image of each slice now cropped.
+    ref_images: reference_images used in the registration
     info: dictionary with useful stuff, here updates the image size to the cropped one.
     crop_mask: logical mask with the crop.
     """
@@ -93,17 +95,17 @@ def crop_images(
     temp_val = list(first_corner)
     info["crop_corner"] = [int(i) for i in temp_val]
 
-    if settings["debug"]:
-        plot_manual_lv_segmentation(
-            info["n_slices"],
-            slices,
-            segmentation,
-            average_images,
-            mask_3c,
-            settings,
-            "cropped_lv_mask",
-            os.path.join(settings["results"], "results_b"),
-        )
+    # if settings["debug"]:
+    #     plot_manual_lv_segmentation(
+    #         info["n_slices"],
+    #         slices,
+    #         segmentation,
+    #         average_images,
+    #         mask_3c,
+    #         settings,
+    #         "cropped_lv_mask",
+    #         os.path.join(settings["results"], "results_b"),
+    #     )
 
     # crop the diffusion images
     for i in range(n_entries):
@@ -111,7 +113,7 @@ def crop_images(
         background_mask = np.copy(mask_3c[c_slice_position])
         background_mask[background_mask > 0] = 1
         data.at[i, "image"] = data.loc[i, "image"][np.ix_(crop_mask.any(1), crop_mask.any(0))]
-        data.at[i, "image"] = data.loc[i, "image"] * background_mask
+        # data.at[i, "image"] = data.loc[i, "image"] * background_mask
 
     # update image size
     info["original_img_size"] = info["img_size"]
@@ -147,8 +149,8 @@ def record_image_registration(
     logger: logger
     """
 
-    import imageio
-    from skimage import color
+    # import imageio
+    # from skimage import color
 
     lv_mask = np.zeros(mask.shape)
     lv_mask[mask == 1] = 1
@@ -205,27 +207,27 @@ def record_image_registration(
         )
         plt.close()
 
-    if settings["debug"]:
-        # save the registration results for each slice as an animated gif
-        # this time with mask
-        for slice_idx in slices:
-            post_reg_array = registration_image_data["img_post_reg"][slice_idx]
-            gif_images = []
-            for idx in range(post_reg_array.shape[0]):
-                c_img = post_reg_array[idx] * (1 / post_reg_array[idx].max())
-                c_img_mask = color.label2rgb(mask[slice_idx], c_img, bg_label=0, alpha=0.05)
-                gif_images.append(c_img_mask)
-            gif_images = gif_images / np.amax(gif_images) * 255
-            gif_images = np.array(gif_images, dtype=np.uint8)
-            imageio.mimsave(
-                os.path.join(
-                    settings["debug_folder"],
-                    "registration_mask_slice_" + str(slice_idx).zfill(2) + ".gif",
-                ),
-                gif_images,
-                duration=0.3,
-                loop=0,
-            )
+    # if settings["debug"]:
+    #     # save the registration results for each slice as an animated gif
+    #     # this time with mask
+    #     for slice_idx in slices:
+    #         post_reg_array = registration_image_data["img_post_reg"][slice_idx]
+    #         gif_images = []
+    #         for idx in range(post_reg_array.shape[0]):
+    #             c_img = post_reg_array[idx] * (1 / post_reg_array[idx].max())
+    #             c_img_mask = color.label2rgb(mask[slice_idx], c_img, bg_label=0, alpha=0.05)
+    #             gif_images.append(c_img_mask)
+    #         gif_images = gif_images / np.amax(gif_images) * 255
+    #         gif_images = np.array(gif_images, dtype=np.uint8)
+    #         imageio.mimsave(
+    #             os.path.join(
+    #                 settings["debug_folder"],
+    #                 "registration_mask_slice_" + str(slice_idx).zfill(2) + ".gif",
+    #             ),
+    #             gif_images,
+    #             duration=0.3,
+    #             loop=0,
+    #         )
 
     if settings["debug"] and settings["registration_extra_debug"] and settings["registration"] != "elastix_groupwise":
         if not os.path.exists(os.path.join(settings["debug_folder"], "extra_motion_registration")):
@@ -445,6 +447,7 @@ def crop_fov(
             "dwis_post_crop",
             settings["debug_folder"],
             [],
+            segmentation,
         )
 
     return dti, data, mask_3c, segmentation, average_images, info, crop_mask
