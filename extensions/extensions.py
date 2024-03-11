@@ -838,18 +838,23 @@ def get_snr_maps(
         mean_snr_b0 = []
         info["LV SNR b0"] = {}
         for slice_idx in slices:
-            logger.debug(
-                "LV SNR for slice "
-                + str(slice_idx).zfill(2)
-                + " b0 images = "
-                + "%.2f" % snr_b0_lv[slice_idx]["mean"]
-                + " +/- "
-                + "%.2f" % snr_b0_lv[slice_idx]["std"]
-            )
-            info["LV SNR b0"][str(slice_idx).zfill(2)] = (
-                "%.2f" % snr_b0_lv[slice_idx]["mean"] + " +/- " + "%.2f" % snr_b0_lv[slice_idx]["std"]
-            )
-            mean_snr_b0.append(snr_b0_lv[slice_idx])
+            if slice_idx in snr_b0_lv:
+                logger.debug(
+                    "LV SNR for slice "
+                    + str(slice_idx).zfill(2)
+                    + " b0 images = "
+                    + "%.2f" % snr_b0_lv[slice_idx]["mean"]
+                    + " +/- "
+                    + "%.2f" % snr_b0_lv[slice_idx]["std"]
+                )
+                info["LV SNR b0"][str(slice_idx).zfill(2)] = (
+                    "%.2f" % snr_b0_lv[slice_idx]["mean"] + " +/- " + "%.2f" % snr_b0_lv[slice_idx]["std"]
+                )
+                mean_snr_b0.append(snr_b0_lv[slice_idx])
+            else:
+                logger.debug(
+                    "LV SNR for slice " + str(slice_idx).zfill(2) + " b0 images = " + "Not enough repetitions."
+                )
 
     if settings["debug"]:
         for slice_idx in slices:
