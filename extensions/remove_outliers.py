@@ -68,6 +68,7 @@ def manual_image_removal(
     data: pd.DataFrame,
     settings: dict,
     slices: NDArray,
+    segmentation: dict,
 ) -> [pd.DataFrame, pd.DataFrame, dict, NDArray]:
     """
     Manual removal of images. A matplotlib window will open, and we can select images to be removed.
@@ -96,9 +97,6 @@ def manual_image_removal(
     else:
         max_rel_signal = 1.0
 
-    # store also original dataframe before any image removal
-    data_original = data.copy()
-
     # now we need to collect all the index positions of the rejected frames
     stored_indices_all_slices = []
     stored_indices_per_slice = {}
@@ -111,6 +109,9 @@ def manual_image_removal(
         c_df = c_df.reset_index()
         # initiate maximum number of images found for each b-val and dir combination
         max_number_of_images = 0
+
+        # drop any images already marked to be removed
+        c_df = c_df.loc[c_df["to_be_removed"] == False]
 
         # convert list of directions to a tuple
         c_df["direction_original"] = c_df["direction_original"].apply(tuple)
@@ -159,6 +160,23 @@ def manual_image_removal(
             cc_img_stack = c_img_stack[key]
             for idx2, img in enumerate(cc_img_stack):
                 axs[idx, idx2].imshow(img, cmap="gray", vmin=np.min(img), vmax=np.max(img) * max_rel_signal)
+                if segmentation:
+                    axs[idx, idx2].scatter(
+                        segmentation[slice_idx]["epicardium"][:, 0],
+                        segmentation[slice_idx]["epicardium"][:, 1],
+                        marker=".",
+                        s=2,
+                        color="tab:blue",
+                        alpha=0.5,
+                    )
+                    axs[idx, idx2].scatter(
+                        segmentation[slice_idx]["endocardium"][:, 0],
+                        segmentation[slice_idx]["endocardium"][:, 1],
+                        marker=".",
+                        s=2,
+                        color="tab:red",
+                        alpha=0.5,
+                    )
                 axs[idx, idx2].text(
                     5,
                     5,
@@ -225,16 +243,19 @@ def manual_image_removal(
     # the indices of the rejected frames
     # this dataframe will be used to plot all dwis with red labels on the rejected ones
     rejected_indices = stored_indices_all_slices
-    data_original.attrs["rejected_images"] = rejected_indices
-    data_original.attrs["rejected_images_per_slice"] = stored_indices_per_slice
-    save_path = os.path.join(settings["session"], "image_manual_removal.zip")
-    data_original.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
 
-    return data_original, rejected_indices, stored_indices_per_slice
+    return rejected_indices, stored_indices_per_slice
 
 
 def remove_outliers(
-    data: pd.DataFrame, slices: NDArray, registration_image_data: dict, settings: dict, info: dict, logger: logging
+    data: pd.DataFrame,
+    slices: NDArray,
+    registration_image_data: dict,
+    settings: dict,
+    info: dict,
+    logger: logging,
+    stage: str,
+    segmentation: dict = {},
 ) -> [pd.DataFrame, dict, NDArray]:
     """
     Remove Outliers: remove outliers, and display all DWIs in a montage
@@ -254,52 +275,92 @@ def remove_outliers(
 
     """
 
+    if stage == "pre":
+        data["to_be_removed"] = False
+        # initialise list of rejected indices
+        info["rejected_indices"] = []
+        info["n_images_rejected"] = 0
+
     # ========================================================={
     # manual removal of images
     # =========================================================
     if settings["remove_outliers_manually"]:
+        session_file = os.path.join(settings["session"], "image_manual_removal_" + stage + ".zip")
         # check if this manual removal has been previously done
-        if os.path.exists(os.path.join(settings["session"], "image_manual_removal.zip")):
+        if os.path.exists(session_file):
             logger.info("Manual image removal already done, loading information.")
             # load initial database with rejected images included
-            data_original = pd.read_pickle(os.path.join(settings["session"], "image_manual_removal.zip"))
-            rejected_indices = data_original.attrs["rejected_images"]
-            stored_indices_per_slice = data_original.attrs["rejected_images_per_slice"]
-            info["n_images_rejected"] = len(rejected_indices)
+            data = pd.read_pickle(session_file)
+            rejected_indices = data.attrs["rejected_images"]
+            stored_indices_per_slice = data.attrs["rejected_images_per_slice"]
+            info["n_images_rejected"] += len(rejected_indices)
+            info["rejected_indices"].append(rejected_indices)
 
         else:
             # Manual image removal
-            logger.info("Starting manual image removal...")
-            data_original, rejected_indices, stored_indices_per_slice = manual_image_removal(data, settings, slices)
+            # logger.info("Starting manual image removal...")
+            rejected_indices, stored_indices_per_slice = manual_image_removal(
+                data,
+                settings,
+                slices,
+                segmentation,
+            )
             logger.info("Manual image removal done.")
 
-        # remove the rejected images from the dataframe and also from the registration_image_data
-        data = data_original.drop(index=rejected_indices)
-        data.reset_index(drop=True, inplace=True)
-        info["n_files"] = len(data)
-        info["n_images_rejected"] = len(rejected_indices)
-        logger.info("Number of images rejected: " + str(info["n_images_rejected"]))
+            for idx in rejected_indices:
+                data.loc[idx, "to_be_removed"] = True
+            data.attrs["rejected_images"] = rejected_indices
+            data.attrs["rejected_images_per_slice"] = stored_indices_per_slice
+            data.to_pickle(session_file, compression={"method": "zip", "compresslevel": 9})
 
-        for slice_idx in slices:
-            for idx in stored_indices_per_slice[slice_idx]:
-                registration_image_data["img_post_reg"][slice_idx] = np.delete(
-                    registration_image_data["img_post_reg"][slice_idx], idx, axis=0
-                )
-                registration_image_data["img_pre_reg"][slice_idx] = np.delete(
-                    registration_image_data["img_pre_reg"][slice_idx], idx, axis=0
-                )
-                registration_image_data["deformation_field"][slice_idx]["field"] = np.delete(
-                    registration_image_data["deformation_field"][slice_idx]["field"], idx, axis=0
-                )
-                registration_image_data["deformation_field"][slice_idx]["grid"] = np.delete(
-                    registration_image_data["deformation_field"][slice_idx]["grid"], idx, axis=0
-                )
+            info["n_images_rejected"] += len(rejected_indices)
+            info["rejected_indices"].append(rejected_indices)
+
+        logger.info("Number of images rejected after " + stage + ": " + str(info["n_images_rejected"]))
+
+        if stage == "post":
+            # simplify this list to be able to save it in the yaml file
+            info["rejected_indices"] = [item for sublist in info["rejected_indices"] for item in sublist]
+            info["rejected_indices"] = [int(i) for i in info["rejected_indices"]]
+            # plot all DWIs with red labels on the rejected ones before removing them from the database
+            create_2d_montage_from_database(
+                data,
+                "b_value_original",
+                "direction_original",
+                info,
+                settings,
+                slices,
+                "dwis",
+                os.path.join(settings["results"], "results_b"),
+                info["rejected_indices"],
+                segmentation,
+            )
+
+            # remove the rejected images from the dataframe and also from the registration_image_data
+            data = data.loc[data["to_be_removed"] == False]
+            data.reset_index(drop=True, inplace=True)
+            info["n_files"] = len(data)
+
+            for slice_idx in slices:
+                for idx in stored_indices_per_slice[slice_idx]:
+                    registration_image_data["img_post_reg"][slice_idx] = np.delete(
+                        registration_image_data["img_post_reg"][slice_idx], idx, axis=0
+                    )
+                    registration_image_data["img_pre_reg"][slice_idx] = np.delete(
+                        registration_image_data["img_pre_reg"][slice_idx], idx, axis=0
+                    )
+                    registration_image_data["deformation_field"][slice_idx]["field"] = np.delete(
+                        registration_image_data["deformation_field"][slice_idx]["field"], idx, axis=0
+                    )
+                    registration_image_data["deformation_field"][slice_idx]["grid"] = np.delete(
+                        registration_image_data["deformation_field"][slice_idx]["grid"], idx, axis=0
+                    )
 
     else:
         # no image removal to be done
         logger.info("No image removal to be done.")
-        data_original = data.copy()
-        rejected_indices = []
+        # data_original = data.copy()
+        # rejected_indices = []
 
     # =========================================================
     # remove outliers with AI
@@ -332,17 +393,18 @@ def remove_outliers(
     # =========================================================
     # display all DWIs in a montage
     # =========================================================
-    create_2d_montage_from_database(
-        data_original,
-        "b_value_original",
-        "direction_original",
-        info,
-        settings,
-        slices,
-        "dwis_after_image_rejection",
-        os.path.join(settings["results"], "results_b"),
-        rejected_indices,
-        {},
-    )
+    # if stage == "post":
+    #     create_2d_montage_from_database(
+    #         data,
+    #         "b_value_original",
+    #         "direction_original",
+    #         info,
+    #         settings,
+    #         slices,
+    #         "dwis_after_image_rejection",
+    #         os.path.join(settings["results"], "results_b"),
+    #         info["rejected_indices"],
+    #         segmentation,
+    #     )
 
     return data, info, slices

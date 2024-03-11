@@ -1571,6 +1571,7 @@ def export_results(
     info_redux = copy.deepcopy(info)
     del info_redux["image_positions_to_integer"]
     del info_redux["integer_to_image_positions"]
+    del info_redux["rejected_indices"]
     d = {str(k): [float(i) for i in v] for k, v in info["integer_to_image_positions"].items()}
     info_redux["integer_to_image_positions"] = d
     with open(os.path.join(settings["results"], "data", "DTI_data.yml"), "w") as handle1:

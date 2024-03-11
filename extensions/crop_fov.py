@@ -7,8 +7,6 @@ import pandas as pd
 from numpy.typing import NDArray
 from skimage.util import compare_images
 
-from extensions.read_and_pre_process_data import create_2d_montage_from_database
-
 
 def crop_images(
     dti: dict,
@@ -436,18 +434,18 @@ def crop_fov(
 
     record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
 
-    if settings["debug"]:
-        create_2d_montage_from_database(
-            data,
-            "b_value_original",
-            "direction_original",
-            info,
-            settings,
-            slices,
-            "dwis_post_crop",
-            settings["debug_folder"],
-            [],
-            segmentation,
-        )
+    # if settings["debug"]:
+    #     create_2d_montage_from_database(
+    #         data,
+    #         "b_value_original",
+    #         "direction_original",
+    #         info,
+    #         settings,
+    #         slices,
+    #         "dwis_post_crop",
+    #         settings["debug_folder"],
+    #         [],
+    #         segmentation,
+    #     )
 
     return dti, data, mask_3c, segmentation, average_images, info, crop_mask

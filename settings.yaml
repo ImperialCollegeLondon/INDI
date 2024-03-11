@@ -6,13 +6,11 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/MCSE
-
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/3_slices
 # anon, reg, main
 workflow_mode: main
-
 # se, steam
-sequence_type: se
+sequence_type: steam
 
 # ========================================================================================
 # DEBUGGING
@@ -28,10 +26,8 @@ registration_extra_debug: False
 # none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid
 # elastix_groupwise (not working well at the moment)
 registration: elastix_non_rigid
-
 # fast, slow
 registration_speed: fast
-
 # best, groupwise
 registration_reference_method: best
 
@@ -46,7 +42,6 @@ tensor_fit_method: NLLS
 # ========================================================================================
 # True, False
 remove_outliers_manually: True
-
 # True, False
 # NOT WORKING WELL AT THE MOMENT
 remove_outliers_with_ai: False
@@ -60,6 +55,8 @@ assumed_rr_interval: 1000
 calculated_real_b0: 29
 # remove slices integers
 remove_slices: []
+# pre segmentation outlier removal
+remove_outliers_manually_pre: True
 
 # ========================================================================================
 # AI MODELS

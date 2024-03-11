@@ -25,3 +25,4 @@ PyWavelets
 pre-commit
 py7zr
 python-dotenv
+pyarrow
