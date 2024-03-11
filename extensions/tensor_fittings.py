@@ -41,21 +41,28 @@ def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, pref
     plt.close()
 
 
-def plot_residuals_map(residuals: NDArray, slice_idx: int, settings: dict, prefix: str = ""):
+def plot_residuals_map(
+    residuals: NDArray, average_images: NDArray, mask_3c: NDArray, slice_idx: int, settings: dict, prefix: str = ""
+):
     """
     Plot the tensor residuals averaged per pixel
 
     Parameters
     ----------
     residuals: residuals per pixel
-    slice: slice position string
+    average_images
+    mask_3c
+    slice_idx: slice position string
     settings: dictionary with useful info
     prefix: prefix for the file name
 
     """
+    alphas_whole_heart = np.copy(mask_3c[slice_idx])
+    alphas_whole_heart[alphas_whole_heart > 0.1] = 1
     plt.figure(figsize=(5, 5))
     plt.subplot(1, 1, 1)
-    plt.imshow(residuals)
+    plt.imshow(average_images[slice_idx], cmap="Greys_r")
+    plt.imshow(residuals, alpha=alphas_whole_heart)
     cbar = plt.colorbar(fraction=0.046, pad=0.04)
     cbar.ax.tick_params(labelsize=5)
     plt.title("Tensor residuals (average of all DWIs)", fontsize=7)
@@ -101,13 +108,14 @@ def get_residual_z_scores(residuals: NDArray) -> tuple[ndarray, ndarray, ndarray
     return z_scores, outliers, outliers_pos
 
 
-def plot_tensor_components(D: NDArray, slices: NDArray, settings: dict):
+def plot_tensor_components(D: NDArray, mask_3c: NDArray, slices: NDArray, settings: dict):
     """
     Plot tensor components
 
     Parameters
     ----------
     D: diffusion tensor array
+    mask_3c: segmentation mask
     slices: array with slice positions
     settings: dictionary with useful info
 
@@ -115,41 +123,53 @@ def plot_tensor_components(D: NDArray, slices: NDArray, settings: dict):
     -------
 
     """
+
+    mask = np.copy(mask_3c)
+    mask[mask == 2] = 0
+
+    myo_tensor = np.copy(D)
+    myo_tensor[mask == 0] = np.nan
+
+    tensor_mean = np.nanmean(D)
+    tensor_std = np.nanstd(D)
+    vmin = tensor_mean - 3 * tensor_std
+    vmax = tensor_mean + 3 * tensor_std
+
     for slice_idx in slices:
         # imshow the tensor
         plt.figure(figsize=(15, 15))
         plt.subplot(3, 3, 1)
-        plt.imshow(D[slice_idx, :, :, 0, 0], vmin=D.min(), vmax=D.max())
+        plt.imshow(D[slice_idx, :, :, 0, 0], vmin=vmin, vmax=vmax)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxx")
 
         plt.subplot(3, 3, 5)
-        plt.imshow(D[slice_idx, :, :, 1, 1], vmin=D.min(), vmax=D.max())
+        plt.imshow(D[slice_idx, :, :, 1, 1], vmin=vmin, vmax=vmax)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dyy")
 
         plt.subplot(3, 3, 9)
-        plt.imshow(D[slice_idx, :, :, 2, 2], vmin=D.min(), vmax=D.max())
+        plt.imshow(D[slice_idx, :, :, 2, 2], vmin=vmin, vmax=vmax)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.title("Dzz")
         plt.axis("off")
 
         plt.subplot(3, 3, 2)
-        plt.imshow(D[slice_idx, :, :, 0, 1], vmin=D.min(), vmax=D.max())
+        plt.imshow(D[slice_idx, :, :, 0, 1], vmin=vmin, vmax=vmax)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxy")
 
         plt.subplot(3, 3, 3)
-        plt.imshow(D[slice_idx, :, :, 0, 2], vmin=D.min(), vmax=D.max())
+        plt.imshow(D[slice_idx, :, :, 0, 2], vmin=vmin, vmax=vmax)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxz")
 
         plt.subplot(3, 3, 6)
-        plt.imshow(D[slice_idx, :, :, 1, 2], vmin=D.min(), vmax=D.max())
+        plt.imshow(D[slice_idx, :, :, 1, 2], vmin=vmin, vmax=vmax)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.title("Dyz")
         plt.axis("off")
@@ -172,6 +192,7 @@ def dipy_tensor_fit(
     info: dict,
     settings: dict,
     mask_3c: NDArray,
+    average_images: NDArray,
     logger: logging.Logger,
     method: str = "NLLS",
     quick_mode=False,
@@ -268,7 +289,7 @@ def dipy_tensor_fit(
 
                 if settings["debug"]:
                     plot_residuals_plot(res_img, slice_idx, settings, prefix="")
-                    plot_residuals_map(res_map, slice_idx, settings, prefix="")
+                    plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
 
             else:
                 residuals_img = []
@@ -283,6 +304,6 @@ def dipy_tensor_fit(
 
     if not quick_mode:
         if settings["debug"]:
-            plot_tensor_components(tensor, slices, settings)
+            plot_tensor_components(tensor, mask_3c, slices, settings)
 
     return tensor, s0, residuals_img, residuals_map, info

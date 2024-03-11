@@ -138,7 +138,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Get SNR maps
     # =========================================================
-    [snr, noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, slices, settings, logger, info)
+    [snr, noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
 
     # =========================================================
     # Calculate tensor
@@ -149,6 +149,7 @@ for current_folder in all_to_be_analysed_folders:
         info,
         settings,
         mask_3c,
+        average_images,
         logger,
         method=settings["tensor_fit_method"],
         quick_mode=False,

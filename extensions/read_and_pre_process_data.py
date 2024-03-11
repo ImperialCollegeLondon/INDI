@@ -773,6 +773,7 @@ def create_2d_montage_from_database(
     filename: str,
     save_path: str,
     list_to_highlight: list = [],
+    segmentation: dict = {},
 ):
     """
     Create a grid with all DWIs for each slice
@@ -783,6 +784,7 @@ def create_2d_montage_from_database(
         dataframe with diffusion info
     b_value_column_name : str
         string of the column to use as the b-value
+    direction_column_name: str with direction
     info : dict
         useful info
     settings : dict
@@ -791,10 +793,11 @@ def create_2d_montage_from_database(
         list of slices
     filename : str
         filename to save the montage
+    save_path: str
+    where to save the image
     list_to_highlight : list, optional
         list of indices to highlight, by default []
-    save_path: str
-        where to save the image
+    segmentation: dict with segmentation information
 
     """
 
@@ -870,21 +873,55 @@ def create_2d_montage_from_database(
                 idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_img_stack.shape[1]
             ] = cc_img_stack
 
-            # repeat for mask
-            cc_mask_stack = c_highlight_stack[key]
-            cc_mask_stack = cc_mask_stack.transpose(1, 2, 0)
-            cc_mask_stack = np.reshape(
-                cc_mask_stack, (cc_mask_stack.shape[0], cc_mask_stack.shape[1] * cc_mask_stack.shape[2]), order="F"
-            )
-            montage_mask[
-                idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]
-            ] = cc_mask_stack
+            if list_to_highlight:
+                # repeat for mask
+                cc_mask_stack = c_highlight_stack[key]
+                cc_mask_stack = cc_mask_stack.transpose(1, 2, 0)
+                cc_mask_stack = np.reshape(
+                    cc_mask_stack, (cc_mask_stack.shape[0], cc_mask_stack.shape[1] * cc_mask_stack.shape[2]), order="F"
+                )
+                montage_mask[
+                    idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]
+                ] = cc_mask_stack
+
+        # create RGB image of montage and increase brightness
+        montage = montage / np.max(montage)
+        montage = 2 * montage
+        montage[montage > 1] = 1
+        # add RGB channels
+        montage = np.stack([montage, montage, montage], axis=-1)
+
+        # we need to add the segmentation, therefore the montages need to be with colour
+        if segmentation:
+            # create montage with segmentation
+            seg_img = np.zeros((info["img_size"][0], info["img_size"][1], 3))
+            pts = np.array(segmentation[slice_int]["epicardium"], dtype=int)
+            seg_img[pts[:, 1], pts[:, 0]] = [1, 0, 0]
+            pts = np.array(segmentation[slice_int]["endocardium"], dtype=int)
+            seg_img[pts[:, 1], pts[:, 0]] = [0, 1, 0]
+            # repeat image for the entire stack
+            seg_img = np.tile(seg_img, (len(c_img_stack), max_number_of_images, 1))
+
+            # create a transparency mask as a 4th channel
+            seg_mask = seg_img[:, :, :] == [0, 0, 0]
+            seg_mask = seg_mask.all(axis=2)
+            seg_mask = np.invert(seg_mask) * 0.5
+            seg_img = np.dstack([seg_img, seg_mask])
+
+        if list_to_highlight:
+            # repeat slightly different for the rejected images mask
+            montage_mask = montage_mask / np.max(montage_mask)
+            montage_mask = np.stack([montage_mask, 0 * montage_mask, 0 * montage_mask], axis=-1)
+            montage_mask = np.dstack([montage_mask, montage_mask[:, :, 0] * 0.2])
 
         # save montages in a figure
         fig = plt.figure(figsize=(len(c_img_stack), max_number_of_images))
         ax = fig.add_subplot(1, 1, 1)
-        plt.imshow(montage, cmap="Greys_r", vmin=np.min(montage), vmax=np.max(montage) * 0.35)
-        plt.imshow(montage_mask, cmap="bwr", alpha=0.2 * montage_mask)
+        plt.imshow(montage)
+        if segmentation:
+            plt.imshow(seg_img)
+        if list_to_highlight:
+            plt.imshow(montage_mask)
         ax.set_yticks(
             range(
                 round(info["img_size"][0] * 0.5),
@@ -1109,6 +1146,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             "dwis_original_dicoms",
             settings["debug_folder"],
             [],
+            {},
         )
 
     # also save some diffusion info to a csv file

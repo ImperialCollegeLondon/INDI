@@ -66,15 +66,24 @@ def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: N
     plt.close()
 
 
-def plot_eigenvector_maps(eigenvectors, slices, settings):
+def plot_eigenvector_maps(eigenvectors, average_images, mask_3c, slices, settings):
     # plot the eigenvectors
     direction_str = ["x", "y", "z"]
     order_str = ["tertiary", "secondary", "primary"]
     for slice_idx in slices:
+        alphas_whole_heart = np.copy(mask_3c[slice_idx])
+        alphas_whole_heart[alphas_whole_heart > 0.1] = 1
         fig, ax = plt.subplots(3, 3)
         for idx, eig_order in enumerate(range(2, -1, -1)):
             for direction in range(3):
-                i = ax[idx, direction].imshow(eigenvectors[slice_idx, :, :, direction, eig_order], vmin=-1, vmax=1)
+                ax[idx, direction].imshow(average_images[slice_idx], cmap="Greys_r")
+                i = ax[idx, direction].imshow(
+                    eigenvectors[slice_idx, :, :, direction, eig_order],
+                    vmin=-1,
+                    vmax=1,
+                    alpha=alphas_whole_heart,
+                    cmap="RdYlBu",
+                )
                 ax[idx, direction].set_title(order_str[eig_order] + ": " + direction_str[direction], fontsize=7)
                 ax[idx, direction].axis("off")
                 plt.tick_params(axis="both", which="major", labelsize=5)
@@ -254,6 +263,6 @@ def get_eigensystem(
     # and also maps for the eigenvectors if debug is True
     plot_eigenvalues_histograms(dti["eigenvalues"], settings, mask_3c)
     if settings["debug"]:
-        plot_eigenvector_maps(dti["eigenvectors"], slices, settings)
+        plot_eigenvector_maps(dti["eigenvectors"], average_images, mask_3c, slices, settings)
 
     return dti, info

@@ -342,6 +342,7 @@ def remove_outliers(
         "dwis_after_image_rejection",
         os.path.join(settings["results"], "results_b"),
         rejected_indices,
+        {},
     )
 
     return data, info, slices
