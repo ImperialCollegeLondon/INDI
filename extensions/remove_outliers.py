@@ -8,7 +8,7 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from extensions.dwis_classifier import dwis_classifier
-from extensions.extensions import crop_pad_rotate_array
+from extensions.extensions import crop_pad_rotate_array, get_window
 from extensions.read_and_pre_process_data import create_2d_montage_from_database
 
 
@@ -69,6 +69,7 @@ def manual_image_removal(
     settings: dict,
     slices: NDArray,
     segmentation: dict,
+    mask: NDArray,
 ) -> [pd.DataFrame, pd.DataFrame, dict, NDArray]:
     """
     Manual removal of images. A matplotlib window will open, and we can select images to be removed.
@@ -89,13 +90,13 @@ def manual_image_removal(
     array with indices of rejected images in the original dataframe
 
     """
-    # max relative signal in the images
-    if settings["sequence_type"] == "steam":
-        max_rel_signal = 0.75
-    elif settings["sequence_type"] == "se":
-        max_rel_signal = 0.5
-    else:
-        max_rel_signal = 1.0
+    # # max relative signal in the images
+    # if settings["sequence_type"] == "steam":
+    #     max_rel_signal = 0.75
+    # elif settings["sequence_type"] == "se":
+    #     max_rel_signal = 0.5
+    # else:
+    #     max_rel_signal = 1.0
 
     # now we need to collect all the index positions of the rejected frames
     stored_indices_all_slices = []
@@ -159,37 +160,37 @@ def manual_image_removal(
         for idx, key in enumerate(c_img_stack):
             cc_img_stack = c_img_stack[key]
             for idx2, img in enumerate(cc_img_stack):
-                axs[idx, idx2].imshow(img, cmap="gray", vmin=np.min(img), vmax=np.max(img) * max_rel_signal)
+                vmin, vmax = get_window(img, mask[slice_idx])
+                axs[idx, idx2].imshow(img, cmap="gray", vmin=vmin, vmax=vmax)
                 if segmentation:
                     axs[idx, idx2].scatter(
                         segmentation[slice_idx]["epicardium"][:, 0],
                         segmentation[slice_idx]["epicardium"][:, 1],
                         marker=".",
-                        s=2,
+                        s=1,
                         color="tab:blue",
-                        alpha=0.5,
+                        alpha=0.2,
                     )
                     axs[idx, idx2].scatter(
                         segmentation[slice_idx]["endocardium"][:, 0],
                         segmentation[slice_idx]["endocardium"][:, 1],
                         marker=".",
-                        s=2,
+                        s=1,
                         color="tab:red",
-                        alpha=0.5,
+                        alpha=0.2,
                     )
                 axs[idx, idx2].text(
                     5,
                     5,
-                    str(key[0]),
+                    str(int(key[0])),
                     fontsize=3,
                     color="tab:orange",
                     horizontalalignment="left",
                     verticalalignment="top",
+                    bbox=dict(facecolor="black", pad=0, edgecolor="none"),
                 )
-
                 axs[idx, idx2].set_xticks([])
                 axs[idx, idx2].set_yticks([])
-
                 axs[idx, idx2].name = str(key + (idx2,))
         # Setting the values for all axes.
         plt.setp(axs, xticks=[], yticks=[])
@@ -256,6 +257,7 @@ def remove_outliers(
     logger: logging,
     stage: str,
     segmentation: dict = {},
+    mask: NDArray = np.array([]),
 ) -> [pd.DataFrame, dict, NDArray]:
     """
     Remove Outliers: remove outliers, and display all DWIs in a montage
@@ -275,10 +277,14 @@ def remove_outliers(
 
     """
 
-    if stage == "pre":
+    # check if there is already a column marking the images to be removed
+    if "to_be_removed" not in data:
         data["to_be_removed"] = False
-        # initialise list of rejected indices
+
+    # check if the info dictionary has the rejected_indices and n_images_rejected keys
+    if "rejected_indices" not in info:
         info["rejected_indices"] = []
+    if "n_images_rejected" not in info:
         info["n_images_rejected"] = 0
 
     # ========================================================={
@@ -304,6 +310,7 @@ def remove_outliers(
                 settings,
                 slices,
                 segmentation,
+                mask,
             )
             logger.info("Manual image removal done.")
 

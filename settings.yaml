@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/3_slices
+start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/10_slice_study/vol_3
 # anon, reg, main
 workflow_mode: main
 # se, steam
@@ -54,9 +54,9 @@ assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
 # remove slices integers
-remove_slices: []
+remove_slices: [0,1,2,3,5,10,11]
 # pre segmentation outlier removal
-remove_outliers_manually_pre: True
+remove_outliers_manually_pre: False
 
 # ========================================================================================
 # AI MODELS

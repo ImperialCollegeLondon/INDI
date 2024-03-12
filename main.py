@@ -10,6 +10,7 @@ import os
 import sys
 
 import matplotlib
+import numpy as np
 
 from extensions.crop_fov import crop_fov
 from extensions.extensions import (  # get_xarray,
@@ -105,6 +106,7 @@ for current_folder in all_to_be_analysed_folders:
             logger,
             stage="pre",
             segmentation={},
+            mask=np.array([]),
         )
 
     # =========================================================
@@ -150,7 +152,15 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     logger.info("Manual removal of outliers post segmentation")
     [data, info, slices] = remove_outliers(
-        data, slices, registration_image_data, settings, info, logger, stage="post", segmentation=segmentation
+        data,
+        slices,
+        registration_image_data,
+        settings,
+        info,
+        logger,
+        stage="post",
+        segmentation=segmentation,
+        mask=mask_3c,
     )
 
     # =========================================================

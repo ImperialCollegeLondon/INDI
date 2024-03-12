@@ -230,8 +230,9 @@ def get_average_images(
         # dataframe with current slice
         c_df = data.loc[data["slice_integer"] == slice_idx].copy()
 
-        # drop rejected images
-        c_df = c_df[c_df["to_be_removed"] == False]
+        # drop rejected images (if they exist)
+        if "to_be_removed" in c_df:
+            c_df = c_df[c_df["to_be_removed"] == False]
 
         # stack of images
         img_stack = np.stack(c_df["image"], axis=0)
