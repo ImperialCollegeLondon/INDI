@@ -768,7 +768,6 @@ def create_2d_montage_from_database(
     b_value_column_name: str,
     direction_column_name: str,
     info: dict,
-    settings: dict,
     slices: list,
     filename: str,
     save_path: str,
@@ -787,8 +786,6 @@ def create_2d_montage_from_database(
     direction_column_name: str with direction
     info : dict
         useful info
-    settings : dict
-        settings info
     slices : list
         list of slices
     filename : str
@@ -1141,7 +1138,6 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             "b_value_original",
             "direction_original",
             info,
-            settings,
             slices,
             "dwis_original_dicoms",
             settings["debug_folder"],

@@ -334,7 +334,6 @@ def remove_outliers(
                 "b_value_original",
                 "direction_original",
                 info,
-                settings,
                 slices,
                 "dwis",
                 os.path.join(settings["results"], "results_b"),
