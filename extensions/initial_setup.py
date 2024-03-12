@@ -27,6 +27,9 @@ def solve_conflicts(settings: dict, logger: logging.Logger) -> dict:
     if settings["sequence_type"] == "se":
         logger.info("U-Net segmentation is disabled because sequence type is SE!")
         settings["u_net_segmentation"] = False
+    if settings["remove_outliers_manually_pre"] == True and settings["remove_outliers_manually"] == False:
+        logger.info("Enabling manual removal post segmentation as remove_outliers_manually_pre is enabled!")
+        settings["remove_outliers_manually"] = True
 
     return settings
 
@@ -69,9 +72,6 @@ def initial_setup(script_path: str) -> [dict, dict, dict, logging, logging, list
     yaml_file = open(os.path.join(script_path, "settings.yaml"), "r")
     settings = yaml.safe_load(yaml_file)
 
-    # solve conflicts from different settings:
-    settings = solve_conflicts(settings, logger)
-
     # add root path of the code
     settings["code_path"] = script_path
 
@@ -88,5 +88,8 @@ def initial_setup(script_path: str) -> [dict, dict, dict, logging, logging, list
     # find all subfolders called dicoms recursively
     all_to_be_analysed_folders = glob.glob(settings["start_folder"] + "/**/diffusion_images", recursive=True)
     all_to_be_analysed_folders.sort()
+
+    # solve conflicts from different settings:
+    settings = solve_conflicts(settings, logger)
 
     return dti, settings, logger, log_format, all_to_be_analysed_folders

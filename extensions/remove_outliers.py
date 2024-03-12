@@ -364,8 +364,6 @@ def remove_outliers(
     else:
         # no image removal to be done
         logger.info("No image removal to be done.")
-        # data_original = data.copy()
-        # rejected_indices = []
 
     # =========================================================
     # remove outliers with AI

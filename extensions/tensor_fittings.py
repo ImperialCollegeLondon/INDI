@@ -251,6 +251,10 @@ def dipy_tensor_fit(
     info["tensor fitting sigma"] = {}
     for slice_idx in slices:
         current_entries = data.loc[data["slice_integer"] == slice_idx]
+
+        # remove any images that have been marked to be removed
+        current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
+
         bvals = current_entries["b_value"].values
         bvecs = np.vstack(current_entries["direction"])
         gtab = gradient_table(bvals, bvecs, atol=0.5)

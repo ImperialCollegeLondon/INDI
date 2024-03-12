@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/in_vivo/challenging_registration/MID_Systole
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/5_slices_no_outliers
 # anon, reg, main
 workflow_mode: main
 # se, steam
@@ -41,7 +41,9 @@ tensor_fit_method: NLLS
 # IMAGE REMOVAL
 # ========================================================================================
 # True, False
-remove_outliers_manually: True
+remove_outliers_manually: False
+# True, False
+remove_outliers_manually_pre: True
 # True, False
 # NOT WORKING WELL AT THE MOMENT
 remove_outliers_with_ai: False
@@ -54,9 +56,8 @@ assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
 # remove slices integers
-remove_slices: []
-# pre segmentation outlier removal
-remove_outliers_manually_pre: False
+remove_slices: [0,4]
+
 
 # ========================================================================================
 # AI MODELS

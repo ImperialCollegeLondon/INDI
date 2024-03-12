@@ -106,8 +106,14 @@ for current_folder in all_to_be_analysed_folders:
             logger,
             stage="pre",
             segmentation={},
-            mask=np.array([]),
+            mask=np.zeros((info["n_slices"], 0, 0)),
         )
+    else:
+        # initialise some variables if we are not removing outliers manually
+        logger.info("Manual removal of outliers pre segmentation is False")
+        data["to_be_removed"] = False
+        info["rejected_indices"] = []
+        info["n_images_rejected"] = 0
 
     # =========================================================
     # Average images
