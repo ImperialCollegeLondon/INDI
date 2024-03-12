@@ -897,6 +897,41 @@ def get_snr_maps(
     return snr, noise, snr_b0_lv, info
 
 
+def get_window(img: NDArray, mask: NDArray) -> (float, float):
+    """
+    Get the window for the image
+
+    Parameters
+    ----------
+    img : NDArray
+        image
+    mask : NDArray
+        mask
+
+    Returns
+    -------
+    (float, float)
+        window vmin and vmax values
+    """
+
+    # check if mask is not empty
+    if mask.size == 0:
+        mask = np.ones_like(img)
+    # get all the non background pixel values from image
+    px_values = img[mask == 1]
+    # get mean and std
+    img_mean = np.nanmean(px_values)
+    img_std = np.nanstd(px_values)
+    # define the values
+    vmin = img_mean - 3 * img_std
+    vmax = img_mean + 3 * img_std
+    # cutoff at 0 in case vmin is negative
+    if vmin < 0:
+        vmin = 0
+
+    return vmin, vmax
+
+
 def crop_pad_rotate_array(img: NDArray, correct_size: list, allow_rotation: bool = False) -> NDArray:
     """
     Crop or pad array to the required size
@@ -1363,8 +1398,9 @@ def plot_results_maps(
 
         # plot S0 map with segmentation
         plt.figure(figsize=(5, 5))
-        plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=2)
-        plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart)
+        plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
+        vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
+        plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
         plt.plot(
             segmentation[slice_idx]["anterior_ip"][0],
             segmentation[slice_idx]["anterior_ip"][1],

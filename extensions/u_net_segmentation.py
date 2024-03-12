@@ -3,6 +3,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from numpy.typing import NDArray
 from scipy import ndimage
@@ -201,11 +202,9 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
 
 
 def get_average_images(
+    data: pd.DataFrame,
     slices: NDArray,
-    img_size: tuple,
-    n_slices: int,
-    registration_image_data: dict,
-    settings: dict,
+    info,
     logger: logging.Logger,
 ) -> NDArray:
     """
@@ -213,30 +212,36 @@ def get_average_images(
 
     Parameters
     ----------
+    data: database with DWIs
     slices: array with slice locations string
-    img_size: image shape before cropping
-    n_slice: int number of slices
-    registration_image_data: registration images and QC info
-    settings
+    info: dict
     logger
 
     Returns
     -------
+    NDarray with average images
 
     """
 
-    # get average image for each slice
-    average_images = np.zeros([n_slices, img_size[0], img_size[1]])
+    average_images = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
     for slice_idx in slices:
-        average_images[slice_idx] = np.mean(registration_image_data["img_post_reg"][slice_idx], axis=0)
+        # dataframe with current slice
+        c_df = data.loc[data["slice_integer"] == slice_idx].copy()
 
-    average_images = average_images.astype(float)
-    # normalise each average image separately
-    for idx in range(n_slices):
-        average_images[idx] = average_images[idx] * (1 / average_images[idx].max())
+        # drop rejected images (if they exist)
+        if "to_be_removed" in c_df:
+            c_df = c_df[c_df["to_be_removed"] == False]
 
-    # denoise the average image with a NLM library
-    average_images = denoise_images(average_images, settings, slices)
+        # stack of images
+        img_stack = np.stack(c_df["image"], axis=0)
+
+        # average image
+        mean_img = np.mean(img_stack, axis=0)
+
+        # normalise image
+        mean_img = mean_img * (1 / mean_img.max())
+
+        average_images[slice_idx] = mean_img
 
     logger.info("Average images calculated")
 
