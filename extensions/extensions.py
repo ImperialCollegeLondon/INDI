@@ -445,11 +445,18 @@ def get_cardiac_coordinates_short_axis(
         direction_str = ["x", "y", "z"]
         order_keys = ["long", "circ", "radi"]
         for slice_idx in slices:
+            alphas_whole_heart = np.copy(mask[slice_idx])
+            alphas_whole_heart[alphas_whole_heart > 0.1] = 1
             fig, ax = plt.subplots(3, 3)
             for idx in range(3):
                 for direction in range(3):
+                    ax[idx, direction].imshow(average_images[slice_idx], cmap="Greys_r")
                     i = ax[idx, direction].imshow(
-                        local_cardiac_coordinates[order_keys[idx]][slice_idx, :, :, direction], vmin=-1, vmax=1
+                        local_cardiac_coordinates[order_keys[idx]][slice_idx, :, :, direction],
+                        vmin=-1,
+                        vmax=1,
+                        alpha=alphas_whole_heart,
+                        cmap="RdYlBu",
                     )
                     ax[idx, direction].set_title(order_keys[idx] + ": " + direction_str[direction], fontsize=7)
                     ax[idx, direction].axis("off")
@@ -757,7 +764,13 @@ def clean_mask(mask: NDArray) -> NDArray:
 
 
 def get_snr_maps(
-    data: pd.DataFrame, mask_3c: NDArray, slices: NDArray, settings: dict, logger: logging.Logger, info: dict
+    data: pd.DataFrame,
+    mask_3c: NDArray,
+    average_images: NDArray,
+    slices: NDArray,
+    settings: dict,
+    logger: logging.Logger,
+    info: dict,
 ) -> Tuple[dict, NDArray, dict, dict]:
     """
     Save the SNR maps.
@@ -766,9 +779,11 @@ def get_snr_maps(
     ----------
     data: dataframe with the diffusion images and info
     mask: U-Net mask of the heart
+    average_images: array with average images
     slices: array with slice integers
     settings: dictionary with useful info
     logger
+    info: dictionary with useful info
 
     Returns
     -------
@@ -838,26 +853,34 @@ def get_snr_maps(
         mean_snr_b0 = []
         info["LV SNR b0"] = {}
         for slice_idx in slices:
-            logger.debug(
-                "LV SNR for slice "
-                + str(slice_idx).zfill(2)
-                + " b0 images = "
-                + "%.2f" % snr_b0_lv[slice_idx]["mean"]
-                + " +/- "
-                + "%.2f" % snr_b0_lv[slice_idx]["std"]
-            )
-            info["LV SNR b0"][str(slice_idx).zfill(2)] = (
-                "%.2f" % snr_b0_lv[slice_idx]["mean"] + " +/- " + "%.2f" % snr_b0_lv[slice_idx]["std"]
-            )
-            mean_snr_b0.append(snr_b0_lv[slice_idx])
+            if slice_idx in snr_b0_lv:
+                logger.debug(
+                    "LV SNR for slice "
+                    + str(slice_idx).zfill(2)
+                    + " b0 images = "
+                    + "%.2f" % snr_b0_lv[slice_idx]["mean"]
+                    + " +/- "
+                    + "%.2f" % snr_b0_lv[slice_idx]["std"]
+                )
+                info["LV SNR b0"][str(slice_idx).zfill(2)] = (
+                    "%.2f" % snr_b0_lv[slice_idx]["mean"] + " +/- " + "%.2f" % snr_b0_lv[slice_idx]["std"]
+                )
+                mean_snr_b0.append(snr_b0_lv[slice_idx])
+            else:
+                logger.debug(
+                    "LV SNR for slice " + str(slice_idx).zfill(2) + " b0 images = " + "Not enough repetitions."
+                )
 
     if settings["debug"]:
         for slice_idx in slices:
+            alphas_whole_heart = np.copy(mask_3c[slice_idx])
+            alphas_whole_heart[alphas_whole_heart > 0.1] = 1
             if len(snr[slice_idx]) > 0:
                 plt.figure(figsize=(3 * len(snr[slice_idx]), 3))
                 for idx, key in enumerate(snr[slice_idx]):
                     plt.subplot(1, len(snr[slice_idx]), idx + 1)
-                    plt.imshow(snr[slice_idx][key], vmin=0, vmax=20, cmap="magma")
+                    plt.imshow(average_images[slice_idx], cmap="Greys_r")
+                    plt.imshow(snr[slice_idx][key], vmin=0, vmax=20, cmap="magma", alpha=alphas_whole_heart)
                     plt.axis("off")
                     plt.title(key, fontsize=7)
                     cbar = plt.colorbar(fraction=0.046, pad=0.04)
@@ -872,6 +895,41 @@ def get_snr_maps(
                 plt.close()
 
     return snr, noise, snr_b0_lv, info
+
+
+def get_window(img: NDArray, mask: NDArray) -> (float, float):
+    """
+    Get the window for the image
+
+    Parameters
+    ----------
+    img : NDArray
+        image
+    mask : NDArray
+        mask
+
+    Returns
+    -------
+    (float, float)
+        window vmin and vmax values
+    """
+
+    # check if mask is not empty
+    if mask.size == 0:
+        mask = np.ones_like(img)
+    # get all the non background pixel values from image
+    px_values = img[mask == 1]
+    # get mean and std
+    img_mean = np.nanmean(px_values)
+    img_std = np.nanstd(px_values)
+    # define the values
+    vmin = img_mean - 3 * img_std
+    vmax = img_mean + 3 * img_std
+    # cutoff at 0 in case vmin is negative
+    if vmin < 0:
+        vmin = 0
+
+    return vmin, vmax
 
 
 def crop_pad_rotate_array(img: NDArray, correct_size: list, allow_rotation: bool = False) -> NDArray:
@@ -1022,7 +1080,7 @@ def denoise_tensor(D: np.ndarray, settings: dict) -> np.ndarray:
     return D_denoised
 
 
-def plot_results_montage(
+def plot_results_maps(
     slices: NDArray, mask_3c: NDArray, average_images: dict, dti, segmentation: dict, colormaps: dict, settings: dict
 ):
     """
@@ -1055,7 +1113,7 @@ def plot_results_montage(
 
     # plt.style.use("seaborn-deep")
     colors = ["tab:orange", "tab:green", "tab:blue", "tab:red", "tab:brown", "tab:olive"]
-    # plot results for each slice
+    # plot results small montage for each slice
     for slice_idx in slices:
         alphas_whole_heart = np.copy(mask_3c[slice_idx])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
@@ -1338,6 +1396,43 @@ def plot_results_montage(
         )
         plt.close()
 
+        # plot S0 map with segmentation
+        plt.figure(figsize=(5, 5))
+        plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
+        vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
+        plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
+        plt.plot(
+            segmentation[slice_idx]["anterior_ip"][0],
+            segmentation[slice_idx]["anterior_ip"][1],
+            "2",
+            color="tab:orange",
+            markersize=20,
+            alpha=1.0,
+        )
+        plt.plot(
+            segmentation[slice_idx]["inferior_ip"][0],
+            segmentation[slice_idx]["inferior_ip"][1],
+            "1",
+            color="tab:orange",
+            markersize=20,
+            alpha=1.0,
+        )
+        plt.colorbar(fraction=0.046, pad=0.04)
+        plt.tight_layout(pad=1.0)
+        plt.axis("off")
+        plt.title("S0")
+        plt.savefig(
+            os.path.join(
+                settings["results"],
+                "results_b",
+                "maps_s0_slice_" + str(slice_idx).zfill(2) + ".png",
+            ),
+            dpi=200,
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()
+
 
 def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
     """
@@ -1478,8 +1573,8 @@ def export_results(
     # plot eigenvectors and tensor in VTK format
     export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)
 
-    # plot results montage
-    plot_results_montage(slices, mask_3c, average_images, dti, segmentation, colormaps, settings)
+    # plot results maps
+    plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, settings)
 
     # save xarray to NetCDF
     # ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))

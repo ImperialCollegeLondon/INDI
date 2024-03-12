@@ -77,6 +77,7 @@ def heart_segmentation(
                 info,
                 settings,
                 thr_mask,
+                average_images,
                 logger,
                 "LS",
                 quick_mode=True,

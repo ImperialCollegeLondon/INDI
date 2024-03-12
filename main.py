@@ -10,6 +10,7 @@ import os
 import sys
 
 import matplotlib
+import numpy as np
 
 from extensions.crop_fov import crop_fov
 from extensions.extensions import (  # get_xarray,
@@ -92,20 +93,36 @@ for current_folder in all_to_be_analysed_folders:
         continue
 
     # =========================================================
-    # Remove outliers
+    # Remove outliers (pre-segmentation)
     # =========================================================
-    [data, info, slices] = remove_outliers(data, slices, registration_image_data, settings, info, logger)
+    if settings["remove_outliers_manually_pre"]:
+        logger.info("Manual removal of outliers pre segmentation")
+        [data, info, slices] = remove_outliers(
+            data,
+            slices,
+            registration_image_data,
+            settings,
+            info,
+            logger,
+            stage="pre",
+            segmentation={},
+            mask=np.zeros((info["n_slices"], 0, 0)),
+        )
+    else:
+        # initialise some variables if we are not removing outliers manually
+        logger.info("Manual removal of outliers pre segmentation is False")
+        data["to_be_removed"] = False
+        info["rejected_indices"] = []
+        info["n_images_rejected"] = 0
 
     # =========================================================
     # Average images
     # =========================================================
     # get average denoised normalised image for each slice
     average_images = get_average_images(
+        data,
         slices,
-        info["img_size"],
-        info["n_slices"],
-        registration_image_data,
-        settings,
+        info,
         logger,
     )
 
@@ -136,9 +153,25 @@ for current_folder in all_to_be_analysed_folders:
     )
 
     # =========================================================
+    # Remove outliers (post-segmentation)
+    # =========================================================
+    logger.info("Manual removal of outliers post segmentation")
+    [data, info, slices] = remove_outliers(
+        data,
+        slices,
+        registration_image_data,
+        settings,
+        info,
+        logger,
+        stage="post",
+        segmentation=segmentation,
+        mask=mask_3c,
+    )
+
+    # =========================================================
     # Get SNR maps
     # =========================================================
-    [snr, noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, slices, settings, logger, info)
+    [snr, noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
 
     # =========================================================
     # Calculate tensor
@@ -149,6 +182,7 @@ for current_folder in all_to_be_analysed_folders:
         info,
         settings,
         mask_3c,
+        average_images,
         logger,
         method=settings["tensor_fit_method"],
         quick_mode=False,
