@@ -116,7 +116,6 @@ for current_folder in all_to_be_analysed_folders:
     average_images = get_average_images(
         data,
         slices,
-        settings,
         info,
         logger,
     )

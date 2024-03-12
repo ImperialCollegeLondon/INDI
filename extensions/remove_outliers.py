@@ -66,7 +66,6 @@ def remove_outliers_ai(
 
 def manual_image_removal(
     data: pd.DataFrame,
-    settings: dict,
     slices: NDArray,
     segmentation: dict,
     mask: NDArray,
@@ -77,10 +76,9 @@ def manual_image_removal(
     Parameters
     ----------
     data: dataframe with all the dwi data
-    info: dict
-    settings: dict
     slices: array with slice positions
-    logger: logger for console and file
+    segmentation: dict with epicardium and endocardium masks
+    mask: array with the mask of the heart
 
     Returns
     -------
@@ -240,9 +238,7 @@ def manual_image_removal(
     for slice_idx in slices:
         stored_indices_per_slice[slice_idx].sort(reverse=True)
 
-    # store original dataframe with all images and also as an attribute
     # the indices of the rejected frames
-    # this dataframe will be used to plot all dwis with red labels on the rejected ones
     rejected_indices = stored_indices_all_slices
 
     return rejected_indices, stored_indices_per_slice
@@ -270,6 +266,8 @@ def remove_outliers(
     settings
     info
     logger
+    stage: string with stage pre or post segmentation
+    mask: array with heart masks
 
     Returns
     -------
@@ -307,13 +305,13 @@ def remove_outliers(
             # logger.info("Starting manual image removal...")
             rejected_indices, stored_indices_per_slice = manual_image_removal(
                 data,
-                settings,
                 slices,
                 segmentation,
                 mask,
             )
             logger.info("Manual image removal done.")
 
+            # toggle to True the indices to be removed
             for idx in rejected_indices:
                 data.loc[idx, "to_be_removed"] = True
             data.attrs["rejected_images"] = rejected_indices
@@ -330,6 +328,7 @@ def remove_outliers(
             info["rejected_indices"] = [item for sublist in info["rejected_indices"] for item in sublist]
             info["rejected_indices"] = [int(i) for i in info["rejected_indices"]]
             # plot all DWIs with red labels on the rejected ones before removing them from the database
+            # also add the segmentation curves
             create_2d_montage_from_database(
                 data,
                 "b_value_original",
@@ -396,22 +395,5 @@ def remove_outliers(
         # # update number of dicom files
         # info["n_files"] = data.shape[0]
         # logger.debug("DWIs after outlier removal with AI: " + str(info["n_files"]))
-
-    # =========================================================
-    # display all DWIs in a montage
-    # =========================================================
-    # if stage == "post":
-    #     create_2d_montage_from_database(
-    #         data,
-    #         "b_value_original",
-    #         "direction_original",
-    #         info,
-    #         settings,
-    #         slices,
-    #         "dwis_after_image_rejection",
-    #         os.path.join(settings["results"], "results_b"),
-    #         info["rejected_indices"],
-    #         segmentation,
-    #     )
 
     return data, info, slices

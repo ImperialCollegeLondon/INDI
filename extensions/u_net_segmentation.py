@@ -204,7 +204,6 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
 def get_average_images(
     data: pd.DataFrame,
     slices: NDArray,
-    settings: dict,
     info,
     logger: logging.Logger,
 ) -> NDArray:
@@ -213,15 +212,14 @@ def get_average_images(
 
     Parameters
     ----------
+    data: database with DWIs
     slices: array with slice locations string
-    img_size: image shape before cropping
-    n_slice: int number of slices
-    registration_image_data: registration images and QC info
-    settings
+    info: dict
     logger
 
     Returns
     -------
+    NDarray with average images
 
     """
 
