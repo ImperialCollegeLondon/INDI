@@ -76,18 +76,21 @@ def crop_images(
     # coordinates of corner in [line column]
     first_corner = np.array([pos[0][0], pos[1][0]])
     for slice_idx, slice_name in enumerate(segmentation):
-        segmentation[slice_name]["anterior_ip"] = np.array(segmentation[slice_name]["anterior_ip"]) - np.flip(
-            first_corner
-        )
-        segmentation[slice_name]["inferior_ip"] = np.array(segmentation[slice_name]["inferior_ip"]) - np.flip(
-            first_corner
-        )
+        if segmentation[slice_name]["anterior_ip"].size != 0:
+            segmentation[slice_name]["anterior_ip"] = np.array(segmentation[slice_name]["anterior_ip"]) - np.flip(
+                first_corner
+            )
+        if segmentation[slice_name]["inferior_ip"].size != 0:
+            segmentation[slice_name]["inferior_ip"] = np.array(segmentation[slice_name]["inferior_ip"]) - np.flip(
+                first_corner
+            )
         segmentation[slice_name]["epicardium"] = np.array(segmentation[slice_name]["epicardium"]) - np.flip(
             first_corner
         )
-        segmentation[slice_name]["endocardium"] = np.array(segmentation[slice_name]["endocardium"]) - np.flip(
-            first_corner
-        )
+        if segmentation[slice_name]["endocardium"].size != 0:
+            segmentation[slice_name]["endocardium"] = np.array(segmentation[slice_name]["endocardium"]) - np.flip(
+                first_corner
+            )
 
     # add crop info to info dictionary
     temp_val = list(first_corner)

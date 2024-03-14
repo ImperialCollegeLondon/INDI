@@ -25,7 +25,7 @@ from skimage.measure import label, regionprops_table
 from sklearn.linear_model import LinearRegression
 from tvtk.api import tvtk, write_data
 
-from extensions.manual_lv_segmentation import get_sa_contours
+from extensions.manual_lv_segmentation import get_epi_contour, get_sa_contours
 from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
 
 
@@ -594,7 +594,7 @@ def fix_angle_wrap(lp: NDArray) -> NDArray:
 
 
 def get_ha_line_profiles(
-    HA: NDArray, lv_centres: dict, slices: NDArray, mask_3c: NDArray, settings: dict, info: dict
+    HA: NDArray, lv_centres: dict, slices: NDArray, mask_3c: NDArray, segmentation: dict, settings: dict, info: dict
 ) -> [dict, dict]:
     """
     Get the HA line profiles and also Wall Thickness
@@ -605,6 +605,7 @@ def get_ha_line_profiles(
     lv_centres: dictionary with the LV centres for each slice
     slices: list of slices
     mask_3c: U-Net segmentation
+    segmentation: dict with segmentation information on the contours of the LV
     settings: settings
     info: useful info
 
@@ -634,7 +635,10 @@ def get_ha_line_profiles(
         c_mask = np.array(c_mask * 255, dtype=np.uint8)
 
         # get the contours of the epicardium
-        epi_contour, _ = get_sa_contours(c_mask)
+        if segmentation[slice_idx]["endocardium"].size != 0:
+            epi_contour, _ = get_sa_contours(c_mask)
+        else:
+            epi_contour = get_epi_contour(c_mask)
 
         # gather the HA values from the centre of the LV to each epicardial point
         # and also the wall thickness
@@ -1361,22 +1365,24 @@ def plot_results_maps(
             vmax=12,
             cmap=matplotlib.colors.ListedColormap(matplotlib.cm.get_cmap("tab20c").colors[0:12]),
         )
-        plt.plot(
-            segmentation[slice_idx]["anterior_ip"][0],
-            segmentation[slice_idx]["anterior_ip"][1],
-            "2",
-            color="tab:orange",
-            markersize=20,
-            alpha=1.0,
-        )
-        plt.plot(
-            segmentation[slice_idx]["inferior_ip"][0],
-            segmentation[slice_idx]["inferior_ip"][1],
-            "1",
-            color="tab:orange",
-            markersize=20,
-            alpha=1.0,
-        )
+        if segmentation[slice_idx]["anterior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["anterior_ip"][0],
+                segmentation[slice_idx]["anterior_ip"][1],
+                "2",
+                color="tab:orange",
+                markersize=20,
+                alpha=1.0,
+            )
+        if segmentation[slice_idx]["inferior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["inferior_ip"][0],
+                segmentation[slice_idx]["inferior_ip"][1],
+                "1",
+                color="tab:orange",
+                markersize=20,
+                alpha=1.0,
+            )
         cbar = plt.colorbar(fraction=0.046, pad=0.04)
         ticklabels = [str(i) for i in range(1, 12 + 1)]
         tickpos = np.linspace(1.5, 12 - 0.5, 12)
@@ -1401,22 +1407,24 @@ def plot_results_maps(
         plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
         vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
         plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
-        plt.plot(
-            segmentation[slice_idx]["anterior_ip"][0],
-            segmentation[slice_idx]["anterior_ip"][1],
-            "2",
-            color="tab:orange",
-            markersize=20,
-            alpha=1.0,
-        )
-        plt.plot(
-            segmentation[slice_idx]["inferior_ip"][0],
-            segmentation[slice_idx]["inferior_ip"][1],
-            "1",
-            color="tab:orange",
-            markersize=20,
-            alpha=1.0,
-        )
+        if segmentation[slice_idx]["anterior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["anterior_ip"][0],
+                segmentation[slice_idx]["anterior_ip"][1],
+                "2",
+                color="tab:orange",
+                markersize=20,
+                alpha=1.0,
+            )
+        if segmentation[slice_idx]["inferior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["inferior_ip"][0],
+                segmentation[slice_idx]["inferior_ip"][1],
+                "1",
+                color="tab:orange",
+                markersize=20,
+                alpha=1.0,
+            )
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.tight_layout(pad=1.0)
         plt.axis("off")
@@ -1658,95 +1666,99 @@ def get_lv_segments(
 
     # loop over slices
     for slice_idx in slices:
-        lv_mask = np.copy(mask_3c[slice_idx])
-        lv_mask[lv_mask == 2] = 0
-        phi_matrix[slice_idx][lv_mask == 0] = np.nan
-        phi_matrix[slice_idx] = -(phi_matrix[slice_idx] - np.pi)
+        if segmentation[slice_idx]["anterior_ip"].size != 0 and segmentation[slice_idx]["inferior_ip"].size != 0:
+            lv_mask = np.copy(mask_3c[slice_idx])
+            lv_mask[lv_mask == 2] = 0
+            phi_matrix[slice_idx][lv_mask == 0] = np.nan
+            phi_matrix[slice_idx] = -(phi_matrix[slice_idx] - np.pi)
 
-        y_center, x_center = lv_centres[slice_idx]
+            y_center, x_center = lv_centres[slice_idx]
 
-        # superior and inferior insertion points must be defined in this order
-        anterior_ins_pt = segmentation[slice_idx]["anterior_ip"]
-        inferior_ins_pt = segmentation[slice_idx]["inferior_ip"]
+            # superior and inferior insertion points must be defined in this order
+            anterior_ins_pt = segmentation[slice_idx]["anterior_ip"]
+            inferior_ins_pt = segmentation[slice_idx]["inferior_ip"]
 
-        (
-            anterior_ins_pt_col,
-            anterior_ins_pt_row,
-        ) = anterior_ins_pt
-        (
-            inferior_ins_pt_col,
-            inferior_ins_pt_row,
-        ) = inferior_ins_pt
+            (
+                anterior_ins_pt_col,
+                anterior_ins_pt_row,
+            ) = anterior_ins_pt
+            (
+                inferior_ins_pt_col,
+                inferior_ins_pt_row,
+            ) = inferior_ins_pt
 
-        # angles of the insertion points [0 2pi] clockwise
-        theta_ant_ins_pt = -(-np.arctan2(anterior_ins_pt_row - y_center, anterior_ins_pt_col - x_center) - np.pi)
-        theta_inf_ins_pt = -(-np.arctan2(inferior_ins_pt_row - y_center, inferior_ins_pt_col - x_center) - np.pi)
+            # angles of the insertion points [0 2pi] clockwise
+            theta_ant_ins_pt = -(-np.arctan2(anterior_ins_pt_row - y_center, anterior_ins_pt_col - x_center) - np.pi)
+            theta_inf_ins_pt = -(-np.arctan2(inferior_ins_pt_row - y_center, inferior_ins_pt_col - x_center) - np.pi)
 
-        # ====================
-        # Segments free-wall
-        # ====================
-        # angular span of the free wall
-        if theta_ant_ins_pt < theta_inf_ins_pt:
-            angle_span_free_wall = theta_inf_ins_pt - theta_ant_ins_pt
-        else:
-            angle_span_free_wall = 2 * np.pi - (theta_ant_ins_pt - theta_inf_ins_pt)
-        # divide the span by 8 segments
-        angle_span_free_wall /= LV_free_wall_n_segs
-
-        # loop and gather the points for each lateral wall segment
-        for segment_idx in range(LV_free_wall_n_segs):
-            theta_start = theta_ant_ins_pt + segment_idx * angle_span_free_wall
-            if theta_start > 2 * np.pi:
-                theta_start -= 2 * np.pi
-            theta_end = theta_ant_ins_pt + (segment_idx + 1) * angle_span_free_wall
-            if theta_end > 2 * np.pi:
-                theta_end -= 2 * np.pi
-
-            if theta_end > theta_start:
-                points = np.argwhere((phi_matrix[slice_idx] >= theta_start) & (phi_matrix[slice_idx] < theta_end))
+            # ====================
+            # Segments free-wall
+            # ====================
+            # angular span of the free wall
+            if theta_ant_ins_pt < theta_inf_ins_pt:
+                angle_span_free_wall = theta_inf_ins_pt - theta_ant_ins_pt
             else:
-                points = np.argwhere((phi_matrix[slice_idx] >= theta_start) | (phi_matrix[slice_idx] < theta_end))
+                angle_span_free_wall = 2 * np.pi - (theta_ant_ins_pt - theta_inf_ins_pt)
+            # divide the span by 8 segments
+            angle_span_free_wall /= LV_free_wall_n_segs
 
-            segments_and_points[(slice_idx, segment_idx + 1)] = points
+            # loop and gather the points for each lateral wall segment
+            for segment_idx in range(LV_free_wall_n_segs):
+                theta_start = theta_ant_ins_pt + segment_idx * angle_span_free_wall
+                if theta_start > 2 * np.pi:
+                    theta_start -= 2 * np.pi
+                theta_end = theta_ant_ins_pt + (segment_idx + 1) * angle_span_free_wall
+                if theta_end > 2 * np.pi:
+                    theta_end -= 2 * np.pi
 
-        # ====================
-        # Segments septal-wall
-        # ====================
-        # angular span of the free wall
-        if theta_ant_ins_pt < theta_inf_ins_pt:
-            angle_span_septal_wall = 2 * np.pi - (theta_inf_ins_pt - theta_ant_ins_pt)
-        else:
-            angle_span_septal_wall = theta_ant_ins_pt - theta_inf_ins_pt
-        # divide the span by 4 segments
-        angle_span_septal_wall /= LV_septal_wall_n_segs
+                if theta_end > theta_start:
+                    points = np.argwhere((phi_matrix[slice_idx] >= theta_start) & (phi_matrix[slice_idx] < theta_end))
+                else:
+                    points = np.argwhere((phi_matrix[slice_idx] >= theta_start) | (phi_matrix[slice_idx] < theta_end))
 
-        # loop and gather the points for each lateral wall segment
-        for idx, segment_idx in enumerate(range(LV_free_wall_n_segs, (LV_free_wall_n_segs + LV_septal_wall_n_segs))):
-            theta_start = theta_inf_ins_pt + idx * angle_span_septal_wall
-            if theta_start > 2 * np.pi:
-                theta_start -= 2 * np.pi
-            theta_end = theta_inf_ins_pt + (idx + 1) * angle_span_septal_wall
-            if theta_end > 2 * np.pi:
-                theta_end -= 2 * np.pi
+                segments_and_points[(slice_idx, segment_idx + 1)] = points
 
-            if theta_end > theta_start:
-                points = np.argwhere((phi_matrix[slice_idx] >= theta_start) & (phi_matrix[slice_idx] < theta_end))
+            # ====================
+            # Segments septal-wall
+            # ====================
+            # angular span of the free wall
+            if theta_ant_ins_pt < theta_inf_ins_pt:
+                angle_span_septal_wall = 2 * np.pi - (theta_inf_ins_pt - theta_ant_ins_pt)
             else:
-                points = np.argwhere((phi_matrix[slice_idx] >= theta_start) | (phi_matrix[slice_idx] < theta_end))
+                angle_span_septal_wall = theta_ant_ins_pt - theta_inf_ins_pt
+            # divide the span by 4 segments
+            angle_span_septal_wall /= LV_septal_wall_n_segs
 
-            segments_and_points[(slice_idx, segment_idx + 1)] = points
+            # loop and gather the points for each lateral wall segment
+            for idx, segment_idx in enumerate(
+                range(LV_free_wall_n_segs, (LV_free_wall_n_segs + LV_septal_wall_n_segs))
+            ):
+                theta_start = theta_inf_ins_pt + idx * angle_span_septal_wall
+                if theta_start > 2 * np.pi:
+                    theta_start -= 2 * np.pi
+                theta_end = theta_inf_ins_pt + (idx + 1) * angle_span_septal_wall
+                if theta_end > 2 * np.pi:
+                    theta_end -= 2 * np.pi
+
+                if theta_end > theta_start:
+                    points = np.argwhere((phi_matrix[slice_idx] >= theta_start) & (phi_matrix[slice_idx] < theta_end))
+                else:
+                    points = np.argwhere((phi_matrix[slice_idx] >= theta_start) | (phi_matrix[slice_idx] < theta_end))
+
+                segments_and_points[(slice_idx, segment_idx + 1)] = points
 
     # prepare the output
     segments_mask = np.zeros(mask_3c.shape)
     segments_mask[:] = np.nan
     for slice_idx in slices:
-        for curr_segment in range(1, (LV_free_wall_n_segs + LV_septal_wall_n_segs + 1)):
-            if (slice_idx, curr_segment) in segments_and_points.keys():
-                segments_mask[
-                    slice_idx,
-                    segments_and_points[slice_idx, curr_segment][:, 0],
-                    segments_and_points[slice_idx, curr_segment][:, 1],
-                ] = curr_segment
+        if segmentation[slice_idx]["anterior_ip"].size != 0 and segmentation[slice_idx]["inferior_ip"].size != 0:
+            for curr_segment in range(1, (LV_free_wall_n_segs + LV_septal_wall_n_segs + 1)):
+                if (slice_idx, curr_segment) in segments_and_points.keys():
+                    segments_mask[
+                        slice_idx,
+                        segments_and_points[slice_idx, curr_segment][:, 0],
+                        segments_and_points[slice_idx, curr_segment][:, 1],
+                    ] = curr_segment
 
     logger.debug("LV segmentation in sectors done.")
 

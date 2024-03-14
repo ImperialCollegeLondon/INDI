@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
 from extensions.get_tensor_orientation_maps import get_ha_e2a_maps
 from extensions.manual_lv_segmentation import (
-    get_endo_contour,
+    get_epi_contour,
     get_mask_from_poly,
     get_sa_contours,
     manual_lv_segmentation,
@@ -147,6 +147,8 @@ def heart_segmentation(
                 10,
                 settings,
                 colormaps,
+                slice_idx,
+                slices,
             )
 
             # define the final mask_3c
@@ -175,7 +177,7 @@ def heart_segmentation(
             if segmentation[slice_idx]["endocardium"].size != 0:
                 epi_contour, endo_contour = get_sa_contours(mask_lv)
             else:
-                epi_contour = get_endo_contour(mask_lv)
+                epi_contour = get_epi_contour(mask_lv)
                 endo_contour = np.array([])
 
             epi_len = len(epi_contour)

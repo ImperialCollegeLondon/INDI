@@ -6,11 +6,11 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder:
+start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/vol10
 # anon, reg, main
 workflow_mode: main
 # se, steam
-sequence_type: steam
+sequence_type: se
 
 # ========================================================================================
 # DEBUGGING
@@ -43,7 +43,7 @@ tensor_fit_method: NLLS
 # True, False
 remove_outliers_manually: True
 # True, False
-remove_outliers_manually_pre: False
+remove_outliers_manually_pre: True
 # True, False
 # NOT WORKING WELL AT THE MOMENT
 remove_outliers_with_ai: False
@@ -65,7 +65,7 @@ remove_slices: []
 # SEGMENTATION
 # ========================================================================================
 # True, False
-u_net_segmentation: True
+u_net_segmentation: False
 # int [1, 5]
 n_ensemble: 5
 

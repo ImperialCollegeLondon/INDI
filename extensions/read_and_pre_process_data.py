@@ -894,8 +894,9 @@ def create_2d_montage_from_database(
             seg_img = np.zeros((info["img_size"][0], info["img_size"][1], 3))
             pts = np.array(segmentation[slice_int]["epicardium"], dtype=int)
             seg_img[pts[:, 1], pts[:, 0]] = [1, 0, 0]
-            pts = np.array(segmentation[slice_int]["endocardium"], dtype=int)
-            seg_img[pts[:, 1], pts[:, 0]] = [0, 1, 0]
+            if segmentation[slice_int]["endocardium"].size != 0:
+                pts = np.array(segmentation[slice_int]["endocardium"], dtype=int)
+                seg_img[pts[:, 1], pts[:, 0]] = [0, 1, 0]
             # repeat image for the entire stack
             seg_img = np.tile(seg_img, (len(c_img_stack), max_number_of_images, 1))
 
