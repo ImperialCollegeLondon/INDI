@@ -58,6 +58,36 @@ def get_sa_contours(lv_mask):
     return epi_contour, endo_contour
 
 
+def get_epi_contour(lv_mask):
+    # get the contours of the epicardium
+    # From stackoverflow: In the hierarchy (hier), the fourth index tells you, to which outer
+    # (or parent) contour a possible inner (or child) contour is related. Most outer contours have an
+    # index of -1, all others have non-negative values. So I should get 2 contours. The epicardium
+    # should have the hierarchy x, x, x, -1. It should also be the longest contour.
+    c_mask = np.array(lv_mask * 255, dtype=np.uint8)
+    contours, hier = cv.findContours(c_mask, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+
+    # there might be loose regions/point creating additional small contours
+    # so we need to remove these and keep only the two longest
+    # get the length of each contour
+    contours_len = [len(contours[i]) for i in range(len(contours))]
+    # get the indices of the longest contours
+    idx = np.argsort(contours_len)[-1:]
+    # get the longest contours
+    contours = [contours[i] for i in idx]
+    # get the hierarchy of the longest contours
+    hier = np.stack([hier[0, i] for i in idx], axis=0)
+
+    # find epicardial contour
+    hier_matches = list(np.where(hier[:, 3] == -1))
+    # check there is only one epicardium
+    assert len(hier_matches) == 1, "We have detected more than one epicardium!"
+    hier_pos = hier_matches[0][0]
+    epi_contour = np.squeeze(contours[hier_pos])
+
+    return epi_contour
+
+
 class define_roi_border(object):
     """
     Define the ROI border with a polygon which will then be interpolated to a spline.
@@ -295,10 +325,18 @@ class scrool_slider:
 
     def update(self, val):
         # when slider moves, this function is called
-        self.updated_img_1, self.mask = clean_image(self.img_1, val)
-        self.ax_img_1.set_array(self.updated_img_1)
-        self.updated_img_0 = self.img_0 * self.mask
-        self.ax_img_0.set_array(self.updated_img_0)
+        #  we need to aply the clean image on the magnitude image not on the HA map
+        # so we need to find out which axis contains that image
+        c_lims = self.fig.axes[0].images[0].get_clim()
+        self.updated_img_0, self.mask = clean_image(self.img_0, val)
+        self.updated_img_1 = self.img_1 * self.mask
+        if c_lims == (0.0, 0.65):
+            self.ax_img_0.set_array(self.updated_img_0)
+            self.ax_img_1.set_array(self.updated_img_1)
+        else:
+            self.ax_img_1.set_array(self.updated_img_0)
+            self.ax_img_0.set_array(self.updated_img_1)
+
         self.fig.canvas.draw_idle()
 
     def get_img_and_mask(self):
@@ -441,31 +479,33 @@ def plot_manual_lv_segmentation(
             color="tab:blue",
             alpha=0.5,
         )
-        plt.scatter(
-            segmentation[slice_idx]["endocardium"][:, 0],
-            segmentation[slice_idx]["endocardium"][:, 1],
-            marker=".",
-            s=2,
-            color="tab:red",
-            alpha=0.5,
-        )
-
-        plt.plot(
-            segmentation[slice_idx]["anterior_ip"][0],
-            segmentation[slice_idx]["anterior_ip"][1],
-            "2",
-            color="tab:orange",
-            markersize=10,
-            alpha=0.5,
-        )
-        plt.plot(
-            segmentation[slice_idx]["inferior_ip"][0],
-            segmentation[slice_idx]["inferior_ip"][1],
-            "1",
-            color="tab:orange",
-            markersize=10,
-            alpha=0.5,
-        )
+        if segmentation[slice_idx]["endocardium"].size != 0:
+            plt.scatter(
+                segmentation[slice_idx]["endocardium"][:, 0],
+                segmentation[slice_idx]["endocardium"][:, 1],
+                marker=".",
+                s=2,
+                color="tab:red",
+                alpha=0.5,
+            )
+        if segmentation[slice_idx]["anterior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["anterior_ip"][0],
+                segmentation[slice_idx]["anterior_ip"][1],
+                "2",
+                color="tab:orange",
+                markersize=10,
+                alpha=0.5,
+            )
+        if segmentation[slice_idx]["inferior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["inferior_ip"][0],
+                segmentation[slice_idx]["inferior_ip"][1],
+                "1",
+                color="tab:orange",
+                markersize=10,
+                alpha=0.5,
+            )
         plt.savefig(
             os.path.join(
                 save_path,
@@ -497,10 +537,13 @@ def manual_lv_segmentation(
     n_points: int,
     settings: dict,
     colormaps: dict,
+    slice_idx: int,
+    slices: NDArray,
 ):
     """
     Manually define the epicardial and endocardial contours and the insertion points
     for the LV.
+    The epicardial border is compulsory, the endocardial border and insertion points are optional.
     An initial LV mask is passed into the function. This mask is used to define the
     epicardial and endocardial initial contours. If the mask is all zeros, then no initial
     contour will be used, and we need to manually draw one.
@@ -518,6 +561,10 @@ def manual_lv_segmentation(
         number of points to interpolate the contours
     settings : dict
     colormaps : dict
+    slice_idx : int
+        slice index
+    slices : NDArray
+        slice indices
     """
     lv_masks = mask_3c.copy()
     lv_masks[lv_masks == 2] = 0
@@ -604,18 +651,41 @@ def manual_lv_segmentation(
                 self.endo_spline.disconnect()
             self.ip = click_insertion_points(event.canvas.figure.axes[0], second_axis_lines)
 
+        def swap_images(self, event):
+            # swap the images in the figure
+            a = event.canvas.figure.axes[0].images[0].get_array()
+            b = event.canvas.figure.axes[1].images[0].get_array()
+
+            for idx in range(2):
+                if idx == 0:
+                    event.canvas.figure.axes[idx].images[0].set_array(b)
+                elif idx == 1:
+                    event.canvas.figure.axes[idx].images[0].set_array(a)
+
+                c_lims = event.canvas.figure.axes[idx].images[0].get_clim()
+                if c_lims == (-90.0, 90.0):
+                    event.canvas.figure.axes[idx].images[0].set_clim((0, 0.65))
+                    event.canvas.figure.axes[idx].images[0].set_alpha(1.0)
+                    event.canvas.figure.axes[idx].images[0].set_cmap("Greys_r")
+                elif c_lims == (0.0, 0.65):
+                    event.canvas.figure.axes[idx].images[0].set_clim((-90, 90))
+                    event.canvas.figure.axes[idx].images[0].set_alpha(0.5)
+                    event.canvas.figure.axes[idx].images[0].set_cmap(colormaps["HA"])
+
+            event.canvas.draw_idle()
+
     # plot the magnitude image to be ROI'd
     if mask_3c.shape[0] > mask_3c.shape[1]:
-        fig, ax = plt.subplots(1, 2, figsize=(16, 8))
+        fig, ax = plt.subplots(1, 2, figsize=(16, 8), num="Slice " + str(slice_idx) + " of " + str(len(slices)))
     else:
-        fig, ax = plt.subplots(2, 1, figsize=(16, 8))
+        fig, ax = plt.subplots(2, 1, figsize=(16, 8), num="Slice " + str(slice_idx) + " of " + str(len(slices)))
     # leave some space for the buttons
     fig.subplots_adjust(left=0.2, bottom=0.2)
     # axis where ROIs will be drawn
-    ax_img_0 = ax[0].imshow(ha_maps, colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
+    ax_img_0 = ax[0].imshow(average_maps, cmap="Greys_r", vmin=0, vmax=0.65)
     ax[0].axis("off")
     # axis where latest ROIs will be shown
-    ax_img_1 = ax[1].imshow(average_maps, cmap="Greys_r", vmin=0, vmax=0.65)
+    ax_img_1 = ax[1].imshow(ha_maps, colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
     ax[1].axis("off")
 
     # add the buttons to the figure
@@ -638,14 +708,21 @@ def manual_lv_segmentation(
     ax_ip.axis("off")
     button_ip = Button(ax_ip, label="", image=ip_icon)
     button_ip.on_clicked(lambda x: callback.click(x, second_axis_lines))
+    # swap images button
+    si_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "swap_images.png"))
+    ax_swap_images = fig.add_axes([0.05, 0.30, 0.10, 0.10])
+    ax_swap_images.axis("off")
+    button_si = Button(ax_swap_images, label="", image=si_icon)
+    button_si.on_clicked(callback.swap_images)
+
     # slider stuff
     threshold_slider_and_scroll = scrool_slider(
         fig,
         ax[0],
-        ha_maps,
+        average_maps,
         ax_img_0,
         ax[1],
-        average_maps,
+        ha_maps,
         ax_img_1,
     )
     fig.canvas.mpl_connect("scroll_event", threshold_slider_and_scroll.on_scroll)
@@ -657,15 +734,28 @@ def manual_lv_segmentation(
 
     # store segmentation information from the buttons' callbacks
     segmentation = {}
+    # The epicardium always needs to be defined. The endocardium and the two insertion points is optional.
     segmentation["epicardium"] = callback.epi_spline.spline_points
-    segmentation["endocardium"] = callback.endo_spline.spline_points
-    segmentation["anterior_ip"] = [
-        callback.ip.ip_x[0],
-        callback.ip.ip_y[0],
-    ]
-    segmentation["inferior_ip"] = [
-        callback.ip.ip_x[1],
-        callback.ip.ip_y[1],
-    ]
+    if hasattr(callback, "endo_spline"):
+        segmentation["endocardium"] = callback.endo_spline.spline_points
+    else:
+        segmentation["endocardium"] = np.array([])
+
+    if hasattr(callback, "ip"):
+        segmentation["anterior_ip"] = np.array(
+            [
+                callback.ip.ip_x[0],
+                callback.ip.ip_y[0],
+            ]
+        )
+        segmentation["inferior_ip"] = np.array(
+            [
+                callback.ip.ip_x[1],
+                callback.ip.ip_y[1],
+            ]
+        )
+    else:
+        segmentation["anterior_ip"] = np.array([])
+        segmentation["inferior_ip"] = np.array([])
 
     return segmentation, thr_mask

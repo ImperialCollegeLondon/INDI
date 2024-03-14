@@ -238,7 +238,7 @@ for current_folder in all_to_be_analysed_folders:
     # Get HA line profiles
     # =========================================================
     dti["ha_line_profiles"], dti["wall_thickness"] = get_ha_line_profiles(
-        dti["ha"], lv_centres, slices, mask_3c, settings, info
+        dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info
     )
 
     # =========================================================

@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
 from extensions.get_tensor_orientation_maps import get_ha_e2a_maps
 from extensions.manual_lv_segmentation import (
+    get_epi_contour,
     get_mask_from_poly,
     get_sa_contours,
     manual_lv_segmentation,
@@ -146,6 +147,8 @@ def heart_segmentation(
                 10,
                 settings,
                 colormaps,
+                slice_idx,
+                slices,
             )
 
             # define the final mask_3c
@@ -153,28 +156,42 @@ def heart_segmentation(
                 segmentation[slice_idx]["epicardium"].astype(np.int32),
                 mask_3c[slice_idx].shape,
             )
-            mask_endo = get_mask_from_poly(
-                segmentation[slice_idx]["endocardium"].astype(np.int32),
-                mask_3c[slice_idx].shape,
-            )
+            if segmentation[slice_idx]["endocardium"].size != 0:
+                mask_endo = get_mask_from_poly(
+                    segmentation[slice_idx]["endocardium"].astype(np.int32),
+                    mask_3c[slice_idx].shape,
+                )
+            else:
+                mask_endo = np.zeros(mask_3c[slice_idx].shape, dtype="uint8")
 
             # we need to remove the mask pixels that have been thresholded out
             mask_epi *= thr_mask[slice_idx]
-            # erode endo mask in order to keep the endo line inside the myocardial ROI
-            kernel = np.ones((2, 2), np.uint8)
-            mask_endo = cv.erode(mask_endo, kernel, iterations=1)
-            mask_endo *= thr_mask[slice_idx]
+
+            if segmentation[slice_idx]["endocardium"].size != 0:
+                # erode endo mask in order to keep the endo line inside the myocardial ROI
+                kernel = np.ones((2, 2), np.uint8)
+                mask_endo = cv.erode(mask_endo, kernel, iterations=1)
+                mask_endo *= thr_mask[slice_idx]
 
             mask_lv = mask_epi - mask_endo
-            epi_contour, endo_contour = get_sa_contours(mask_lv)
+            if segmentation[slice_idx]["endocardium"].size != 0:
+                epi_contour, endo_contour = get_sa_contours(mask_lv)
+            else:
+                epi_contour = get_epi_contour(mask_lv)
+                endo_contour = np.array([])
+
             epi_len = len(epi_contour)
             endo_len = len(endo_contour)
             epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
             epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
-            endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
-            endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
+
+            if segmentation[slice_idx]["endocardium"].size != 0:
+                endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
+                endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
+
             segmentation[slice_idx]["epicardium"] = epi_contour
-            segmentation[slice_idx]["endocardium"] = endo_contour
+            if segmentation[slice_idx]["endocardium"].size != 0:
+                segmentation[slice_idx]["endocardium"] = endo_contour
 
             all_channel_mask = mask_3c[slice_idx].copy()
             all_channel_mask[all_channel_mask == 1] = 0

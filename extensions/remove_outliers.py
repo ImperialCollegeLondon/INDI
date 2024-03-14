@@ -154,7 +154,13 @@ def manual_image_removal(
         my_dpi = 192
         rows = len(c_img_stack)
         cols = max_number_of_images
-        fig, axs = plt.subplots(rows, cols, figsize=(1500 / my_dpi, 1000 / my_dpi), dpi=my_dpi)
+        fig, axs = plt.subplots(
+            rows,
+            cols,
+            figsize=(1500 / my_dpi, 1000 / my_dpi),
+            dpi=my_dpi,
+            num="Slice " + str(slice_idx) + " of " + str(len(slices)),
+        )
         for idx, key in enumerate(c_img_stack):
             cc_img_stack = c_img_stack[key]
             for idx2, img in enumerate(cc_img_stack):
@@ -169,14 +175,15 @@ def manual_image_removal(
                         color="tab:blue",
                         alpha=0.2,
                     )
-                    axs[idx, idx2].scatter(
-                        segmentation[slice_idx]["endocardium"][:, 0],
-                        segmentation[slice_idx]["endocardium"][:, 1],
-                        marker=".",
-                        s=1,
-                        color="tab:red",
-                        alpha=0.2,
-                    )
+                    if segmentation[slice_idx]["endocardium"].size != 0:
+                        axs[idx, idx2].scatter(
+                            segmentation[slice_idx]["endocardium"][:, 0],
+                            segmentation[slice_idx]["endocardium"][:, 1],
+                            marker=".",
+                            s=1,
+                            color="tab:red",
+                            alpha=0.2,
+                        )
                 axs[idx, idx2].text(
                     5,
                     5,
