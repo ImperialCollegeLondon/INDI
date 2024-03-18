@@ -471,14 +471,15 @@ def plot_manual_lv_segmentation(
         plt.imshow(average_maps[slice_idx], cmap="Greys_r")
         plt.imshow(alphas_myocardium, alpha=alphas_myocardium, vmin=0, vmax=1, cmap="hot")
         plt.axis("off")
-        plt.scatter(
-            segmentation[slice_idx]["epicardium"][:, 0],
-            segmentation[slice_idx]["epicardium"][:, 1],
-            marker=".",
-            s=2,
-            color="tab:blue",
-            alpha=0.5,
-        )
+        if segmentation[slice_idx]["epicardium"].size != 0:
+            plt.scatter(
+                segmentation[slice_idx]["epicardium"][:, 0],
+                segmentation[slice_idx]["epicardium"][:, 1],
+                marker=".",
+                s=2,
+                color="tab:blue",
+                alpha=0.5,
+            )
         if segmentation[slice_idx]["endocardium"].size != 0:
             plt.scatter(
                 segmentation[slice_idx]["endocardium"][:, 0],
@@ -544,6 +545,7 @@ def manual_lv_segmentation(
     Manually define the epicardial and endocardial contours and the insertion points
     for the LV.
     The epicardial border is compulsory, the endocardial border and insertion points are optional.
+    If no epicardial segmentation slice is going to be marked to be removed.
     An initial LV mask is passed into the function. This mask is used to define the
     epicardial and endocardial initial contours. If the mask is all zeros, then no initial
     contour will be used, and we need to manually draw one.
@@ -734,8 +736,13 @@ def manual_lv_segmentation(
 
     # store segmentation information from the buttons' callbacks
     segmentation = {}
-    # The epicardium always needs to be defined. The endocardium and the two insertion points is optional.
-    segmentation["epicardium"] = callback.epi_spline.spline_points
+    # The epicardium needs to be defined. If not slice will be removed.
+    # The endocardium and the two insertion points is optional.
+    if hasattr(callback, "epi_spline"):
+        segmentation["epicardium"] = callback.epi_spline.spline_points
+    else:
+        segmentation["epicardium"] = np.array([])
+
     if hasattr(callback, "endo_spline"):
         segmentation["endocardium"] = callback.endo_spline.spline_points
     else:

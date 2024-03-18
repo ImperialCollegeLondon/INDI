@@ -137,6 +137,10 @@ def heart_segmentation(
             segmentation[slice_idx] = npzfile["segmentation"]
             segmentation[slice_idx] = segmentation[slice_idx].item()
 
+            # if there is no epicardial border defined, mark this slice to be removed in the dataframe
+            if segmentation[slice_idx]["epicardium"].size == 0:
+                data.loc[data["slice_integer"] == slice_idx, "to_be_removed"] = True
+
         else:
             # manual LV segmentation
             logger.info("Manual LV segmentation for slice: " + str(slice_idx))
@@ -152,55 +156,63 @@ def heart_segmentation(
             )
 
             # define the final mask_3c
-            mask_epi = get_mask_from_poly(
-                segmentation[slice_idx]["epicardium"].astype(np.int32),
-                mask_3c[slice_idx].shape,
-            )
-            if segmentation[slice_idx]["endocardium"].size != 0:
-                mask_endo = get_mask_from_poly(
-                    segmentation[slice_idx]["endocardium"].astype(np.int32),
+            if segmentation[slice_idx]["epicardium"].size != 0:
+                mask_epi = get_mask_from_poly(
+                    segmentation[slice_idx]["epicardium"].astype(np.int32),
                     mask_3c[slice_idx].shape,
                 )
             else:
-                mask_endo = np.zeros(mask_3c[slice_idx].shape, dtype="uint8")
+                mask_epi = np.zeros(mask_3c[slice_idx].shape, dtype="uint8")
+                # mark this slice to be removed in the dataframe
+                data.loc[data["slice_integer"] == slice_idx, "to_be_removed"] = True
 
-            # we need to remove the mask pixels that have been thresholded out
-            mask_epi *= thr_mask[slice_idx]
+            if segmentation[slice_idx]["epicardium"].size != 0:
+                # only do the following if there is an epicardial border defined, otherwise this slice will be removed
+                if segmentation[slice_idx]["endocardium"].size != 0:
+                    mask_endo = get_mask_from_poly(
+                        segmentation[slice_idx]["endocardium"].astype(np.int32),
+                        mask_3c[slice_idx].shape,
+                    )
+                else:
+                    mask_endo = np.zeros(mask_3c[slice_idx].shape, dtype="uint8")
 
-            if segmentation[slice_idx]["endocardium"].size != 0:
-                # erode endo mask in order to keep the endo line inside the myocardial ROI
-                kernel = np.ones((2, 2), np.uint8)
-                mask_endo = cv.erode(mask_endo, kernel, iterations=1)
-                mask_endo *= thr_mask[slice_idx]
+                # we need to remove the mask pixels that have been thresholded out
+                mask_epi *= thr_mask[slice_idx]
 
-            mask_lv = mask_epi - mask_endo
-            if segmentation[slice_idx]["endocardium"].size != 0:
-                epi_contour, endo_contour = get_sa_contours(mask_lv)
-            else:
-                epi_contour = get_epi_contour(mask_lv)
-                endo_contour = np.array([])
+                if segmentation[slice_idx]["endocardium"].size != 0:
+                    # erode endo mask in order to keep the endo line inside the myocardial ROI
+                    kernel = np.ones((2, 2), np.uint8)
+                    mask_endo = cv.erode(mask_endo, kernel, iterations=1)
+                    mask_endo *= thr_mask[slice_idx]
 
-            epi_len = len(epi_contour)
-            endo_len = len(endo_contour)
-            epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
-            epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
+                mask_lv = mask_epi - mask_endo
+                if segmentation[slice_idx]["endocardium"].size != 0:
+                    epi_contour, endo_contour = get_sa_contours(mask_lv)
+                else:
+                    epi_contour = get_epi_contour(mask_lv)
+                    endo_contour = np.array([])
 
-            if segmentation[slice_idx]["endocardium"].size != 0:
-                endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
-                endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
+                epi_len = len(epi_contour)
+                endo_len = len(endo_contour)
+                epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
+                epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
 
-            segmentation[slice_idx]["epicardium"] = epi_contour
-            if segmentation[slice_idx]["endocardium"].size != 0:
-                segmentation[slice_idx]["endocardium"] = endo_contour
+                if segmentation[slice_idx]["endocardium"].size != 0:
+                    endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
+                    endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
 
-            all_channel_mask = mask_3c[slice_idx].copy()
-            all_channel_mask[all_channel_mask == 1] = 0
-            all_channel_mask = all_channel_mask + mask_lv
-            all_channel_mask[all_channel_mask == 3] = 1
-            mask_3c[slice_idx] = all_channel_mask
+                segmentation[slice_idx]["epicardium"] = epi_contour
+                if segmentation[slice_idx]["endocardium"].size != 0:
+                    segmentation[slice_idx]["endocardium"] = endo_contour
 
-            # sometimes there are holes between the myocardium and rest of the heart mask, fill them here
-            mask_3c[slice_idx] = close_small_holes(mask_3c[slice_idx])
+                all_channel_mask = mask_3c[slice_idx].copy()
+                all_channel_mask[all_channel_mask == 1] = 0
+                all_channel_mask = all_channel_mask + mask_lv
+                all_channel_mask[all_channel_mask == 3] = 1
+                mask_3c[slice_idx] = all_channel_mask
+
+                # sometimes there are holes between the myocardium and rest of the heart mask, fill them here
+                mask_3c[slice_idx] = close_small_holes(mask_3c[slice_idx])
 
             # save mask and segmentation
             np.savez_compressed(

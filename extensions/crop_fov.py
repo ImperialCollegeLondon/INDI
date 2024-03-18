@@ -84,9 +84,10 @@ def crop_images(
             segmentation[slice_name]["inferior_ip"] = np.array(segmentation[slice_name]["inferior_ip"]) - np.flip(
                 first_corner
             )
-        segmentation[slice_name]["epicardium"] = np.array(segmentation[slice_name]["epicardium"]) - np.flip(
-            first_corner
-        )
+        if segmentation[slice_name]["epicardium"].size != 0:
+            segmentation[slice_name]["epicardium"] = np.array(segmentation[slice_name]["epicardium"]) - np.flip(
+                first_corner
+            )
         if segmentation[slice_name]["endocardium"].size != 0:
             segmentation[slice_name]["endocardium"] = np.array(segmentation[slice_name]["endocardium"]) - np.flip(
                 first_corner

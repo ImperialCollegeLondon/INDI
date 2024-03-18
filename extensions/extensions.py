@@ -1821,3 +1821,33 @@ def image_histogram_equalization(image: NDArray, number_bins: int = 256):
     image_equalized = np.interp(image.flatten(), bins[:-1], cdf)
 
     return image_equalized.reshape(image.shape)
+
+
+def remove_slices(data: pd.DataFrame, slices, segmentation, logger):
+    """
+
+    Parameters
+    ----------
+    data
+    settings
+    logger
+
+    Returns
+    -------
+
+    """
+
+    # remove all entries marked to be removed
+    data = data[data.to_be_removed == False]
+    data = data.reset_index(drop=True)
+
+    # slices is going to be a list of all the integers
+    slices = data.slice_integer.unique()
+
+    # remove slices from segmentation
+    deepcopy_segmentation = copy.deepcopy(segmentation)
+    for slice_idx in deepcopy_segmentation:
+        if slice_idx not in slices:
+            segmentation.pop(slice_idx)
+
+    return data, slices, segmentation
