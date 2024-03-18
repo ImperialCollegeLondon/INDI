@@ -330,7 +330,7 @@ class scrool_slider:
         c_lims = self.fig.axes[0].images[0].get_clim()
         self.updated_img_0, self.mask = clean_image(self.img_0, val)
         self.updated_img_1 = self.img_1 * self.mask
-        if c_lims == (0.0, 0.65):
+        if c_lims == (0.0, 0.85):
             self.ax_img_0.set_array(self.updated_img_0)
             self.ax_img_1.set_array(self.updated_img_1)
         else:
@@ -664,10 +664,10 @@ def manual_lv_segmentation(
 
                 c_lims = event.canvas.figure.axes[idx].images[0].get_clim()
                 if c_lims == (-90.0, 90.0):
-                    event.canvas.figure.axes[idx].images[0].set_clim((0, 0.65))
+                    event.canvas.figure.axes[idx].images[0].set_clim((0, 0.85))
                     event.canvas.figure.axes[idx].images[0].set_alpha(1.0)
                     event.canvas.figure.axes[idx].images[0].set_cmap("Greys_r")
-                elif c_lims == (0.0, 0.65):
+                elif c_lims == (0.0, 0.85):
                     event.canvas.figure.axes[idx].images[0].set_clim((-90, 90))
                     event.canvas.figure.axes[idx].images[0].set_alpha(0.5)
                     event.canvas.figure.axes[idx].images[0].set_cmap(colormaps["HA"])
@@ -682,7 +682,7 @@ def manual_lv_segmentation(
     # leave some space for the buttons
     fig.subplots_adjust(left=0.2, bottom=0.2)
     # axis where ROIs will be drawn
-    ax_img_0 = ax[0].imshow(average_maps, cmap="Greys_r", vmin=0, vmax=0.65)
+    ax_img_0 = ax[0].imshow(average_maps, cmap="Greys_r", vmin=0, vmax=0.85)
     ax[0].axis("off")
     # axis where latest ROIs will be shown
     ax_img_1 = ax[1].imshow(ha_maps, colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
@@ -710,7 +710,7 @@ def manual_lv_segmentation(
     button_ip.on_clicked(lambda x: callback.click(x, second_axis_lines))
     # swap images button
     si_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "swap_images.png"))
-    ax_swap_images = fig.add_axes([0.05, 0.30, 0.10, 0.10])
+    ax_swap_images = fig.add_axes([0.05, 0.20, 0.10, 0.10])
     ax_swap_images.axis("off")
     button_si = Button(ax_swap_images, label="", image=si_icon)
     button_si.on_clicked(callback.swap_images)

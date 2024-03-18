@@ -6,8 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/vol10
-# anon, reg, main
+start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/Vol7/highresolution1.8mm_2slice
 workflow_mode: main
 # se, steam
 sequence_type: se
@@ -57,7 +56,6 @@ assumed_rr_interval: 1000
 calculated_real_b0: 29
 # remove slices integers
 remove_slices: []
-
 
 # ========================================================================================
 # AI MODELS
