@@ -6,10 +6,11 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/Vol7/highresolution1.8mm_2slice
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/5_slices
+# anon, reg, main
 workflow_mode: main
 # se, steam
-sequence_type: se
+sequence_type: steam
 
 # ========================================================================================
 # DEBUGGING
@@ -54,7 +55,7 @@ remove_outliers_with_ai: False
 assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
-# remove slices integers
+# remove slices when reading data
 remove_slices: []
 
 # ========================================================================================

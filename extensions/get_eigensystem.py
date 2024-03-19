@@ -156,6 +156,10 @@ def get_negative_eigenvalues_map(
     average_images: array with the average image for each slice
     settings: useful info
     mask_3c: U-Net segmentation
+
+    Returns
+    ----------
+    NDArray with negative eigenvalue maps
     """
 
     background_mask = np.copy(mask_3c)
@@ -197,6 +201,8 @@ def get_negative_eigenvalues_map(
             transparent=False,
         )
         plt.close()
+
+    return negative_eig_map
 
 
 def get_eigensystem(
@@ -252,7 +258,9 @@ def get_eigensystem(
     )
 
     # export negative dti["eigenvalues"] map
-    get_negative_eigenvalues_map(dti["eigenvalues"], slices, info, average_images, settings, mask_3c)
+    dti["negative_eigenvalues"] = get_negative_eigenvalues_map(
+        dti["eigenvalues"], slices, info, average_images, settings, mask_3c
+    )
     # make dti["eigenvectors"] point z positive for easier debugging
     dti["eigenvectors"] = make_eigenvectors_z_positive(dti["eigenvectors"])
 

@@ -13,7 +13,7 @@ import matplotlib
 import numpy as np
 
 from extensions.crop_fov import crop_fov
-from extensions.extensions import (  # get_xarray,
+from extensions.extensions import (
     denoise_tensor,
     export_results,
     get_cardiac_coordinates_short_axis,
@@ -22,6 +22,7 @@ from extensions.extensions import (  # get_xarray,
     get_lv_segments,
     get_snr_maps,
     query_yes_no,
+    remove_slices,
 )
 from extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from extensions.get_eigensystem import get_eigensystem
@@ -134,6 +135,11 @@ for current_folder in all_to_be_analysed_folders:
     )
 
     # =========================================================
+    # Remove non segmented slices
+    # =========================================================
+    data, slices, segmentation = remove_slices(data, slices, segmentation, logger)
+
+    # =========================================================
     # Crop FOV
     # =========================================================
     # crop the images to the heart region only
@@ -171,12 +177,12 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Get SNR maps
     # =========================================================
-    [snr, noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
+    [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
 
     # =========================================================
     # Calculate tensor
     # =========================================================
-    dti["tensor"], dti["s0"], _, _, info = dipy_tensor_fit(
+    dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], info = dipy_tensor_fit(
         slices,
         data,
         info,
