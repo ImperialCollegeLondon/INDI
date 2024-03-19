@@ -14,7 +14,7 @@ import pydicom
 from tqdm.auto import tqdm
 
 # root folder that will contain a subfolder per subject
-root_folder = "/Users/pf/WORK/WORK_2/CIMA_scans/10_slice_study_original_data/"
+root_folder = "/Users/pf/Desktop/WHOLE_HEART_STUDY/original_data/"
 
 
 def move_dicom(folder, dicom_file):
@@ -67,14 +67,19 @@ for subfolder in tqdm(subfolders, desc="Subfolders", position=0, leave=False):
     for dicom_file in tqdm(dicom_files, desc="DICOMs", position=1, leave=False):
         ds = pydicom.dcmread(dicom_file)
 
-        if ds.AcquisitionContrast == "DIFFUSION" and ds.ComplexImageComponent == "MAGNITUDE":
-            # if DICOM is a diffusion and magnitude image
-            move_dicom(mag_folder, dicom_file)
-
-        elif ds.AcquisitionContrast == "DIFFUSION" and ds.ComplexImageComponent == "PHASE":
-            # if DICOM is a diffusion and phase image
-            move_dicom(phase_folder, dicom_file)
-
-        else:
+        if "AcquisitionContrast" not in ds or "ComplexImageComponent" not in ds:
             # if DICOM is not a diffusion image
             move_dicom(other_folder, dicom_file)
+
+        else:
+            if ds.AcquisitionContrast == "DIFFUSION" and ds.ComplexImageComponent == "MAGNITUDE":
+                # if DICOM is a diffusion and magnitude image
+                move_dicom(mag_folder, dicom_file)
+
+            elif ds.AcquisitionContrast == "DIFFUSION" and ds.ComplexImageComponent == "PHASE":
+                # if DICOM is a diffusion and phase image
+                move_dicom(phase_folder, dicom_file)
+
+            else:
+                # if DICOM is not a diffusion image
+                move_dicom(other_folder, dicom_file)

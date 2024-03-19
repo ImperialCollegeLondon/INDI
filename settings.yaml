@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/10_slice_study
+start_folder: /Users/pf/Desktop/WHOLE_HEART_STUDY/to_be_reg
 # anon, reg, main
 workflow_mode: reg
 # se, steam
