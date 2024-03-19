@@ -177,12 +177,12 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Get SNR maps
     # =========================================================
-    [snr, noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
+    [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
 
     # =========================================================
     # Calculate tensor
     # =========================================================
-    dti["tensor"], dti["s0"], _, _, info = dipy_tensor_fit(
+    dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], info = dipy_tensor_fit(
         slices,
         data,
         info,

@@ -1530,6 +1530,14 @@ def export_to_hdf5(dti: dict, mask_3c: NDArray, settings: dict):
         for name, key in dti.items():
             if isinstance(key, np.ndarray):
                 hf.create_dataset(name, data=key)
+            elif isinstance(key, dict):
+                for subname, subkey in key.items():
+                    if isinstance(subkey, np.ndarray):
+                        hf.create_dataset(name + "_" + str(subname), data=subkey)
+                    elif isinstance(key, dict):
+                        for subsubname, subsubkey in subkey.items():
+                            if isinstance(subsubkey, np.ndarray):
+                                hf.create_dataset(name + "_" + str(subname) + "_" + subsubname, data=subsubkey)
         hf.create_dataset("mask", data=mask_3c)
 
     # # to read a map example

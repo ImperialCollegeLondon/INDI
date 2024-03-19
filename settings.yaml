@@ -6,11 +6,11 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/Desktop/WHOLE_HEART_STUDY/to_be_reg
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/5_slices
 # anon, reg, main
-workflow_mode: reg
+workflow_mode: main
 # se, steam
-sequence_type: se
+sequence_type: steam
 
 # ========================================================================================
 # DEBUGGING
