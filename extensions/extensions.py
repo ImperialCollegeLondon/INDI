@@ -1841,6 +1841,8 @@ def remove_slices(data: pd.DataFrame, slices, segmentation, logger):
     data = data[data.to_be_removed == False]
     data = data.reset_index(drop=True)
 
+    original_n_slices = len(slices)
+
     # slices is going to be a list of all the integers
     slices = data.slice_integer.unique()
 
@@ -1849,5 +1851,9 @@ def remove_slices(data: pd.DataFrame, slices, segmentation, logger):
     for slice_idx in deepcopy_segmentation:
         if slice_idx not in slices:
             segmentation.pop(slice_idx)
+
+    n_slices = len(slices)
+    if n_slices != original_n_slices:
+        logger.info(f"Number of slices reduced from {original_n_slices} to {n_slices}")
 
     return data, slices, segmentation

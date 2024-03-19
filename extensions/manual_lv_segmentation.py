@@ -678,9 +678,9 @@ def manual_lv_segmentation(
 
     # plot the magnitude image to be ROI'd
     if mask_3c.shape[0] > mask_3c.shape[1]:
-        fig, ax = plt.subplots(1, 2, figsize=(16, 8), num="Slice " + str(slice_idx) + " of " + str(len(slices)))
+        fig, ax = plt.subplots(1, 2, figsize=(16, 8), num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1))
     else:
-        fig, ax = plt.subplots(2, 1, figsize=(16, 8), num="Slice " + str(slice_idx) + " of " + str(len(slices)))
+        fig, ax = plt.subplots(2, 1, figsize=(16, 8), num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1))
     # leave some space for the buttons
     fig.subplots_adjust(left=0.2, bottom=0.2)
     # axis where ROIs will be drawn

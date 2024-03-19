@@ -159,7 +159,7 @@ def manual_image_removal(
             cols,
             figsize=(1500 / my_dpi, 1000 / my_dpi),
             dpi=my_dpi,
-            num="Slice " + str(slice_idx) + " of " + str(len(slices)),
+            num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
         )
         for idx, key in enumerate(c_img_stack):
             cc_img_stack = c_img_stack[key]
