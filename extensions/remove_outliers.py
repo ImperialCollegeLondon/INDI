@@ -346,6 +346,7 @@ def remove_outliers(
                 os.path.join(settings["results"], "results_b"),
                 info["rejected_indices"],
                 segmentation,
+                False,
             )
 
             # remove the rejected images from the dataframe and also from the registration_image_data

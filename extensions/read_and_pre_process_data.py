@@ -401,6 +401,28 @@ def get_diffusion_direction_in_plane_bool(c_dicom_header: dict, dicom_type: int,
             return True
 
 
+def get_series_description(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> str:
+    """
+    Get series description
+
+    Parameters
+    ----------
+    c_dicom_header
+    dicom_type
+    frame_idx
+
+    Returns
+    -------
+    series description
+    """
+
+    if dicom_type == 2:
+        return c_dicom_header["SeriesDescription"]
+
+    elif dicom_type == 1:
+        return c_dicom_header["SeriesDescription"]
+
+
 # get DICOM header fields
 def dictify(ds: pydicom.dataset.Dataset) -> dict:
     """
@@ -515,6 +537,8 @@ def get_data_old_or_modern_dicoms(
                     get_acquisition_date(c_dicom_header, dicom_type, frame_idx),
                     # False if diffusion direction is a field
                     get_diffusion_direction_in_plane_bool(c_dicom_header, dicom_type, frame_idx),
+                    # series description
+                    get_series_description(c_dicom_header, dicom_type, frame_idx),
                     # dictionary with header fields
                     c_dicom_header,
                 )
@@ -531,6 +555,7 @@ def get_data_old_or_modern_dicoms(
             "acquisition_time",
             "acquisition_date",
             "dir_in_image_plane",
+            "series_description",
             "header",
         ],
     )
@@ -773,6 +798,7 @@ def create_2d_montage_from_database(
     save_path: str,
     list_to_highlight: list = [],
     segmentation: dict = {},
+    print_series: bool = False,
 ):
     """
     Create a grid with all DWIs for each slice
@@ -815,6 +841,7 @@ def create_2d_montage_from_database(
 
         # initiate the stacks for the images and the highlight masks
         c_img_stack = {}
+        c_img_stack_series_description = {}
         c_highlight_stack = {}
 
         # loop over sorted b-values
@@ -836,6 +863,7 @@ def create_2d_montage_from_database(
 
                 # for each b_val and each dir collect all images
                 c_img_stack[b_val, dir_idx] = np.stack(c_df_b_d.image.values, axis=0)
+                c_img_stack_series_description[b_val, dir_idx] = c_df_b_d.series_description.values
 
                 # create a mask with 0s and 1s to highlight images in certain positions of the dataframe
                 # these mask will be of the same shape as the images stack
@@ -916,6 +944,21 @@ def create_2d_montage_from_database(
         fig = plt.figure(figsize=(len(c_img_stack), max_number_of_images))
         ax = fig.add_subplot(1, 1, 1)
         plt.imshow(montage)
+        if print_series:
+            for idx, key in enumerate(c_img_stack_series_description):
+                for iidx, label in enumerate(c_img_stack_series_description[key]):
+                    x_pos = 5 + iidx * info["img_size"][1]
+                    y_pos = 10 + idx * info["img_size"][0]
+                    plt.text(
+                        x_pos,
+                        y_pos,
+                        label,
+                        fontsize=3,
+                        color="tab:orange",
+                        horizontalalignment="left",
+                        verticalalignment="top",
+                        bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                    )
         if segmentation:
             plt.imshow(seg_img)
         if list_to_highlight:
@@ -1144,6 +1187,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             settings["debug_folder"],
             [],
             {},
+            True,
         )
 
     # also save some diffusion info to a csv file
@@ -1163,6 +1207,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             "nominal_interval",
             "estimated_rr_interval",
             "acquisition_date_time",
+            "series_description",
         ],
         index=False,
     )

@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/multi_slice_study/SUBJECT03
+start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/multi_slice_study/SUBJECT03_extra
 # anon, reg, main
 workflow_mode: main
 # se, steam
@@ -25,7 +25,7 @@ registration_extra_debug: False
 # ========================================================================================
 # none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid
 # elastix_groupwise (not working well at the moment)
-registration: elastix_non_rigid
+registration: none
 # fast, slow
 registration_speed: fast
 # best, groupwise
