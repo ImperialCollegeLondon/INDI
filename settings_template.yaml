@@ -6,13 +6,11 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder:
-
+start_folder: /path_to_subject
 # anon, reg, main
 workflow_mode: main
-
 # se, steam
-sequence_type: steam
+sequence_type: se
 
 # ========================================================================================
 # DEBUGGING
@@ -28,10 +26,8 @@ registration_extra_debug: False
 # none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid
 # elastix_groupwise (not working well at the moment)
 registration: elastix_non_rigid
-
 # fast, slow
 registration_speed: fast
-
 # best, groupwise
 registration_reference_method: best
 
@@ -46,7 +42,8 @@ tensor_fit_method: NLLS
 # ========================================================================================
 # True, False
 remove_outliers_manually: True
-
+# True, False
+remove_outliers_manually_pre: True
 # True, False
 # NOT WORKING WELL AT THE MOMENT
 remove_outliers_with_ai: False
@@ -58,8 +55,10 @@ remove_outliers_with_ai: False
 assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
-# remove slices integers
+# remove slices when reading data
 remove_slices: []
+# print series description
+print_series_description: False
 
 # ========================================================================================
 # AI MODELS
@@ -67,7 +66,7 @@ remove_slices: []
 # SEGMENTATION
 # ========================================================================================
 # True, False
-u_net_segmentation: True
+u_net_segmentation: False
 # int [1, 5]
 n_ensemble: 5
 
