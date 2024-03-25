@@ -821,6 +821,7 @@ def create_2d_montage_from_database(
     list_to_highlight : list, optional
         list of indices to highlight, by default []
     segmentation: dict with segmentation information
+    print_series: bool print series description switch
 
     """
 
@@ -940,11 +941,12 @@ def create_2d_montage_from_database(
             montage_mask = np.stack([montage_mask, 0 * montage_mask, 0 * montage_mask], axis=-1)
             montage_mask = np.dstack([montage_mask, montage_mask[:, :, 0] * 0.2])
 
-        # save montages in a figure
+        # check if fov is vertical, if so tetx needs to be rotated
         if info["img_size"][0] < info["img_size"][1]:
             text_rotation = 0
         else:
             text_rotation = 90
+        # save montages in a figure
         fig = plt.figure(figsize=(len(c_img_stack), max_number_of_images))
         ax = fig.add_subplot(1, 1, 1)
         plt.imshow(montage)

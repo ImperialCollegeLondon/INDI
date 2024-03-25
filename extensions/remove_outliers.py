@@ -82,6 +82,9 @@ def manual_image_removal(
     slices: array with slice positions
     segmentation: dict with epicardium and endocardium masks
     mask: array with the mask of the heart
+    settings: dict with useful info
+    stage: pre or post segmentation
+    info: dict with useful info
 
     Returns
     -------
@@ -159,6 +162,7 @@ def manual_image_removal(
         my_dpi = 192
         rows = len(c_img_stack)
         cols = max_number_of_images
+        # check if FOV is vertical, if so rotate text
         if info["img_size"][0] < info["img_size"][1]:
             text_rotation = 0
         else:
