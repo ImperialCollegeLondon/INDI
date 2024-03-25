@@ -11,6 +11,7 @@ import sys
 
 import matplotlib
 import numpy as np
+import pyautogui
 
 from extensions.crop_fov import crop_fov
 from extensions.extensions import (
@@ -40,9 +41,9 @@ from extensions.u_net_segmentation import get_average_images
 # np.seterr(all="raise")
 
 # matplotlib
-# matplotlib.use("macosx")
 matplotlib.rcParams["toolbar"] = "None"
 matplotlib.rcParams["font.size"] = 5
+
 
 # script path
 abspath = os.path.abspath(sys.argv[0])
@@ -53,6 +54,9 @@ colormaps = get_colourmaps(script_path)
 
 # initial setup before going into the folder loop
 dti, settings, logger, log_format, all_to_be_analysed_folders = initial_setup(script_path)
+
+# screen size
+settings["screen_size"] = pyautogui.size()
 
 # Warning about deleting DICOM data
 if settings["workflow_mode"] == "anon":

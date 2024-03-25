@@ -941,6 +941,10 @@ def create_2d_montage_from_database(
             montage_mask = np.dstack([montage_mask, montage_mask[:, :, 0] * 0.2])
 
         # save montages in a figure
+        if info["img_size"][0] < info["img_size"][1]:
+            text_rotation = 0
+        else:
+            text_rotation = 90
         fig = plt.figure(figsize=(len(c_img_stack), max_number_of_images))
         ax = fig.add_subplot(1, 1, 1)
         plt.imshow(montage)
@@ -958,6 +962,7 @@ def create_2d_montage_from_database(
                         horizontalalignment="left",
                         verticalalignment="top",
                         bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                        rotation=text_rotation,
                     )
         if segmentation:
             plt.imshow(seg_img)

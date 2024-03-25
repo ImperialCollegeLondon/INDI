@@ -69,6 +69,9 @@ def manual_image_removal(
     slices: NDArray,
     segmentation: dict,
     mask: NDArray,
+    settings: dict,
+    stage: str,
+    info: dict,
 ) -> [pd.DataFrame, pd.DataFrame, dict, NDArray]:
     """
     Manual removal of images. A matplotlib window will open, and we can select images to be removed.
@@ -141,7 +144,7 @@ def manual_image_removal(
                 # for each b_val and each dir collect all images
                 c_img_stack[b_val, dir] = np.stack(c_df_b_d.image.values, axis=0)
                 c_img_indices[b_val, dir] = c_df_b_d.index.values
-                c_img_stack_series_description[b_val, dir_idx] = c_df_b_d.series_description.values
+                c_img_stack_series_description[b_val, dir] = c_df_b_d.series_description.values
 
                 # record n_images if bigger than the values stored
                 n_images = c_df_b_d.shape[0]
@@ -156,12 +159,17 @@ def manual_image_removal(
         my_dpi = 192
         rows = len(c_img_stack)
         cols = max_number_of_images
+        if info["img_size"][0] < info["img_size"][1]:
+            text_rotation = 0
+        else:
+            text_rotation = 90
         fig, axs = plt.subplots(
             rows,
             cols,
-            figsize=(1500 / my_dpi, 1000 / my_dpi),
+            figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
             dpi=my_dpi,
             num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
+            squeeze=False,
         )
         for idx, key in enumerate(c_img_stack):
             cc_img_stack = c_img_stack[key]
@@ -186,26 +194,41 @@ def manual_image_removal(
                             color="tab:red",
                             alpha=0.2,
                         )
-                axs[idx, idx2].text(
-                    5,
-                    5,
-                    str(int(key[0])),
-                    fontsize=3,
-                    color="tab:orange",
-                    horizontalalignment="left",
-                    verticalalignment="top",
-                    bbox=dict(facecolor="black", pad=0, edgecolor="none"),
-                )
-                axs[idx, idx2].text(
-                    5,
-                    35,
-                    c_img_stack_series_description[key][idx2],
-                    fontsize=3,
-                    color="tab:orange",
-                    horizontalalignment="left",
-                    verticalalignment="top",
-                    bbox=dict(facecolor="black", pad=0, edgecolor="none"),
-                )
+                if stage == "pre":
+                    axs[idx, idx2].text(
+                        2,
+                        12,
+                        str(int(key[0])),
+                        fontsize=3,
+                        color="tab:orange",
+                        horizontalalignment="left",
+                        verticalalignment="top",
+                        bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                        rotation=text_rotation,
+                    )
+                    axs[idx, idx2].text(
+                        2,
+                        2,
+                        c_img_stack_series_description[key][idx2],
+                        fontsize=3,
+                        color="tab:orange",
+                        horizontalalignment="left",
+                        verticalalignment="top",
+                        bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                        rotation=text_rotation,
+                    )
+                elif stage == "post":
+                    axs[idx, idx2].text(
+                        2,
+                        2,
+                        str(int(key[0])),
+                        fontsize=3,
+                        color="tab:orange",
+                        horizontalalignment="left",
+                        verticalalignment="top",
+                        bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                    )
+
                 axs[idx, idx2].set_xticks([])
                 axs[idx, idx2].set_yticks([])
                 axs[idx, idx2].name = str(key + (idx2,))
@@ -233,6 +256,10 @@ def manual_image_removal(
             fig.canvas.draw_idle()
 
         fig.canvas.mpl_connect("button_press_event", onclick_select)
+
+        # full screen
+        # manager = plt.get_current_fig_manager()
+        # manager.full_screen_toggle()
         plt.show()
 
         # store the indices of the rejected images:
@@ -327,6 +354,9 @@ def remove_outliers(
                 slices,
                 segmentation,
                 mask,
+                settings,
+                stage,
+                info,
             )
             logger.info("Manual image removal done.")
 
