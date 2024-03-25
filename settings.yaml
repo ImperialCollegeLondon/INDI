@@ -6,11 +6,11 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /Users/pf/WORK/WORK_2/CIMA_scans/multi_slice_study/SUBJECT01_test
+start_folder: /Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/in_vivo/challenging_registration/MID_Systole
 # anon, reg, main
 workflow_mode: main
 # se, steam
-sequence_type: se
+sequence_type: steam
 
 # ========================================================================================
 # DEBUGGING
@@ -57,6 +57,8 @@ assumed_rr_interval: 1000
 calculated_real_b0: 29
 # remove slices when reading data
 remove_slices: []
+# print series description
+print_series_description: False
 
 # ========================================================================================
 # AI MODELS

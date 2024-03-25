@@ -167,14 +167,24 @@ def manual_image_removal(
             text_rotation = 0
         else:
             text_rotation = 90
-        fig, axs = plt.subplots(
-            rows,
-            cols,
-            figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
-            dpi=my_dpi,
-            num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
-            squeeze=False,
-        )
+        if stage == "pre":
+            fig, axs = plt.subplots(
+                rows,
+                cols,
+                figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
+                dpi=my_dpi,
+                num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
+                squeeze=False,
+            )
+        elif stage == "post":
+            fig, axs = plt.subplots(
+                rows,
+                cols,
+                figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
+                dpi=my_dpi,
+                num="Slice " + str(slice_idx),
+                squeeze=False,
+            )
         for idx, key in enumerate(c_img_stack):
             cc_img_stack = c_img_stack[key]
             for idx2, img in enumerate(cc_img_stack):
@@ -199,28 +209,29 @@ def manual_image_removal(
                             alpha=0.2,
                         )
                 if stage == "pre":
-                    axs[idx, idx2].text(
-                        2,
-                        12,
-                        str(int(key[0])),
-                        fontsize=3,
-                        color="tab:orange",
-                        horizontalalignment="left",
-                        verticalalignment="top",
-                        bbox=dict(facecolor="black", pad=0, edgecolor="none"),
-                        rotation=text_rotation,
-                    )
-                    axs[idx, idx2].text(
-                        2,
-                        2,
-                        c_img_stack_series_description[key][idx2],
-                        fontsize=3,
-                        color="tab:orange",
-                        horizontalalignment="left",
-                        verticalalignment="top",
-                        bbox=dict(facecolor="black", pad=0, edgecolor="none"),
-                        rotation=text_rotation,
-                    )
+                    if not settings["print_series_description"]:
+                        axs[idx, idx2].text(
+                            2,
+                            2,
+                            str(int(key[0])),
+                            fontsize=3,
+                            color="tab:orange",
+                            horizontalalignment="left",
+                            verticalalignment="top",
+                            bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                        )
+                    elif settings["print_series_description"]:
+                        axs[idx, idx2].text(
+                            2,
+                            2,
+                            c_img_stack_series_description[key][idx2],
+                            fontsize=3,
+                            color="tab:orange",
+                            horizontalalignment="left",
+                            verticalalignment="top",
+                            bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                            rotation=text_rotation,
+                        )
                 elif stage == "post":
                     axs[idx, idx2].text(
                         2,
@@ -386,6 +397,7 @@ def remove_outliers(
                 data,
                 "b_value_original",
                 "direction_original",
+                settings,
                 info,
                 slices,
                 "dwis",

@@ -792,6 +792,7 @@ def create_2d_montage_from_database(
     data: pd.DataFrame,
     b_value_column_name: str,
     direction_column_name: str,
+    settings: dict,
     info: dict,
     slices: list,
     filename: str,
@@ -950,22 +951,23 @@ def create_2d_montage_from_database(
         fig = plt.figure(figsize=(len(c_img_stack), max_number_of_images))
         ax = fig.add_subplot(1, 1, 1)
         plt.imshow(montage)
-        if print_series:
-            for idx, key in enumerate(c_img_stack_series_description):
-                for iidx, label in enumerate(c_img_stack_series_description[key]):
-                    x_pos = 5 + iidx * info["img_size"][1]
-                    y_pos = 10 + idx * info["img_size"][0]
-                    plt.text(
-                        x_pos,
-                        y_pos,
-                        label,
-                        fontsize=3,
-                        color="tab:orange",
-                        horizontalalignment="left",
-                        verticalalignment="top",
-                        bbox=dict(facecolor="black", pad=0, edgecolor="none"),
-                        rotation=text_rotation,
-                    )
+        if settings["print_series_description"]:
+            if print_series:
+                for idx, key in enumerate(c_img_stack_series_description):
+                    for iidx, label in enumerate(c_img_stack_series_description[key]):
+                        x_pos = 5 + iidx * info["img_size"][1]
+                        y_pos = 10 + idx * info["img_size"][0]
+                        plt.text(
+                            x_pos,
+                            y_pos,
+                            label,
+                            fontsize=3,
+                            color="tab:orange",
+                            horizontalalignment="left",
+                            verticalalignment="top",
+                            bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                            rotation=text_rotation,
+                        )
         if segmentation:
             plt.imshow(seg_img)
         if list_to_highlight:
@@ -1188,6 +1190,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             data,
             "b_value_original",
             "direction_original",
+            settings,
             info,
             slices,
             "dwis_original_dicoms",
