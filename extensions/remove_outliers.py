@@ -122,6 +122,7 @@ def manual_image_removal(
         # initiate the stacks for the images and the highlight masks
         c_img_stack = {}
         c_img_indices = {}
+        c_img_stack_series_description = {}
 
         # loop over sorted b-values
         for b_val in b_vals:
@@ -140,6 +141,7 @@ def manual_image_removal(
                 # for each b_val and each dir collect all images
                 c_img_stack[b_val, dir] = np.stack(c_df_b_d.image.values, axis=0)
                 c_img_indices[b_val, dir] = c_df_b_d.index.values
+                c_img_stack_series_description[b_val, dir_idx] = c_df_b_d.series_description.values
 
                 # record n_images if bigger than the values stored
                 n_images = c_df_b_d.shape[0]
@@ -188,6 +190,16 @@ def manual_image_removal(
                     5,
                     5,
                     str(int(key[0])),
+                    fontsize=3,
+                    color="tab:orange",
+                    horizontalalignment="left",
+                    verticalalignment="top",
+                    bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                )
+                axs[idx, idx2].text(
+                    5,
+                    35,
+                    c_img_stack_series_description[key][idx2],
                     fontsize=3,
                     color="tab:orange",
                     horizontalalignment="left",
