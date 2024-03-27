@@ -3,6 +3,7 @@
 import glob
 import logging
 import os
+import sys
 
 import yaml
 
@@ -30,6 +31,19 @@ def solve_conflicts(settings: dict, logger: logging.Logger) -> dict:
     if settings["remove_outliers_manually_pre"] == True and settings["remove_outliers_manually"] == False:
         logger.info("Enabling manual removal post segmentation as remove_outliers_manually_pre is enabled!")
         settings["remove_outliers_manually"] = True
+
+    # check we have a path defined in either the YAML file or as a command argument
+    if not settings["start_folder"] and len(sys.argv) == 1:
+        logger.error("No path defined in YAML file or command argument!")
+        sys.exit(1)
+    # if path exists in the command argument then overwrite any path given in YAML file
+    if len(sys.argv) > 1:
+        settings["start_folder"] = sys.argv[1]
+        logger.info("Path defined in command argument!")
+    # finally check if path exists
+    if not os.path.exists(settings["start_folder"]):
+        logger.error("Start path does not exist!")
+        sys.exit(1)
 
     return settings
 
@@ -82,14 +96,14 @@ def initial_setup(script_path: str) -> [dict, dict, dict, logging, logging, list
         console_handler.setLevel(logging.INFO)
     logger.addHandler(console_handler)
 
+    # solve conflicts from different settings:
+    settings = solve_conflicts(settings, logger)
+
     # move to the start folder
     os.chdir(settings["start_folder"])
 
     # find all subfolders called dicoms recursively
     all_to_be_analysed_folders = glob.glob(settings["start_folder"] + "/**/diffusion_images", recursive=True)
     all_to_be_analysed_folders.sort()
-
-    # solve conflicts from different settings:
-    settings = solve_conflicts(settings, logger)
 
     return dti, settings, logger, log_format, all_to_be_analysed_folders
