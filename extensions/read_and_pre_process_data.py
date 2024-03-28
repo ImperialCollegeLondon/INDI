@@ -539,6 +539,8 @@ def get_data_old_or_modern_dicoms(
                     get_diffusion_direction_in_plane_bool(c_dicom_header, dicom_type, frame_idx),
                     # series description
                     get_series_description(c_dicom_header, dicom_type, frame_idx),
+                    # get_series_number
+                    c_dicom_header["SeriesNumber"] if "SeriesNumber" in c_dicom_header.keys() else None,
                     # dictionary with header fields
                     c_dicom_header,
                 )
@@ -556,6 +558,7 @@ def get_data_old_or_modern_dicoms(
             "acquisition_date",
             "dir_in_image_plane",
             "series_description",
+            "series_number",
             "header",
         ],
     )
@@ -1218,6 +1221,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             "estimated_rr_interval",
             "acquisition_date_time",
             "series_description",
+            "series_number",
         ],
         index=False,
     )

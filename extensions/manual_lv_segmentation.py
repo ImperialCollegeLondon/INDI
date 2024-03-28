@@ -683,6 +683,7 @@ def manual_lv_segmentation(
         fig, ax = plt.subplots(
             1,
             2,
+            dpi=my_dpi,
             figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
             num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
         )
@@ -690,6 +691,7 @@ def manual_lv_segmentation(
         fig, ax = plt.subplots(
             2,
             1,
+            dpi=my_dpi,
             figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
             num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
         )

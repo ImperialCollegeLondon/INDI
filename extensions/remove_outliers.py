@@ -391,21 +391,6 @@ def remove_outliers(
             # simplify this list to be able to save it in the yaml file
             info["rejected_indices"] = [item for sublist in info["rejected_indices"] for item in sublist]
             info["rejected_indices"] = [int(i) for i in info["rejected_indices"]]
-            # plot all DWIs with red labels on the rejected ones before removing them from the database
-            # also add the segmentation curves
-            create_2d_montage_from_database(
-                data,
-                "b_value_original",
-                "direction_original",
-                settings,
-                info,
-                slices,
-                "dwis",
-                os.path.join(settings["results"], "results_b"),
-                info["rejected_indices"],
-                segmentation,
-                False,
-            )
 
             # remove the rejected images from the dataframe and also from the registration_image_data
             data = data.loc[data["to_be_removed"] == False]
@@ -426,6 +411,21 @@ def remove_outliers(
                     registration_image_data["deformation_field"][slice_idx]["grid"] = np.delete(
                         registration_image_data["deformation_field"][slice_idx]["grid"], idx, axis=0
                     )
+
+            # plot all remaining DWIs also add the segmentation curves
+            create_2d_montage_from_database(
+                data,
+                "b_value_original",
+                "direction_original",
+                settings,
+                info,
+                slices,
+                "dwis",
+                os.path.join(settings["results"], "results_b"),
+                [],  # info["rejected_indices"],
+                segmentation,
+                False,
+            )
 
     else:
         # no image removal to be done
