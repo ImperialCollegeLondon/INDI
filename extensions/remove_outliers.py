@@ -195,8 +195,8 @@ def manual_image_removal(
                         segmentation[slice_idx]["epicardium"][:, 0],
                         segmentation[slice_idx]["epicardium"][:, 1],
                         marker=".",
-                        s=1,
-                        color="tab:blue",
+                        s=0.1,
+                        color=(1.0, 1.0, 0.33),
                         alpha=0.2,
                     )
                     if segmentation[slice_idx]["endocardium"].size != 0:
@@ -204,8 +204,8 @@ def manual_image_removal(
                             segmentation[slice_idx]["endocardium"][:, 0],
                             segmentation[slice_idx]["endocardium"][:, 1],
                             marker=".",
-                            s=1,
-                            color="tab:red",
+                            s=0.1,
+                            color=(1.0, 1.0, 0.33),
                             alpha=0.2,
                         )
                 if stage == "pre":

@@ -584,7 +584,7 @@ def get_nii_diffusion_direction(dir):
         list with the diffusion directions
     """
     if dir.all() == [0.0]:
-        return list(1 / np.sqrt(3) * np.array([1.0, 1.0, 1.0]))
+        return list(1 / np.sqrt(3) * np.array([1.0, -1.0, 1.0]))
     else:
         return list(dir)
 
@@ -617,8 +617,9 @@ def get_data_nii_files(
     header_info = {}
     header_info["image_comments"] = first_json_header["ImageComments"]
     header_info["image_orientation_patient"] = first_json_header["ImageOrientationPatientDICOM"]
-    header_info["pixel_spacing"] = list(first_nii_header["pixdim"][1:3])
-    header_info["slice_thickness"] = first_nii_header["pixdim"][3]
+    temp_list = list(first_nii_header["pixdim"][1:3])
+    header_info["pixel_spacing"] = [float(i) for i in temp_list]
+    header_info["slice_thickness"] = float(first_nii_header["pixdim"][3])
 
     # how many images per nii file
     n_images_per_file = first_nii.shape[3]
@@ -839,6 +840,7 @@ def adjust_b_val_and_dir(
     info: dict
     data: dataframe with diffusion database
     logger: logger for console and file
+    data_type: str with the type of data (dicom or nii)
 
     Returns
     -------
@@ -1079,10 +1081,10 @@ def create_2d_montage_from_database(
             # create montage with segmentation
             seg_img = np.zeros((info["img_size"][0], info["img_size"][1], 3))
             pts = np.array(segmentation[slice_int]["epicardium"], dtype=int)
-            seg_img[pts[:, 1], pts[:, 0]] = [1, 0, 0]
+            seg_img[pts[:, 1], pts[:, 0]] = [1.0, 1.0, 0.33]
             if segmentation[slice_int]["endocardium"].size != 0:
                 pts = np.array(segmentation[slice_int]["endocardium"], dtype=int)
-                seg_img[pts[:, 1], pts[:, 0]] = [0, 1, 0]
+                seg_img[pts[:, 1], pts[:, 0]] = [1.0, 1.0, 0.33]
             # repeat image for the entire stack
             seg_img = np.tile(seg_img, (len(c_img_stack), max_number_of_images, 1))
 

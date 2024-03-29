@@ -111,7 +111,7 @@ class define_roi_border(object):
         for line in self.canvas.figure.axes[0].lines:
             line.remove()
         # set the line style
-        line_style = dict(color="tab:brown", linestyle="None", linewidth=0.01, alpha=0.8)
+        line_style = dict(color="tab:brown", linestyle="None", linewidth=0.01, alpha=0.8, markersize=3)
         self.poly = PolygonSelector(ax, self.onselect, useblit=True, props=line_style)
         self.title_message = title_message
         self.second_axis_lines = second_axis_lines
@@ -183,7 +183,7 @@ class define_roi_border(object):
                             c_array[:, 1],
                             "o",
                             color="tab:orange",
-                            markersize=10,
+                            markersize=5,
                         )
             # update canvas
             self.canvas.draw_idle()
@@ -256,7 +256,7 @@ class define_roi_border(object):
                         c_array[:, 1],
                         "o",
                         color="tab:orange",
-                        markersize=10,
+                        markersize=5,
                     )
         # update canvas
         self.canvas.draw_idle()
@@ -369,7 +369,7 @@ class click_insertion_points(object):
                 self.ip_x.append(event.xdata)
                 self.ip_y.append(event.ydata)
                 self.ip_dict["superior"] = self.canvas.figure.axes[0].plot(
-                    event.xdata, event.ydata, "^", color="tab:red", markersize=10
+                    event.xdata, event.ydata, "^", color="tab:red", markersize=8, alpha=0.5
                 )
                 self.canvas.draw_idle()
             elif len(self.ip_x) == 1:
@@ -377,7 +377,7 @@ class click_insertion_points(object):
                 self.ip_x.append(event.xdata)
                 self.ip_y.append(event.ydata)
                 self.ip_dict["inferior"] = self.canvas.figure.axes[0].plot(
-                    event.xdata, event.ydata, "v", color="tab:red", markersize=10
+                    event.xdata, event.ydata, "v", color="tab:red", markersize=8, alpha=0.5
                 )
                 self.canvas.draw_idle()
             else:
@@ -392,7 +392,7 @@ class click_insertion_points(object):
                     self.ip_y[0] = event.ydata
                     self.ip_dict["superior"][0].remove()
                     self.ip_dict["superior"] = self.canvas.figure.axes[0].plot(
-                        event.xdata, event.ydata, "^", color="tab:red", markersize=10
+                        event.xdata, event.ydata, "^", color="tab:red", markersize=8, alpha=0.5
                     )
                     self.canvas.draw_idle()
                 else:
@@ -400,7 +400,7 @@ class click_insertion_points(object):
                     self.ip_y[1] = event.ydata
                     self.ip_dict["inferior"][0].remove()
                     self.ip_dict["inferior"] = self.canvas.figure.axes[0].plot(
-                        event.xdata, event.ydata, "v", color="tab:red", markersize=10
+                        event.xdata, event.ydata, "v", color="tab:red", markersize=8, alpha=0.5
                     )
                     self.canvas.draw_idle()
             # secondary axis
@@ -424,9 +424,9 @@ class click_insertion_points(object):
                             c_array[:, 0],
                             c_array[:, 1],
                             "X",
-                            color="tab:orange",
-                            markersize=10,
-                            alpha=0.5,
+                            color="tab:green",
+                            markersize=8,
+                            alpha=0.8,
                         )
             # update canvas
             self.canvas.draw_idle()
@@ -504,7 +504,7 @@ def plot_manual_lv_segmentation(
                 segmentation[slice_idx]["inferior_ip"][1],
                 "1",
                 color="tab:orange",
-                markersize=10,
+                markersize=5,
                 alpha=0.5,
             )
         plt.savefig(
@@ -678,7 +678,7 @@ def manual_lv_segmentation(
 
     # plot the magnitude image to be ROI'd
     # retina screen resolution
-    my_dpi = 192
+    my_dpi = 100
     if mask_3c.shape[0] > mask_3c.shape[1]:
         fig, ax = plt.subplots(
             1,
