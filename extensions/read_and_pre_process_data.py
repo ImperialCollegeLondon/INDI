@@ -1,3 +1,4 @@
+import json
 import logging
 import math
 import os
@@ -7,6 +8,7 @@ from typing import Tuple
 
 import h5py
 import matplotlib.pyplot as plt
+import nibabel as nib
 import numpy as np
 import pandas as pd
 import py7zr
@@ -569,6 +571,155 @@ def get_data_old_or_modern_dicoms(
     return df, info
 
 
+def get_nii_diffusion_direction(dir):
+    """
+    Get diffusion directions from a nii file
+    Parameters
+    ----------
+    dir: NDArray
+
+    Returns
+    -------
+    directions: list
+        list with the diffusion directions
+    """
+    if dir.all() == [0.0]:
+        return list(1 / np.sqrt(3) * np.array([1.0, 1.0, 1.0]))
+    else:
+        return list(dir)
+
+
+def get_nii_timings(rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, col_string):
+    nii_file_string = nii_file.replace(".nii", "")
+    c_table = rr_interval[rr_interval["nii_file_suffix"].str.endswith(nii_file_string)]
+    while len(c_table) == 0:
+        nii_file_string = nii_file_string.split("_", 1)[1]
+        c_table = rr_interval[rr_interval["nii_file_suffix"].str.endswith(nii_file_string)]
+
+    row_pos = frame_idx + slice_idx * n_images_per_file
+    return c_table.iloc[row_pos][col_string]
+
+
+def get_data_nii_files(
+    list_nii: list, settings: dict, info: dict, logger: logging.Logger
+) -> Tuple[pd.DataFrame, dict]:
+    # opening first nii file
+    first_nii = nib.load(os.path.join(settings["dicom_folder"], list_nii[0]))
+    first_nii_header = first_nii.header
+
+    # Opening first JSON file
+    json_file = list_nii[0].replace(".nii", ".json")
+    json_file = os.path.join(settings["dicom_folder"], json_file)
+    with open(json_file) as _json_file:
+        first_json_header = json.load(_json_file)
+
+    # collect some global header info in a dictionary
+    header_info = {}
+    header_info["image_comments"] = first_json_header["ImageComments"]
+    header_info["image_orientation_patient"] = first_json_header["ImageOrientationPatientDICOM"]
+    header_info["pixel_spacing"] = list(first_nii_header["pixdim"][1:3])
+    header_info["slice_thickness"] = first_nii_header["pixdim"][3]
+
+    # how many images per nii file
+    n_images_per_file = first_nii.shape[3]
+    n_slices_per_file = first_nii.shape[2]
+
+    # start building a list for each image
+    df = []
+    for nii_file in list_nii:
+        # load nii file
+        nii = nib.load(os.path.join(settings["dicom_folder"], nii_file))
+        # load json file
+        json_file = nii_file.replace(".nii", ".json")
+        json_file = os.path.join(settings["dicom_folder"], json_file)
+        with open(json_file) as _json_file:
+            json_header = json.load(_json_file)
+        # load b-value file
+        bval_file = nii_file.replace(".nii", ".bval")
+        bval_file = os.path.join(settings["dicom_folder"], bval_file)
+        with open(bval_file) as _bval_file:
+            bval = _bval_file.read()
+            bval = bval.split()
+            bval = [float(b) for b in bval]
+        # load bvec file
+        bvec_file = nii_file.replace(".nii", ".bvec")
+        bvec_file = os.path.join(settings["dicom_folder"], bvec_file)
+        with open(bvec_file) as _bvec_file:
+            bvec = _bvec_file.read()
+            bvec = bvec.split()
+            bvec = [float(b) for b in bvec]
+        bvec = np.array(bvec)
+        bvec = bvec.reshape((3, int(len(bvec) / 3)))
+        # load rr interval csv file as a dataframe
+        rr_interval_file = os.path.join(settings["dicom_folder"], "rr_timings.csv")
+        rr_interval = pd.read_csv(rr_interval_file)
+
+        # loop over each slice
+        for slice_idx in range(n_slices_per_file):
+            # frame within each file
+            for frame_idx in range(n_images_per_file):
+                # append values (will be a row in the dataframe)
+                df.append(
+                    (
+                        # file name
+                        nii_file,
+                        # array of pixel values
+                        np.rot90(np.array(nii.get_fdata()[:, :, slice_idx, frame_idx]), k=1, axes=(0, 1)),
+                        # b-value or zero if not a field
+                        bval[frame_idx + slice_idx * n_images_per_file],
+                        # diffusion directions, or [1, 1, 1] normalised if not a field
+                        get_nii_diffusion_direction(bvec[:, frame_idx + slice_idx * n_images_per_file]),
+                        # image position
+                        (0, 0, first_nii_header["pixdim"][3] * slice_idx),
+                        # nominal interval, acquisition time, acquisition date
+                        get_nii_timings(
+                            rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, "nominal_interval_(msec)"
+                        ),
+                        str(
+                            get_nii_timings(
+                                rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, "acquisition_time"
+                            )
+                        ),
+                        str(
+                            get_nii_timings(
+                                rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, "acquisition_date"
+                            )
+                        ),
+                        # False if diffusion direction is a field
+                        True,
+                        # series description
+                        json_header["SeriesDescription"].replace(" ", "_"),
+                        # series number
+                        json_header["SeriesNumber"],
+                        # dictionary with header fields
+                        json_header,
+                    )
+                )
+
+    df = pd.DataFrame(
+        df,
+        columns=[
+            "file_name",
+            "image",
+            "b_value",
+            "direction",
+            "image_position",
+            "nominal_interval",
+            "acquisition_time",
+            "acquisition_date",
+            "dir_in_image_plane",
+            "series_description",
+            "series_number",
+            "header",
+        ],
+    )
+
+    # merge header info into info
+    info = {**info, **header_info}
+
+    return df, info
+
+
 def estimate_rr_interval(data: pd.DataFrame, settings) -> [pd.DataFrame, NDArray]:
     """
     This function will estimate the RR interval from the DICOM header
@@ -676,6 +827,7 @@ def adjust_b_val_and_dir(
     settings: dict,
     info: dict,
     logger: logging.Logger,
+    data_type: str,
 ) -> pd.DataFrame:
     """
     This function will adjust:
@@ -781,9 +933,10 @@ def adjust_b_val_and_dir(
         # so I need to invert the Y direction
         # in order to have the conventional cartesian orientations from the start
         # (x positive right to left, y positive bottom to top, z positive away from you)
-        c_diff_direction = list(data.loc[idx, "direction"])
-        c_diff_direction[1] = -c_diff_direction[1]
-        data.at[idx, "direction"] = c_diff_direction
+        if data_type == "dicom":
+            c_diff_direction = list(data.loc[idx, "direction"])
+            c_diff_direction[1] = -c_diff_direction[1]
+            data.at[idx, "direction"] = c_diff_direction
 
     if settings["debug"]:
         plot_b_values_adjustment(data, settings)
@@ -1083,19 +1236,30 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
 
     """
 
+    # initiate data type as None [None, dicom, nii, pandas]
+    data_type = None
+
     # Check for DICOM files
     included_extensions = ["dcm", "DCM", "IMA"]
     list_dicoms = [
         fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
     ]
     if len(list_dicoms) > 0:
-        dicom_files_present = True
-    else:
-        dicom_files_present = False
+        data_type = "dicom"
 
-    # If DICOMs are present, then we will read them and do our diffusion database.
-    # If DICOMs have been archived, then we will load the files with the diffusion database instead.
-    if dicom_files_present:
+    if not data_type:
+        # Check for nii files
+        included_extensions = ["nii", "nii.gz"]
+        list_nii = [
+            fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
+        ]
+        if len(list_nii) > 0:
+            data_type = "nii"
+
+    # If DICOMs are present, then we will read them and build our diffusion database.
+    # If DICOMs are not present but NIFTI files are, then we will read them and build our diffusion database.
+    # If neither DICOMs nor NIFTI files are present, then we will read the pre-saved database
+    if data_type == "dicom":
         list_dicoms.sort()
         logger.debug("DICOM files found.")
 
@@ -1144,7 +1308,14 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             # DELETE FOLDER WITH DICOMS!
             shutil.rmtree(dicom_archive_folder)
 
+    elif data_type == "nii":
+        # read nii files
+        logger.debug("Nii files found.")
+        data, info = get_data_nii_files(list_nii, settings, info, logger)
+
     else:
+        data_type = "pandas"
+
         logger.debug("No DICOM found. Reading diffusion database files previously created.")
 
         # read the dataframe
@@ -1162,7 +1333,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     # =========================================================
     # adjust b-values and diffusion directions to image
     # =========================================================
-    data = adjust_b_val_and_dir(data, settings, info, logger)
+    data = adjust_b_val_and_dir(data, settings, info, logger, data_type)
     if settings["sequence_type"] == "steam":
         logger.info("Sequence: STEAM: b-values and directions adjusted")
     if settings["sequence_type"] == "se":
@@ -1181,7 +1352,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
 
     data_summary_plots(data, info, settings)
 
-    logger.debug("Number of DICOMs: " + str(info["n_files"]))
+    logger.debug("Number of images: " + str(info["n_files"]))
     logger.debug("Number of slices: " + str(n_slices))
     logger.debug("Image size: " + str(info["img_size"]))
 
