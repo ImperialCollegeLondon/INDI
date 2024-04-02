@@ -589,14 +589,18 @@ def get_nii_diffusion_direction(dir):
         return list(dir)
 
 
-def get_nii_timings(rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, col_string):
+def get_nii_timings(rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, n_slices_per_file, col_string):
     nii_file_string = nii_file.replace(".nii", "")
     c_table = rr_interval[rr_interval["nii_file_suffix"].str.endswith(nii_file_string)]
     while len(c_table) == 0:
         nii_file_string = nii_file_string.split("_", 1)[1]
         c_table = rr_interval[rr_interval["nii_file_suffix"].str.endswith(nii_file_string)]
 
-    row_pos = frame_idx + slice_idx * n_images_per_file
+    # here I am assuming that the order of the timings in the csv file is ordered like this:
+    # first goes through all slices, then moves to the next bval/bvec.
+    # Not sure if this will be the case everytime with enhanced DICOMs.
+    row_pos = slice_idx + frame_idx * n_slices_per_file
+
     return c_table.iloc[row_pos][col_string]
 
 
@@ -666,24 +670,42 @@ def get_data_nii_files(
                         nii_file,
                         # array of pixel values
                         np.rot90(np.array(nii.get_fdata()[:, :, slice_idx, frame_idx]), k=1, axes=(0, 1)),
-                        # b-value or zero if not a field
-                        bval[frame_idx + slice_idx * n_images_per_file],
+                        # b-value
+                        bval[frame_idx],
                         # diffusion directions, or [1, 1, 1] normalised if not a field
-                        get_nii_diffusion_direction(bvec[:, frame_idx + slice_idx * n_images_per_file]),
+                        get_nii_diffusion_direction(bvec[:, frame_idx]),
                         # image position
-                        (0, 0, first_nii_header["pixdim"][3] * slice_idx),
+                        (0, 0, first_nii_header["pixdim"][3] * -slice_idx),
                         # nominal interval, acquisition time, acquisition date
                         get_nii_timings(
-                            rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, "nominal_interval_(msec)"
+                            rr_interval,
+                            nii_file,
+                            frame_idx,
+                            slice_idx,
+                            n_images_per_file,
+                            n_slices_per_file,
+                            "nominal_interval_(msec)",
                         ),
                         str(
                             get_nii_timings(
-                                rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, "acquisition_time"
+                                rr_interval,
+                                nii_file,
+                                frame_idx,
+                                slice_idx,
+                                n_images_per_file,
+                                n_slices_per_file,
+                                "acquisition_time",
                             )
                         ),
                         str(
                             get_nii_timings(
-                                rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, "acquisition_date"
+                                rr_interval,
+                                nii_file,
+                                frame_idx,
+                                slice_idx,
+                                n_images_per_file,
+                                n_slices_per_file,
+                                "acquisition_date",
                             )
                         ),
                         # False if diffusion direction is a field

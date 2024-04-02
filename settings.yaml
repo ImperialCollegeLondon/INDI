@@ -10,7 +10,7 @@ start_folder:
 # anon, reg, main
 workflow_mode: main
 # se, steam
-sequence_type: steam
+sequence_type: se
 
 # ========================================================================================
 # DEBUGGING
