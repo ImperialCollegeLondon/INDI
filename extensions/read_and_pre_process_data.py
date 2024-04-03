@@ -84,11 +84,16 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     """
     # create a new column with date and time, drop the previous two columns
     df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
-    df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d %H%M%S.%f")
-    df = df.drop(columns=["acquisition_date", "acquisition_time"])
 
-    # sort by date and time
-    df = df.sort_values(["acquisition_date_time"], ascending=True)
+    # check if acquisition date and time exist, if not skip this bit
+
+    if not (df["acquisition_date"] == "None").all():
+        df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d %H%M%S.%f")
+
+        # sort by date and time
+        df = df.sort_values(["acquisition_date_time"], ascending=True)
+
+    df = df.drop(columns=["acquisition_date", "acquisition_time"])
     df = df.reset_index(drop=True)
     return df
 
@@ -571,7 +576,7 @@ def get_data_old_or_modern_dicoms(
     return df, info
 
 
-def get_nii_diffusion_direction(dir):
+def get_nii_diffusion_direction(dir: NDArray) -> list:
     """
     Get diffusion directions from a nii file
     Parameters
@@ -589,24 +594,69 @@ def get_nii_diffusion_direction(dir):
         return list(dir)
 
 
-def get_nii_timings(rr_interval, nii_file, frame_idx, slice_idx, n_images_per_file, n_slices_per_file, col_string):
-    nii_file_string = nii_file.replace(".nii", "")
-    c_table = rr_interval[rr_interval["nii_file_suffix"].str.endswith(nii_file_string)]
-    while len(c_table) == 0:
-        nii_file_string = nii_file_string.split("_", 1)[1]
-        c_table = rr_interval[rr_interval["nii_file_suffix"].str.endswith(nii_file_string)]
+def get_nii_timings(
+    rr_interval_table: pd.DataFrame,
+    nii_file: str,
+    frame_idx: int,
+    slice_idx: int,
+    n_images_per_file: int,
+    n_slices_per_file: int,
+    col_string: str,
+) -> int or str:
+    """
+    Get the nominal interval or the acquisition time or date of the current image
 
-    # here I am assuming that the order of the timings in the csv file is ordered like this:
-    # first goes through all slices, then moves to the next bval/bvec.
-    # Not sure if this will be the case everytime with enhanced DICOMs.
-    row_pos = slice_idx + frame_idx * n_slices_per_file
+    Parameters
+    ----------
+    rr_interval_table
+    nii_file
+    frame_idx
+    slice_idx
+    n_images_per_file
+    n_slices_per_file
+    col_string
 
-    return c_table.iloc[row_pos][col_string]
+    Returns
+    -------
+    nominal interval or string with acquisition date or time.
+
+    """
+
+    if rr_interval_table:
+        nii_file_string = nii_file.replace(".nii", "")
+        c_table = rr_interval_table[rr_interval_table["nii_file_suffix"].str.endswith(nii_file_string)]
+        while len(c_table) == 0:
+            nii_file_string = nii_file_string.split("_", 1)[1]
+            c_table = rr_interval_table[rr_interval_table["nii_file_suffix"].str.endswith(nii_file_string)]
+
+        # here I am assuming that the order of the timings in the csv file is ordered like this:
+        # first goes through all slices, then moves to the next bval/bvec.
+        # Not sure if this will be the case everytime with enhanced DICOMs.
+        row_pos = slice_idx + frame_idx * n_slices_per_file
+
+        return c_table.iloc[row_pos][col_string]
+    else:
+        return None
 
 
 def get_data_nii_files(
     list_nii: list, settings: dict, info: dict, logger: logging.Logger
 ) -> Tuple[pd.DataFrame, dict]:
+    """
+    Get diffusion and other parameters from the NIFTI files
+
+    Parameters
+    ----------
+    list_nii
+    settings
+    info
+    logger
+
+    Returns
+    -------
+    dataframe with all the gathered information plus info dict with some global information
+
+    """
     # opening first nii file
     first_nii = nib.load(os.path.join(settings["dicom_folder"], list_nii[0]))
     first_nii_header = first_nii.header
@@ -655,13 +705,17 @@ def get_data_nii_files(
             bvec = [float(b) for b in bvec]
         bvec = np.array(bvec)
         bvec = bvec.reshape((3, int(len(bvec) / 3)))
-        # load rr interval csv file as a dataframe
+
+        # if file exists load rr interval csv file as a dataframe
         rr_interval_file = os.path.join(settings["dicom_folder"], "rr_timings.csv")
-        rr_interval = pd.read_csv(rr_interval_file)
+        if os.path.exists(rr_interval_file):
+            rr_interval_table = pd.read_csv(rr_interval_file)
+        else:
+            rr_interval_table = None
 
         # loop over each slice
         for slice_idx in range(n_slices_per_file):
-            # frame within each file
+            # loop over frame within each file
             for frame_idx in range(n_images_per_file):
                 # append values (will be a row in the dataframe)
                 df.append(
@@ -676,9 +730,9 @@ def get_data_nii_files(
                         get_nii_diffusion_direction(bvec[:, frame_idx]),
                         # image position
                         (0, 0, first_nii_header["pixdim"][3] * -slice_idx),
-                        # nominal interval, acquisition time, acquisition date
+                        # nominal interval
                         get_nii_timings(
-                            rr_interval,
+                            rr_interval_table,
                             nii_file,
                             frame_idx,
                             slice_idx,
@@ -686,9 +740,10 @@ def get_data_nii_files(
                             n_slices_per_file,
                             "nominal_interval_(msec)",
                         ),
+                        # acquisition time
                         str(
                             get_nii_timings(
-                                rr_interval,
+                                rr_interval_table,
                                 nii_file,
                                 frame_idx,
                                 slice_idx,
@@ -697,9 +752,10 @@ def get_data_nii_files(
                                 "acquisition_time",
                             )
                         ),
+                        # acquisition date
                         str(
                             get_nii_timings(
-                                rr_interval,
+                                rr_interval_table,
                                 nii_file,
                                 frame_idx,
                                 slice_idx,
@@ -762,24 +818,30 @@ def estimate_rr_interval(data: pd.DataFrame, settings) -> [pd.DataFrame, NDArray
     estimated_rr_intervals_original (before adjustment, only for debug)
     """
 
-    # convert time to miliseconds
-    time_stamps = data["acquisition_date_time"].astype(np.int64) / int(1e6)
+    # check if we have acquisition date and time values
+    if not (data["acquisition_date_time"] == "None None").all():
+        # convert time to miliseconds
+        time_stamps = data["acquisition_date_time"].astype(np.int64) / int(1e6)
 
-    if settings["sequence_type"] == "steam":
-        # get half the time delta between images
-        time_delta = np.diff(time_stamps) * 0.5
-    elif settings["sequence_type"] == "se":
-        # get the time delta between images
-        time_delta = np.diff(time_stamps)
-    # prepend nan to the time delta
-    time_delta = np.insert(time_delta, 0, np.nan)
-    # get median time delta, and replace values above 4x the median with nan
-    median_time = np.nanmedian(time_delta)
-    time_delta[time_delta > 4 * median_time] = np.nan
-    # add time delta to the dataframe
-    data["estimated_rr_interval"] = time_delta
-    # replace nans with the next non-nan value
-    data["estimated_rr_interval"] = data["estimated_rr_interval"].bfill()
+        if settings["sequence_type"] == "steam":
+            # get half the time delta between images
+            # TODO account here for the number of slices per DICOM?
+            time_delta = np.diff(time_stamps) * 0.5
+        elif settings["sequence_type"] == "se":
+            # get the time delta between images
+            time_delta = np.diff(time_stamps)
+        # prepend nan to the time delta
+        time_delta = np.insert(time_delta, 0, np.nan)
+        # get median time delta, and replace values above 4x the median with nan
+        median_time = np.nanmedian(time_delta)
+        time_delta[time_delta > 4 * median_time] = np.nan
+        # add time delta to the dataframe
+        data["estimated_rr_interval"] = time_delta
+        # replace nans with the next non-nan value
+        data["estimated_rr_interval"] = data["estimated_rr_interval"].bfill()
+
+    else:
+        data["estimated_rr_interval"] = settings["assumed_rr_interval"]
 
     return data
 
