@@ -85,13 +85,14 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     # create a new column with date and time, drop the previous two columns
     df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
 
-    # check if acquisition date and time exist, if not skip this bit
-
+    # check if acquisition date and time exist, if not skip the sorting
     if not (df["acquisition_date"] == "None").all():
         df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d %H%M%S.%f")
-
         # sort by date and time
         df = df.sort_values(["acquisition_date_time"], ascending=True)
+    else:
+        # if we don't have the acquisition time and date, then sort by series number at least
+        df = df.sort_values(["series_number"], ascending=True)
 
     df = df.drop(columns=["acquisition_date", "acquisition_time"])
     df = df.reset_index(drop=True)
@@ -622,7 +623,7 @@ def get_nii_timings(
 
     """
 
-    if rr_interval_table:
+    if not rr_interval_table.empty:
         nii_file_string = nii_file.replace(".nii", "")
         c_table = rr_interval_table[rr_interval_table["nii_file_suffix"].str.endswith(nii_file_string)]
         while len(c_table) == 0:
@@ -711,7 +712,7 @@ def get_data_nii_files(
         if os.path.exists(rr_interval_file):
             rr_interval_table = pd.read_csv(rr_interval_file)
         else:
-            rr_interval_table = None
+            rr_interval_table = pd.DataFrame()
 
         # loop over each slice
         for slice_idx in range(n_slices_per_file):
@@ -729,7 +730,7 @@ def get_data_nii_files(
                         # diffusion directions, or [1, 1, 1] normalised if not a field
                         get_nii_diffusion_direction(bvec[:, frame_idx]),
                         # image position
-                        (0, 0, first_nii_header["pixdim"][3] * -slice_idx),
+                        (0, 0, first_nii_header["pixdim"][3] * slice_idx),
                         # nominal interval
                         get_nii_timings(
                             rr_interval_table,
