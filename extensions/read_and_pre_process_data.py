@@ -85,8 +85,8 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     # create a new column with date and time, drop the previous two columns
     df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
 
-    # check if acquisition date and time exist, if not skip the sorting
-    if not (df["acquisition_date"] == "None").all():
+    # check if acquisition date and time information exist, if not sort only by series number
+    if not (df["acquisition_date"] == "nan").all():
         df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d %H%M%S.%f")
         # sort by date and time
         df = df.sort_values(["acquisition_date_time"], ascending=True)
@@ -94,8 +94,10 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
         # if we don't have the acquisition time and date, then sort by series number at least
         df = df.sort_values(["series_number"], ascending=True)
 
+    # drop these two columns as we now have a single column with time and date
     df = df.drop(columns=["acquisition_date", "acquisition_time"])
     df = df.reset_index(drop=True)
+
     return df
 
 
@@ -640,6 +642,34 @@ def get_nii_timings(
         return None
 
 
+def get_current_rr_table(rr_interval_table: pd.DataFrame, nii_file: str) -> pd.DataFrame:
+    """
+    Get the current table of values for this series
+
+    Parameters
+    ----------
+    rr_interval_table
+    nii_file
+
+    Returns
+    -------
+    dataframe
+
+    """
+    # If table is not empty, then get the smaller table for this series
+    # otherwise return an empty table
+    if not rr_interval_table.empty:
+        nii_file_string = nii_file.replace(".nii", "")
+        c_table = rr_interval_table[rr_interval_table["nii_file_suffix"].str.endswith(nii_file_string)]
+        while len(c_table) == 0:
+            nii_file_string = nii_file_string.split("_", 1)[1]
+            c_table = rr_interval_table[rr_interval_table["nii_file_suffix"].str.endswith(nii_file_string)]
+    else:
+        c_table = pd.DataFrame()
+
+    return c_table
+
+
 def get_data_nii_files(
     list_nii: list, settings: dict, info: dict, logger: logging.Logger
 ) -> Tuple[pd.DataFrame, dict]:
@@ -683,8 +713,9 @@ def get_data_nii_files(
     # start building a list for each image
     df = []
     for nii_file in list_nii:
-        # load nii file
+        # load nii file and pixel array
         nii = nib.load(os.path.join(settings["dicom_folder"], nii_file))
+        nii_px_array = np.array(nii.get_fdata())
         # load json file
         json_file = nii_file.replace(".nii", ".json")
         json_file = os.path.join(settings["dicom_folder"], json_file)
@@ -711,70 +742,61 @@ def get_data_nii_files(
         rr_interval_file = os.path.join(settings["dicom_folder"], "rr_timings.csv")
         if os.path.exists(rr_interval_file):
             rr_interval_table = pd.read_csv(rr_interval_file)
+            logger.debug("Found file with RR interval timings.")
         else:
             rr_interval_table = pd.DataFrame()
+            logger.debug("Did not find file with RR interval timings.")
 
-        # loop over each slice
-        for slice_idx in range(n_slices_per_file):
-            # loop over frame within each file
-            for frame_idx in range(n_images_per_file):
-                # append values (will be a row in the dataframe)
-                df.append(
-                    (
-                        # file name
-                        nii_file,
-                        # array of pixel values
-                        np.rot90(np.array(nii.get_fdata()[:, :, slice_idx, frame_idx]), k=1, axes=(0, 1)),
-                        # b-value
-                        bval[frame_idx],
-                        # diffusion directions, or [1, 1, 1] normalised if not a field
-                        get_nii_diffusion_direction(bvec[:, frame_idx]),
-                        # image position
-                        (0, 0, first_nii_header["pixdim"][3] * slice_idx),
-                        # nominal interval
-                        get_nii_timings(
-                            rr_interval_table,
-                            nii_file,
-                            frame_idx,
-                            slice_idx,
-                            n_images_per_file,
-                            n_slices_per_file,
-                            "nominal_interval_(msec)",
-                        ),
-                        # acquisition time
-                        str(
-                            get_nii_timings(
-                                rr_interval_table,
-                                nii_file,
-                                frame_idx,
-                                slice_idx,
-                                n_images_per_file,
-                                n_slices_per_file,
-                                "acquisition_time",
-                            )
-                        ),
-                        # acquisition date
-                        str(
-                            get_nii_timings(
-                                rr_interval_table,
-                                nii_file,
-                                frame_idx,
-                                slice_idx,
-                                n_images_per_file,
-                                n_slices_per_file,
-                                "acquisition_date",
-                            )
-                        ),
-                        # False if diffusion direction is a field
-                        True,
-                        # series description
-                        json_header["SeriesDescription"].replace(" ", "_"),
-                        # series number
-                        json_header["SeriesNumber"],
-                        # dictionary with header fields
-                        json_header,
-                    )
+        # get current table of values for this series
+        c_rr_table = get_current_rr_table(rr_interval_table, nii_file)
+        # if empty then return a table with nan values
+        if c_rr_table.empty:
+            c_rr_table = pd.DataFrame(
+                index=np.arange(n_slices_per_file * n_images_per_file),
+                columns=["nominal_interval_(msec)", "acquisition_time", "acquisition_date"],
+            )
+
+        # loop over each slice and each image
+        for idx in range(n_slices_per_file * n_images_per_file):
+            # get correct slice and frame idx from the current table
+            # if table null then go through in the following order: loop slices, then frames.
+            if not c_rr_table.isnull().values.any():
+                c_slice_idx = c_rr_table.iloc[idx]["slice_dim_idx"]
+                c_frame_idx = c_rr_table.iloc[idx]["frame_dim_idx"]
+
+            else:
+                c_slice_idx = idx % nii_px_array.shape[2]
+                c_frame_idx = idx // nii_px_array.shape[2]
+
+            # append values (will be a row in the dataframe)
+            df.append(
+                (
+                    # file name
+                    nii_file,
+                    # array of pixel values
+                    np.rot90(nii_px_array[:, :, c_slice_idx, c_frame_idx], k=1, axes=(0, 1)),
+                    # b-value
+                    bval[c_frame_idx],
+                    # diffusion directions, or [1, 1, 1] normalised if not a field
+                    get_nii_diffusion_direction(bvec[:, c_frame_idx]),
+                    # image position
+                    (0, 0, first_nii_header["pixdim"][3] * c_slice_idx),
+                    # nominal interval
+                    c_rr_table.iloc[idx]["nominal_interval_(msec)"],
+                    # acquisition time
+                    str(c_rr_table.iloc[idx]["acquisition_time"]),
+                    # acquisition date
+                    str(c_rr_table.iloc[idx]["acquisition_date"]),
+                    # False if diffusion direction is a field
+                    True,
+                    # series description
+                    json_header["SeriesDescription"].replace(" ", "_"),
+                    # series number
+                    json_header["SeriesNumber"],
+                    # dictionary with header fields
+                    json_header,
                 )
+            )
 
     df = pd.DataFrame(
         df,
@@ -820,7 +842,9 @@ def estimate_rr_interval(data: pd.DataFrame, settings) -> [pd.DataFrame, NDArray
     """
 
     # check if we have acquisition date and time values
-    if not (data["acquisition_date_time"] == "None None").all():
+    # if so then estimate RR interval
+    # if not then just copy the assumed values
+    if not (data["acquisition_date_time"] == "nan nan").all():
         # convert time to miliseconds
         time_stamps = data["acquisition_date_time"].astype(np.int64) / int(1e6)
 
@@ -843,6 +867,7 @@ def estimate_rr_interval(data: pd.DataFrame, settings) -> [pd.DataFrame, NDArray
 
     else:
         data["estimated_rr_interval"] = settings["assumed_rr_interval"]
+        data["nominal_interval"] = settings["assumed_rr_interval"]
 
     return data
 
@@ -1403,7 +1428,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     else:
         data_type = "pandas"
 
-        logger.debug("No DICOM found. Reading diffusion database files previously created.")
+        logger.debug("No DICOM or Nii files found. Reading diffusion database files previously created.")
 
         # read the dataframe
         save_path = os.path.join(settings["dicom_folder"], "data.zip")
@@ -1422,9 +1447,9 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     # =========================================================
     data = adjust_b_val_and_dir(data, settings, info, logger, data_type)
     if settings["sequence_type"] == "steam":
-        logger.info("Sequence: STEAM: b-values and directions adjusted")
+        logger.info("STEAM sequence: b-values and directions adjusted")
     if settings["sequence_type"] == "se":
-        logger.info("Sequence: SE: Directions adjusted")
+        logger.info("SE sequence: Directions adjusted")
 
     # =========================================================
     # re-order data again, this time by slice first, then by date-time
