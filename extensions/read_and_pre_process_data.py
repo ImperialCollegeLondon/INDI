@@ -712,7 +712,7 @@ def get_data_nii_files(
 
     # start building a list for each image
     df = []
-    for nii_file in list_nii:
+    for idx, nii_file in enumerate(list_nii):
         # load nii file and pixel array
         nii = nib.load(os.path.join(settings["dicom_folder"], nii_file))
         nii_px_array = np.array(nii.get_fdata())
@@ -742,10 +742,12 @@ def get_data_nii_files(
         rr_interval_file = os.path.join(settings["dicom_folder"], "rr_timings.csv")
         if os.path.exists(rr_interval_file):
             rr_interval_table = pd.read_csv(rr_interval_file)
-            logger.debug("Found file with RR interval timings.")
+            if idx == 0:
+                logger.debug("Found file with RR interval timings.")
         else:
             rr_interval_table = pd.DataFrame()
-            logger.debug("Did not find file with RR interval timings.")
+            if idx == 0:
+                logger.debug("Did not find file with RR interval timings.")
 
         # get current table of values for this series
         c_rr_table = get_current_rr_table(rr_interval_table, nii_file)
