@@ -145,7 +145,8 @@
 // them randomly. See the manual for information on other sampling
 // strategies.
 (NewSamplesEveryIteration "true")
-(ImageSampler "Random")
+//(ImageSampler "Random")
+(ImageSampler "Full")
 
 // ************* Interpolation and Resampling ****************
 
