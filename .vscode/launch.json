@@ -13,6 +13,9 @@
             "env": {
                 "PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT": "5"
             },
+            "args": [
+                "/Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/repeat/MCSE_2"
+            ],
         }
     ]
 }

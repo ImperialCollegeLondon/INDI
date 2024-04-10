@@ -261,6 +261,28 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     export_results(data, dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps, logger)
 
+    # =========================================================
+    # Cleanup before the next folder
+    # =========================================================
+    logger.info("Cleaning up before the next folder")
+    del (
+        average_images,
+        crop_mask,
+        data,
+        info,
+        local_cardiac_coordinates,
+        lv_centres,
+        mask_3c,
+        noise,
+        phi_matrix,
+        ref_images,
+        registration_image_data,
+        segmentation,
+        slices,
+        snr_b0_lv,
+    )
+    dti = {}
+
     logger.info("============================================================")
     logger.info("====================== FINISHED ============================")
     logger.info("============================================================")

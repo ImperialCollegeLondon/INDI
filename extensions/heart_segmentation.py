@@ -96,7 +96,9 @@ def heart_segmentation(
     # =========================================================
     # LV segmentation
     # =========================================================
+    # =========================================================
     # U-Net segmentation
+    # =========================================================
     if settings["u_net_segmentation"]:
         logger.info("U-Net segmentation is True")
         # check if U-Net segmentation has been previously saved

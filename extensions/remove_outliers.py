@@ -195,18 +195,18 @@ def manual_image_removal(
                         segmentation[slice_idx]["epicardium"][:, 0],
                         segmentation[slice_idx]["epicardium"][:, 1],
                         marker=".",
-                        s=1,
-                        color="tab:blue",
-                        alpha=0.2,
+                        s=0.1,
+                        color="tab:red",
+                        alpha=0.7,
                     )
                     if segmentation[slice_idx]["endocardium"].size != 0:
                         axs[idx, idx2].scatter(
                             segmentation[slice_idx]["endocardium"][:, 0],
                             segmentation[slice_idx]["endocardium"][:, 1],
                             marker=".",
-                            s=1,
+                            s=0.1,
                             color="tab:red",
-                            alpha=0.2,
+                            alpha=0.7,
                         )
                 if stage == "pre":
                     if not settings["print_series_description"]:
