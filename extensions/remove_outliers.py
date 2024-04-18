@@ -45,13 +45,13 @@ def remove_outliers_ai(
     """
 
     # gather images from dataframe
-    dwis = np.zeros([info["n_files"], info["img_size"][0], info["img_size"][1]])
-    for i in range(info["n_files"]):
+    dwis = np.zeros([info["n_images"], info["img_size"][0], info["img_size"][1]])
+    for i in range(info["n_images"]):
         # moving image
         dwis[i] = data.loc[i, "image"]
 
     # make sure image stack has the correct dimensions
-    dwis = crop_pad_rotate_array(dwis, (info["n_files"], 256, 96), True)
+    dwis = crop_pad_rotate_array(dwis, (info["n_images"], 256, 96), True)
 
     # use the AI classifier to determine which ones are bad
     frame_labels = dwis_classifier(dwis, threshold)
@@ -406,8 +406,7 @@ def remove_outliers(
         # remove the rejected images from the dataframe and also from the registration_image_data
         data = data.loc[data["to_be_removed"] == False]
         data.reset_index(drop=True, inplace=True)
-        # TODO rename this to n_images
-        info["n_files"] = len(data)
+        info["n_images"] = len(data)
 
         # remove the rejected images from the registration_image_data
         for slice_idx in slices:
@@ -470,7 +469,7 @@ def remove_outliers(
         # data = data_new.reset_index(drop=True)
         # del data_new
         # # update number of dicom files
-        # info["n_files"] = data.shape[0]
-        # logger.debug("DWIs after outlier removal with AI: " + str(info["n_files"]))
+        # info["n_images"] = data.shape[0]
+        # logger.debug("DWIs after outlier removal with AI: " + str(info["n_images"]))
 
     return data, info, slices
