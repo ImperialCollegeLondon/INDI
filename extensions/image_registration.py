@@ -122,12 +122,14 @@ def registration_loop(
         if settings["registration_speed"] == "slow":
             parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
             parameter_object.SetParameter("NumberOfResolutions", "4")
+
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_affine.txt")
         )
         if settings["registration_speed"] == "slow":
             parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
             parameter_object.SetParameter("NumberOfResolutions", "4")
+
         parameter_object.AddParameterFile(
             os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_bspline.txt")
         )
@@ -653,11 +655,22 @@ def image_registration(
         np.savez_compressed(
             os.path.join(settings["session"], "image_registration_extras.npz"),
             registration_image_data=registration_image_data,
-            ref_images=ref_images,
         )
 
     else:
         logger.info("Saved registration found.")
+
+        # check if the reference images have been saved already too
+        if not os.path.exists(os.path.join(settings["session"], "image_registration_references.npz")):
+            logger.error("Image registration data exists but not reference image data!")
+            logger.error("Registration saved data needs to be deleted as no references images were saved!")
+            sys.exit()
+        else:
+            logger.info("Saved reference images found.")
+            # load reference images
+            save_path = os.path.join(settings["session"], "image_registration_references.npz")
+            npzfile = np.load(save_path, allow_pickle=True)
+            ref_images = npzfile["ref_images"].item()
 
         # loading registration data
         data_loaded_basic = pd.read_pickle(os.path.join(settings["session"], "image_registration_data.zip"))
@@ -674,7 +687,6 @@ def image_registration(
         # also load the extra saved data
         npzfile = np.load(os.path.join(settings["session"], "image_registration_extras.npz"), allow_pickle=True)
         registration_image_data = npzfile["registration_image_data"].item()
-        ref_images = npzfile["ref_images"].item()
         logger.info("Image registration loaded")
 
         # plot reference images

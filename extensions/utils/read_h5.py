@@ -4,43 +4,54 @@ Read H5 file
 
 import h5py
 import matplotlib.pyplot as plt
+import numpy as np
 
-file_path = "/Users/pf/WORK/WORK_1/dtcmr_dicom_data_examples/numerical_examples/5_slices/Python_post_processing/results/data/DTI_maps.h5"
+file_path_1 = "/Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/test_elastix_randomseed/scan_1/Python_post_processing/results/data/DTI_maps.h5"
+file_path_2 = "/Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/test_elastix_randomseed/scan_2/Python_post_processing/results/data/DTI_maps.h5"
+file_path_3 = "/Users/pf/WORK/WORK_2/CIMA_scans/initial_test_scans/test_elastix_randomseed/scan_3/Python_post_processing/results/data/DTI_maps.h5"
+
 
 # read the h5 file
-with h5py.File(file_path, "r") as h5:
+with h5py.File(file_path_1, "r") as h5:
     # List all groups
-    groups = list(h5.keys())
-    print("Groups:", groups)
+    # groups = list(h5.keys())
+    # print("Groups:", groups)
 
-    fa = h5["fa"][()]
-    e2a = h5["e2a"][()]
-    ha = h5["ha"][()]
-    md = h5["md"][()]
-    ha_lp = h5["ha_line_profiles_1_lp_matrix"][()]
-    lv_sectors = h5["lv_sectors"][()]
+    fa_1 = h5["fa"][()]
+    ha_1 = h5["ha"][()]
+    md_1 = h5["md"][()]
 
 
-# plot some maps
+with h5py.File(file_path_2, "r") as h5:
+    fa_2 = h5["fa"][()]
+    ha_2 = h5["ha"][()]
+    md_2 = h5["md"][()]
+
+with h5py.File(file_path_3, "r") as h5:
+    fa_3 = h5["fa"][()]
+    ha_3 = h5["ha"][()]
+    md_3 = h5["md"][()]
+
+delta_fa_1 = fa_1 - fa_2
+delta_fa_2 = fa_1 - fa_3
+delta_fa_3 = fa_2 - fa_3
+
+print("Delta FA (1 vs 2) mean and max:", np.nanmean(delta_fa_1), np.nanmax(delta_fa_1))
+print("Delta FA (1 vs 3) mean and max:", np.nanmean(delta_fa_2), np.nanmax(delta_fa_2))
+print("Delta FA (2 vs 3) mean and max:", np.nanmean(delta_fa_3), np.nanmax(delta_fa_3))
+
+# plot the difference
 plt.figure()
-plt.subplot(221)
-plt.imshow(fa[2, :, :], cmap="viridis")
-plt.title("FA")
+plt.subplot(131)
+plt.imshow(delta_fa_1[0], cmap="hot")
+plt.title("Delta FA 1 vs 2")
 plt.colorbar()
-plt.subplot(222)
-plt.imshow(e2a[1, :, :], cmap="viridis")
-plt.title("E2A")
+plt.subplot(132)
+plt.imshow(delta_fa_1[0], cmap="hot")
+plt.title("Delta FA 1 vs 3")
 plt.colorbar()
-plt.subplot(223)
-plt.imshow(ha[1, :, :], cmap="viridis")
-plt.title("HA")
+plt.subplot(133)
+plt.imshow(delta_fa_1[0], cmap="hot")
+plt.title("Delta FA 2 vs 3")
 plt.colorbar()
-plt.subplot(224)
-plt.imshow(md[1, :, :], cmap="viridis")
-plt.title("MD")
-plt.colorbar()
-plt.show()
-
-plt.figure()
-plt.plot(ha_lp.T)
 plt.show()

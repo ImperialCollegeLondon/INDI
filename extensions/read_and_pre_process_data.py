@@ -37,7 +37,7 @@ def data_summary_plots(data: pd.DataFrame, info: dict, settings: dict):
     direction_idxs = [dir_keys[direction_list[i]] for i in range(len(direction_list))]
 
     # save bar plots in a montage
-    plt.figure(figsize=(5, 5))
+    plt.figure(figsize=(15, 5))
 
     plt.subplot(1, 3, 1)
     plt.plot(data.b_value_original.values, ".")
@@ -1047,7 +1047,7 @@ def adjust_b_val_and_dir(
         # so I need to invert the Y direction
         # in order to have the conventional cartesian orientations from the start
         # (x positive right to left, y positive bottom to top, z positive away from you)
-        if data_type == "dicom":
+        if data_type == "dicom" or data_type == "pandas":
             c_diff_direction = list(data.loc[idx, "direction"])
             c_diff_direction[1] = -c_diff_direction[1]
             data.at[idx, "direction"] = c_diff_direction
@@ -1460,13 +1460,13 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     data, info, slices, n_slices = reorder_by_slice(data, settings, info, logger)
 
     # number of dicom files
-    info["n_files"] = data.shape[0]
+    info["n_images"] = data.shape[0]
     # image size
     info["img_size"] = list(data.loc[0, "image"].shape)
 
     data_summary_plots(data, info, settings)
 
-    logger.debug("Number of images: " + str(info["n_files"]))
+    logger.debug("Number of images: " + str(info["n_images"]))
     logger.debug("Number of slices: " + str(n_slices))
     logger.debug("Image size: " + str(info["img_size"]))
 

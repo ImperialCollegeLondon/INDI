@@ -694,41 +694,40 @@ def get_ha_line_profiles(
         ha_lines_profiles[slice_idx]["slope"] = slope
         ha_lines_profiles[slice_idx]["y_pred"] = y_pred
 
-        if settings["debug"]:
-            # plot HA line profiles
-            plt.figure(figsize=(5, 5))
-            plt.subplot(1, 1, 1)
-            plt.plot(lp_matrix.T, color="green", alpha=0.03)
-            # plt.plot(average_lp, linewidth=2, color="black", label="mean")
-            plt.errorbar(x, average_lp, std_lp, linewidth=2, color="black", label="mean", elinewidth=0.5)
-            plt.plot(y_pred, linewidth=1, color="red", linestyle="--", label="fit")
-            plt.xlabel("normalised wall from endo to epi", fontsize=7)
-            plt.ylabel("HA (degrees)", fontsize=7)
-            plt.tick_params(axis="both", which="major", labelsize=5)
-            plt.title(
-                "Linear fit (Rsq = "
-                + "%.2f" % r_sq
-                + " slope = "
-                + "%.2f" % slope
-                + " std = "
-                + "%.2f" % np.mean(std_lp)
-                + ")",
-                fontsize=7,
-            )
-            plt.ylim(-90, 90)
-            plt.legend(fontsize=7)
-            plt.tight_layout(pad=1.0)
-            plt.savefig(
-                os.path.join(
-                    settings["results"],
-                    "results_b",
-                    "HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
-                ),
-                dpi=200,
-                pad_inches=0,
-                transparent=False,
-            )
-            plt.close()
+        # plot HA line profiles
+        plt.figure(figsize=(5, 5))
+        plt.subplot(1, 1, 1)
+        plt.plot(lp_matrix.T, color="green", alpha=0.03)
+        # plt.plot(average_lp, linewidth=2, color="black", label="mean")
+        plt.errorbar(x, average_lp, std_lp, linewidth=2, color="black", label="mean", elinewidth=0.5)
+        plt.plot(y_pred, linewidth=1, color="red", linestyle="--", label="fit")
+        plt.xlabel("normalised wall from endo to epi", fontsize=7)
+        plt.ylabel("HA (degrees)", fontsize=7)
+        plt.tick_params(axis="both", which="major", labelsize=5)
+        plt.title(
+            "Linear fit (Rsq = "
+            + "%.2f" % r_sq
+            + " slope = "
+            + "%.2f" % slope
+            + " std = "
+            + "%.2f" % np.mean(std_lp)
+            + ")",
+            fontsize=7,
+        )
+        plt.ylim(-90, 90)
+        plt.legend(fontsize=7)
+        plt.tight_layout(pad=1.0)
+        plt.savefig(
+            os.path.join(
+                settings["results"],
+                "results_b",
+                "HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
+            ),
+            dpi=200,
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()
 
     return ha_lines_profiles, wall_thickness
 

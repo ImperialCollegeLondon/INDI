@@ -64,7 +64,7 @@ def crop_images(
         y_pad[0][0] - pad_len_y : y_pad[0][-1] + pad_len_y,
     ] = True
 
-    # crop the U-Net masks and average images
+    # crop the heart mask and average images
     mask_3c = mask_3c[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     average_images = average_images[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     for slice_str in slices:
@@ -97,25 +97,12 @@ def crop_images(
     temp_val = list(first_corner)
     info["crop_corner"] = [int(i) for i in temp_val]
 
-    # if settings["debug"]:
-    #     plot_manual_lv_segmentation(
-    #         info["n_slices"],
-    #         slices,
-    #         segmentation,
-    #         average_images,
-    #         mask_3c,
-    #         settings,
-    #         "cropped_lv_mask",
-    #         os.path.join(settings["results"], "results_b"),
-    #     )
-
     # crop the diffusion images
     for i in range(n_entries):
         c_slice_position = data.loc[i, "slice_integer"]
         background_mask = np.copy(mask_3c[c_slice_position])
         background_mask[background_mask > 0] = 1
         data.at[i, "image"] = data.loc[i, "image"][np.ix_(crop_mask.any(1), crop_mask.any(0))]
-        # data.at[i, "image"] = data.loc[i, "image"] * background_mask
 
     # update image size
     info["original_img_size"] = info["img_size"]
@@ -435,7 +422,5 @@ def crop_fov(
                 crop_mask.any(0),
             )
         ]
-
-    record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
 
     return dti, data, mask_3c, segmentation, average_images, info, crop_mask

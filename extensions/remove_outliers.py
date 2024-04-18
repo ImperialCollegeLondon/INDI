@@ -1,6 +1,7 @@
 import ast
 import logging
 import os
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,13 +45,13 @@ def remove_outliers_ai(
     """
 
     # gather images from dataframe
-    dwis = np.zeros([info["n_files"], info["img_size"][0], info["img_size"][1]])
-    for i in range(info["n_files"]):
+    dwis = np.zeros([info["n_images"], info["img_size"][0], info["img_size"][1]])
+    for i in range(info["n_images"]):
         # moving image
         dwis[i] = data.loc[i, "image"]
 
     # make sure image stack has the correct dimensions
-    dwis = crop_pad_rotate_array(dwis, (info["n_files"], 256, 96), True)
+    dwis = crop_pad_rotate_array(dwis, (info["n_images"], 256, 96), True)
 
     # use the AI classifier to determine which ones are bad
     frame_labels = dwis_classifier(dwis, threshold)
@@ -271,11 +272,8 @@ def manual_image_removal(
             fig.canvas.draw_idle()
 
         fig.canvas.mpl_connect("button_press_event", onclick_select)
-
-        # full screen
-        # manager = plt.get_current_fig_manager()
-        # manager.full_screen_toggle()
-        plt.show()
+        fig.canvas.draw_idle()
+        plt.show(block=True)
 
         # store the indices of the rejected images:
         # - indices for all slices together
@@ -355,11 +353,24 @@ def remove_outliers(
         if os.path.exists(session_file):
             logger.info("Manual image removal already done, loading information.")
             # load initial database with rejected images included
-            data = pd.read_pickle(session_file)
+            data_to_load = pd.read_pickle(session_file)
+            # check if the column acquisition_date_time matches
+            if not data_to_load["acquisition_date_time"].equals(data["acquisition_date_time"]):
+                logger.error("Data in the session file does not match the current data.")
+                logger.error("Please remove the session file and run the manual image removal again.")
+                sys.exit()
+            else:
+                # toggle to True the indices to be removed
+                for idx in data_to_load.loc[data_to_load["to_be_removed"] == True].index:
+                    data.loc[idx, "to_be_removed"] = True
+                # add attributes stored in data_to_load to data
+                data.attrs["rejected_images"] = data_to_load.attrs["rejected_images"]
+                data.attrs["rejected_images_per_slice"] = data_to_load.attrs["rejected_images_per_slice"]
+
             rejected_indices = data.attrs["rejected_images"]
             stored_indices_per_slice = data.attrs["rejected_images_per_slice"]
             info["n_images_rejected"] += len(rejected_indices)
-            info["rejected_indices"].append(rejected_indices)
+            info["rejected_indices"].extend(rejected_indices)
 
         else:
             # Manual image removal
@@ -380,38 +391,40 @@ def remove_outliers(
                 data.loc[idx, "to_be_removed"] = True
             data.attrs["rejected_images"] = rejected_indices
             data.attrs["rejected_images_per_slice"] = stored_indices_per_slice
-            data.to_pickle(session_file, compression={"method": "zip", "compresslevel": 9})
+            # save a table with the acquisition_date_time and to_be_removed columns
+            data_to_be_saved = data[["acquisition_date_time", "to_be_removed"]]
+            data_to_be_saved.to_pickle(session_file, compression={"method": "zip", "compresslevel": 9})
 
             info["n_images_rejected"] += len(rejected_indices)
-            info["rejected_indices"].append(rejected_indices)
+            info["rejected_indices"].extend(rejected_indices)
 
         logger.info("Number of images rejected after " + stage + ": " + str(info["n_images_rejected"]))
 
+        # simplify this list to be able to save it in the yaml file
+        info["rejected_indices"] = [int(i) for i in info["rejected_indices"]]
+
+        # remove the rejected images from the dataframe and also from the registration_image_data
+        data = data.loc[data["to_be_removed"] == False]
+        data.reset_index(drop=True, inplace=True)
+        info["n_images"] = len(data)
+
+        # remove the rejected images from the registration_image_data
+        for slice_idx in slices:
+            for idx in stored_indices_per_slice[slice_idx]:
+                registration_image_data["img_post_reg"][slice_idx] = np.delete(
+                    registration_image_data["img_post_reg"][slice_idx], idx, axis=0
+                )
+                registration_image_data["img_pre_reg"][slice_idx] = np.delete(
+                    registration_image_data["img_pre_reg"][slice_idx], idx, axis=0
+                )
+                registration_image_data["deformation_field"][slice_idx]["field"] = np.delete(
+                    registration_image_data["deformation_field"][slice_idx]["field"], idx, axis=0
+                )
+                registration_image_data["deformation_field"][slice_idx]["grid"] = np.delete(
+                    registration_image_data["deformation_field"][slice_idx]["grid"], idx, axis=0
+                )
+
         if stage == "post":
-            # simplify this list to be able to save it in the yaml file
-            info["rejected_indices"] = [item for sublist in info["rejected_indices"] for item in sublist]
-            info["rejected_indices"] = [int(i) for i in info["rejected_indices"]]
-
-            # remove the rejected images from the dataframe and also from the registration_image_data
-            data = data.loc[data["to_be_removed"] == False]
-            data.reset_index(drop=True, inplace=True)
-            info["n_files"] = len(data)
-
-            for slice_idx in slices:
-                for idx in stored_indices_per_slice[slice_idx]:
-                    registration_image_data["img_post_reg"][slice_idx] = np.delete(
-                        registration_image_data["img_post_reg"][slice_idx], idx, axis=0
-                    )
-                    registration_image_data["img_pre_reg"][slice_idx] = np.delete(
-                        registration_image_data["img_pre_reg"][slice_idx], idx, axis=0
-                    )
-                    registration_image_data["deformation_field"][slice_idx]["field"] = np.delete(
-                        registration_image_data["deformation_field"][slice_idx]["field"], idx, axis=0
-                    )
-                    registration_image_data["deformation_field"][slice_idx]["grid"] = np.delete(
-                        registration_image_data["deformation_field"][slice_idx]["grid"], idx, axis=0
-                    )
-
             # plot all remaining DWIs also add the segmentation curves
             create_2d_montage_from_database(
                 data,
@@ -420,7 +433,7 @@ def remove_outliers(
                 settings,
                 info,
                 slices,
-                "dwis",
+                "dwis_accepted",
                 os.path.join(settings["results"], "results_b"),
                 [],  # info["rejected_indices"],
                 segmentation,
@@ -456,7 +469,7 @@ def remove_outliers(
         # data = data_new.reset_index(drop=True)
         # del data_new
         # # update number of dicom files
-        # info["n_files"] = data.shape[0]
-        # logger.debug("DWIs after outlier removal with AI: " + str(info["n_files"]))
+        # info["n_images"] = data.shape[0]
+        # logger.debug("DWIs after outlier removal with AI: " + str(info["n_images"]))
 
     return data, info, slices

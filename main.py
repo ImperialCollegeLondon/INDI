@@ -13,7 +13,7 @@ import matplotlib
 import numpy as np
 import pyautogui
 
-from extensions.crop_fov import crop_fov
+from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
     export_results,
@@ -44,10 +44,15 @@ from extensions.u_net_segmentation import get_average_images
 matplotlib.rcParams["toolbar"] = "None"
 matplotlib.rcParams["font.size"] = 5
 
-
 # script path
 abspath = os.path.abspath(sys.argv[0])
 script_path = os.path.dirname(abspath)
+
+# ITK
+# import itk
+
+# limit the amount of parallel threads during registration
+# itk.MultiThreaderBase.SetGlobalMaximumNumberOfThreads(1)
 
 # DTCMR tailored colormaps
 colormaps = get_colourmaps(script_path)
@@ -144,9 +149,9 @@ for current_folder in all_to_be_analysed_folders:
     data, slices, segmentation = remove_slices(data, slices, segmentation, logger)
 
     # =========================================================
-    # Crop FOV
+    # Crop image data
     # =========================================================
-    # crop the images to the heart region only
+    # crop the images to the region around the segmented area only
     # use the same crop for all slices and then pad with 3 pixels on all sides
     dti, data, mask_3c, segmentation, average_images, info, crop_mask = crop_fov(
         dti,
@@ -177,6 +182,12 @@ for current_folder in all_to_be_analysed_folders:
         segmentation=segmentation,
         mask=mask_3c,
     )
+
+    # =========================================================
+    # Get line profile off all remaining images to
+    # assess registration
+    # =========================================================
+    record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
 
     # =========================================================
     # Get SNR maps
