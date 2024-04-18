@@ -370,7 +370,7 @@ def remove_outliers(
             rejected_indices = data.attrs["rejected_images"]
             stored_indices_per_slice = data.attrs["rejected_images_per_slice"]
             info["n_images_rejected"] += len(rejected_indices)
-            info["rejected_indices"].append(rejected_indices)
+            info["rejected_indices"].extend(rejected_indices)
 
         else:
             # Manual image removal
@@ -396,35 +396,36 @@ def remove_outliers(
             data_to_be_saved.to_pickle(session_file, compression={"method": "zip", "compresslevel": 9})
 
             info["n_images_rejected"] += len(rejected_indices)
-            info["rejected_indices"].append(rejected_indices)
+            info["rejected_indices"].extend(rejected_indices)
 
         logger.info("Number of images rejected after " + stage + ": " + str(info["n_images_rejected"]))
 
+        # simplify this list to be able to save it in the yaml file
+        info["rejected_indices"] = [int(i) for i in info["rejected_indices"]]
+
+        # remove the rejected images from the dataframe and also from the registration_image_data
+        data = data.loc[data["to_be_removed"] == False]
+        data.reset_index(drop=True, inplace=True)
+        # TODO rename this to n_images
+        info["n_files"] = len(data)
+
+        # remove the rejected images from the registration_image_data
+        for slice_idx in slices:
+            for idx in stored_indices_per_slice[slice_idx]:
+                registration_image_data["img_post_reg"][slice_idx] = np.delete(
+                    registration_image_data["img_post_reg"][slice_idx], idx, axis=0
+                )
+                registration_image_data["img_pre_reg"][slice_idx] = np.delete(
+                    registration_image_data["img_pre_reg"][slice_idx], idx, axis=0
+                )
+                registration_image_data["deformation_field"][slice_idx]["field"] = np.delete(
+                    registration_image_data["deformation_field"][slice_idx]["field"], idx, axis=0
+                )
+                registration_image_data["deformation_field"][slice_idx]["grid"] = np.delete(
+                    registration_image_data["deformation_field"][slice_idx]["grid"], idx, axis=0
+                )
+
         if stage == "post":
-            # simplify this list to be able to save it in the yaml file
-            info["rejected_indices"] = [item for sublist in info["rejected_indices"] for item in sublist]
-            info["rejected_indices"] = [int(i) for i in info["rejected_indices"]]
-
-            # remove the rejected images from the dataframe and also from the registration_image_data
-            data = data.loc[data["to_be_removed"] == False]
-            data.reset_index(drop=True, inplace=True)
-            info["n_files"] = len(data)
-
-            for slice_idx in slices:
-                for idx in stored_indices_per_slice[slice_idx]:
-                    registration_image_data["img_post_reg"][slice_idx] = np.delete(
-                        registration_image_data["img_post_reg"][slice_idx], idx, axis=0
-                    )
-                    registration_image_data["img_pre_reg"][slice_idx] = np.delete(
-                        registration_image_data["img_pre_reg"][slice_idx], idx, axis=0
-                    )
-                    registration_image_data["deformation_field"][slice_idx]["field"] = np.delete(
-                        registration_image_data["deformation_field"][slice_idx]["field"], idx, axis=0
-                    )
-                    registration_image_data["deformation_field"][slice_idx]["grid"] = np.delete(
-                        registration_image_data["deformation_field"][slice_idx]["grid"], idx, axis=0
-                    )
-
             # plot all remaining DWIs also add the segmentation curves
             create_2d_montage_from_database(
                 data,
@@ -433,7 +434,7 @@ def remove_outliers(
                 settings,
                 info,
                 slices,
-                "dwis",
+                "dwis_accepted",
                 os.path.join(settings["results"], "results_b"),
                 [],  # info["rejected_indices"],
                 segmentation,
