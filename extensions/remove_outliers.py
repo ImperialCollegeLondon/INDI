@@ -1,6 +1,7 @@
 import ast
 import logging
 import os
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -271,11 +272,8 @@ def manual_image_removal(
             fig.canvas.draw_idle()
 
         fig.canvas.mpl_connect("button_press_event", onclick_select)
-
-        # full screen
-        # manager = plt.get_current_fig_manager()
-        # manager.full_screen_toggle()
-        plt.show()
+        fig.canvas.draw_idle()
+        plt.show(block=True)
 
         # store the indices of the rejected images:
         # - indices for all slices together
@@ -355,7 +353,20 @@ def remove_outliers(
         if os.path.exists(session_file):
             logger.info("Manual image removal already done, loading information.")
             # load initial database with rejected images included
-            data = pd.read_pickle(session_file)
+            data_to_load = pd.read_pickle(session_file)
+            # check if the column acquisition_date_time matches
+            if not data_to_load["acquisition_date_time"].equals(data["acquisition_date_time"]):
+                logger.error("Data in the session file does not match the current data.")
+                logger.error("Please remove the session file and run the manual image removal again.")
+                sys.exit()
+            else:
+                # toggle to True the indices to be removed
+                for idx in data_to_load.loc[data_to_load["to_be_removed"] == True].index:
+                    data.loc[idx, "to_be_removed"] = True
+                # add attributes stored in data_to_load to data
+                data.attrs["rejected_images"] = data_to_load.attrs["rejected_images"]
+                data.attrs["rejected_images_per_slice"] = data_to_load.attrs["rejected_images_per_slice"]
+
             rejected_indices = data.attrs["rejected_images"]
             stored_indices_per_slice = data.attrs["rejected_images_per_slice"]
             info["n_images_rejected"] += len(rejected_indices)
@@ -380,7 +391,9 @@ def remove_outliers(
                 data.loc[idx, "to_be_removed"] = True
             data.attrs["rejected_images"] = rejected_indices
             data.attrs["rejected_images_per_slice"] = stored_indices_per_slice
-            data.to_pickle(session_file, compression={"method": "zip", "compresslevel": 9})
+            # save a table with the acquisition_date_time and to_be_removed columns
+            data_to_be_saved = data[["acquisition_date_time", "to_be_removed"]]
+            data_to_be_saved.to_pickle(session_file, compression={"method": "zip", "compresslevel": 9})
 
             info["n_images_rejected"] += len(rejected_indices)
             info["rejected_indices"].append(rejected_indices)
