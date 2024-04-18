@@ -121,14 +121,19 @@
 // With an AdaptiveStochasticGradientDescent optimizer,
 // in combination with the two options below, around 2000
 // samples may already suffice.
+//(RandomSeed 30101983) Doesn't seem to work
 (NumberOfSpatialSamples 2048)
 
 // Refresh these spatial samples in every iteration, and select
 // them randomly. See the manual for information on other sampling
 // strategies.
+
 (NewSamplesEveryIteration "true")
+
 //(ImageSampler "Random")
-(ImageSampler "Full")
+(ImageSampler "Grid")
+(SampleGridSpacing 2 2 1 1)
+//(ImageSampler "Full")
 
 // ************* Interpolation and Resampling ****************
 

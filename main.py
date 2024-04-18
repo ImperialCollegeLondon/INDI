@@ -44,10 +44,15 @@ from extensions.u_net_segmentation import get_average_images
 matplotlib.rcParams["toolbar"] = "None"
 matplotlib.rcParams["font.size"] = 5
 
-
 # script path
 abspath = os.path.abspath(sys.argv[0])
 script_path = os.path.dirname(abspath)
+
+# ITK
+# import itk
+
+# limit the amount of parallel threads during registration
+# itk.MultiThreaderBase.SetGlobalMaximumNumberOfThreads(1)
 
 # DTCMR tailored colormaps
 colormaps = get_colourmaps(script_path)
