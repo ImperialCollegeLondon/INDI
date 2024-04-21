@@ -322,11 +322,12 @@ class scrool_slider:
         # when slider moves, this function is called
         #  we need to apply the clean image on the magnitude image only
         # then apply the same mask on the other map
-        c_label = self.fig.axes[0].label
-
         updated_img_mag, self.mask = clean_image(self.img_mag, val)
         updated_img_ha = self.img_ha * self.mask
         updated_img_md = self.img_md * self.mask
+
+        # find out where the mag map is
+        c_label = self.fig.axes[0].label
         if c_label == "mag":
             idx_mag = 0
             idx_other = 1
@@ -334,7 +335,9 @@ class scrool_slider:
             idx_mag = 1
             idx_other = 0
 
+        # update image mag
         self.fig.axes[idx_mag].images[0].set_array(updated_img_mag)
+        # update the other map (HA or MD)
         c_label_other = self.fig.axes[idx_other].label
         if c_label_other == "ha":
             self.fig.axes[idx_other].images[0].set_array(updated_img_ha)
@@ -685,7 +688,7 @@ def manual_lv_segmentation(
             event.canvas.draw_idle()
 
         def swap_ha_md(self, event):
-            # toggle HA/MD on the axis that has ones of these maps
+            # toggle HA/MD on the axis that has one of these maps
 
             c_mask = threshold_slider_and_scroll.mask
 
@@ -698,7 +701,7 @@ def manual_lv_segmentation(
             elif label_ax_1 == "mag":
                 ax_idx = 0
 
-            # find out if we are showing the HA or MD map
+            # find out if we are showing the HA or MD map on the other axis
             c_label = event.canvas.figure.axes[ax_idx].label
 
             if c_label == "ha":
