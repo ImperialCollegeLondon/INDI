@@ -83,15 +83,17 @@ def heart_segmentation(
                 quick_mode=True,
             )
             # get basic HA map
-            _, prelim_eigenvectors = np.linalg.eigh(tensor[[slice_idx], ...])
+            prelim_eigenvalues, prelim_eigenvectors = np.linalg.eigh(tensor[[slice_idx], ...])
             prelim_ha[slice_idx], _, _ = get_ha_e2a_maps(
                 thr_mask[[slice_idx], ...],
                 local_cylindrical_coordinates,
                 prelim_eigenvectors,
             )
+            prelim_md = np.mean(prelim_eigenvalues, axis=-1)
 
             # threshold prelim HA map
             prelim_ha[slice_idx] = prelim_ha[slice_idx] * thr_mask[slice_idx]
+            prelim_md[slice_idx] = 1e3 * prelim_md[slice_idx] * thr_mask[slice_idx]
 
     # =========================================================
     # LV segmentation
@@ -150,6 +152,7 @@ def heart_segmentation(
                 mask_3c[slice_idx],
                 average_images[slice_idx],
                 prelim_ha[slice_idx],
+                prelim_md[slice_idx],
                 10,
                 settings,
                 colormaps,
