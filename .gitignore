@@ -3,7 +3,7 @@
 # virtual env
 .venv/
 # vscode stuff
-.vscode/
+.vscode/*
 
 # pycache
 __pycache__/

@@ -281,15 +281,10 @@ class scrool_slider:
     slider can be moved with the mouse wheel or by clicking on the slider.
     """
 
-    def __init__(self, fig, ax_0, img_0, ax_img_0, ax_1, img_1, ax_img_1):
-        self.ax_0 = ax_0
-        self.img_0 = img_0
-        self.ax_img_0 = ax_img_0
-
-        self.ax_1 = ax_1
-        self.img_1 = img_1
-        self.ax_img_1 = ax_img_1
-
+    def __init__(self, fig, img_mag, img_ha, img_md):
+        self.img_mag = img_mag
+        self.img_ha = img_ha
+        self.img_md = img_md
         self.fig = fig
 
         # Make a vertically oriented slider to control the amplitude
@@ -325,17 +320,29 @@ class scrool_slider:
 
     def update(self, val):
         # when slider moves, this function is called
-        #  we need to aply the clean image on the magnitude image not on the HA map
-        # so we need to find out which axis contains that image
-        c_lims = self.fig.axes[0].images[0].get_clim()
-        self.updated_img_0, self.mask = clean_image(self.img_0, val)
-        self.updated_img_1 = self.img_1 * self.mask
-        if c_lims == (0.0, 0.85):
-            self.ax_img_0.set_array(self.updated_img_0)
-            self.ax_img_1.set_array(self.updated_img_1)
+        #  we need to apply the clean image on the magnitude image only
+        # then apply the same mask on the other map
+        updated_img_mag, self.mask = clean_image(self.img_mag, val)
+        updated_img_ha = self.img_ha * self.mask
+        updated_img_md = self.img_md * self.mask
+
+        # find out where the mag map is
+        c_label = self.fig.axes[0].label
+        if c_label == "mag":
+            idx_mag = 0
+            idx_other = 1
         else:
-            self.ax_img_1.set_array(self.updated_img_0)
-            self.ax_img_0.set_array(self.updated_img_1)
+            idx_mag = 1
+            idx_other = 0
+
+        # update image mag
+        self.fig.axes[idx_mag].images[0].set_array(updated_img_mag)
+        # update the other map (HA or MD)
+        c_label_other = self.fig.axes[idx_other].label
+        if c_label_other == "ha":
+            self.fig.axes[idx_other].images[0].set_array(updated_img_ha)
+        elif c_label_other == "md":
+            self.fig.axes[idx_other].images[0].set_array(updated_img_md)
 
         self.fig.canvas.draw_idle()
 
@@ -533,8 +540,9 @@ def get_mask_from_poly(poly, dims):
 
 def manual_lv_segmentation(
     mask_3c: NDArray,
-    average_maps: NDArray,
-    ha_maps: NDArray,
+    average_map: NDArray,
+    ha_map: NDArray,
+    md_map: NDArray,
     n_points: int,
     settings: dict,
     colormaps: dict,
@@ -555,10 +563,12 @@ def manual_lv_segmentation(
     ----------
     mask_3c : NDArray
         initial mask
-    average_maps : NDArray
+    average_map : NDArray
         average denoised and normalised images for each slice
-    ha_maps : NDArray
+    ha_map : NDArray
         HA maps for each slice
+    md_map : NDArray
+        MD maps for each slice
     n_points : int
         number of points to interpolate the contours
     settings : dict
@@ -655,24 +665,59 @@ def manual_lv_segmentation(
 
         def swap_images(self, event):
             # swap the images in the figure
-            a = event.canvas.figure.axes[0].images[0].get_array()
-            b = event.canvas.figure.axes[1].images[0].get_array()
 
-            for idx in range(2):
-                if idx == 0:
-                    event.canvas.figure.axes[idx].images[0].set_array(b)
-                elif idx == 1:
-                    event.canvas.figure.axes[idx].images[0].set_array(a)
+            # get current axes properties
+            axes_props = {}
+            for ax_idx in range(2):
+                axes_props[ax_idx] = {}
+                axes_props[ax_idx]["clim"] = event.canvas.figure.axes[ax_idx].images[0].get_clim()
+                axes_props[ax_idx]["alpha"] = event.canvas.figure.axes[ax_idx].images[0].get_alpha()
+                axes_props[ax_idx]["cmap"] = event.canvas.figure.axes[ax_idx].images[0].get_cmap()
+                axes_props[ax_idx]["label"] = event.canvas.figure.axes[ax_idx].label
+                axes_props[ax_idx]["array"] = event.canvas.figure.axes[ax_idx].images[0].get_array()
 
-                c_lims = event.canvas.figure.axes[idx].images[0].get_clim()
-                if c_lims == (-90.0, 90.0):
-                    event.canvas.figure.axes[idx].images[0].set_clim((0, 0.85))
-                    event.canvas.figure.axes[idx].images[0].set_alpha(1.0)
-                    event.canvas.figure.axes[idx].images[0].set_cmap("Greys_r")
-                elif c_lims == (0.0, 0.85):
-                    event.canvas.figure.axes[idx].images[0].set_clim((-90, 90))
-                    event.canvas.figure.axes[idx].images[0].set_alpha(0.5)
-                    event.canvas.figure.axes[idx].images[0].set_cmap(colormaps["HA"])
+            # swap figures
+            for ax_idx in range(2):
+                other_idx = 0 if ax_idx == 1 else 1
+                event.canvas.figure.axes[ax_idx].images[0].set_array(axes_props[other_idx]["array"])
+                event.canvas.figure.axes[ax_idx].images[0].set_clim(axes_props[other_idx]["clim"])
+                event.canvas.figure.axes[ax_idx].images[0].set_alpha(axes_props[other_idx]["alpha"])
+                event.canvas.figure.axes[ax_idx].images[0].set_cmap(axes_props[other_idx]["cmap"])
+                event.canvas.figure.axes[ax_idx].label = axes_props[other_idx]["label"]
+
+            event.canvas.draw_idle()
+
+        def swap_ha_md(self, event):
+            # toggle HA/MD on the axis that has one of these maps
+
+            c_mask = threshold_slider_and_scroll.mask
+
+            # find out which axis contains the mag
+            label_ax_0 = event.canvas.figure.axes[0].label
+            label_ax_1 = event.canvas.figure.axes[1].label
+
+            if label_ax_0 == "mag":
+                ax_idx = 1
+            elif label_ax_1 == "mag":
+                ax_idx = 0
+
+            # find out if we are showing the HA or MD map on the other axis
+            c_label = event.canvas.figure.axes[ax_idx].label
+
+            if c_label == "ha":
+                # we are currently showing the HA map, switch to MD map
+                event.canvas.figure.axes[ax_idx].images[0].set_array(md_map * c_mask)
+                event.canvas.figure.axes[ax_idx].images[0].set_clim((0.0, 2.5))
+                event.canvas.figure.axes[ax_idx].images[0].set_alpha(0.5)
+                event.canvas.figure.axes[ax_idx].images[0].set_cmap(colormaps["MD"])
+                event.canvas.figure.axes[ax_idx].label = "md"
+            elif c_label == "md":
+                # we are currently showing the MD map, switch to HA map
+                event.canvas.figure.axes[ax_idx].images[0].set_array(ha_map * c_mask)
+                event.canvas.figure.axes[ax_idx].images[0].set_clim((-90, 90))
+                event.canvas.figure.axes[ax_idx].images[0].set_alpha(0.5)
+                event.canvas.figure.axes[ax_idx].images[0].set_cmap(colormaps["HA"])
+                event.canvas.figure.axes[ax_idx].label = "ha"
 
             event.canvas.draw_idle()
 
@@ -697,12 +742,14 @@ def manual_lv_segmentation(
         )
     # leave some space for the buttons
     fig.subplots_adjust(left=0.2, bottom=0.2)
-    # axis where ROIs will be drawn
-    ax_img_0 = ax[0].imshow(average_maps, cmap="Greys_r", vmin=0, vmax=0.85)
+    # axis where the magnitude image will be shown initially
+    ax[0].imshow(average_map, cmap="Greys_r", vmin=0, vmax=0.85)
     ax[0].axis("off")
-    # axis where latest ROIs will be shown
-    ax_img_1 = ax[1].imshow(ha_maps, colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
+    ax[0].label = "mag"
+    # axis where the HA map will be shown initially
+    ax[1].imshow(ha_map, colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
     ax[1].axis("off")
+    ax[1].label = "ha"
 
     # add the buttons to the figure
     callback = buttons()
@@ -726,24 +773,26 @@ def manual_lv_segmentation(
     button_ip.on_clicked(lambda x: callback.click(x, second_axis_lines))
     # swap images button
     si_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "swap_images.png"))
-    ax_swap_images = fig.add_axes([0.05, 0.20, 0.10, 0.10])
+    ax_swap_images = fig.add_axes([0.05, 0.30, 0.10, 0.10])
     ax_swap_images.axis("off")
     button_si = Button(ax_swap_images, label="", image=si_icon)
     button_si.on_clicked(callback.swap_images)
-
+    # ha/md map button
+    hm_icon = plt.imread(os.path.join("/Users/pf/GitHub/INDI/assets/icons/ha_md.png"))
+    ax_ha_md = fig.add_axes([0.05, 0.15, 0.10, 0.10])
+    ax_ha_md.axis("off")
+    button_hm = Button(ax_ha_md, label="", image=hm_icon)
+    button_hm.on_clicked(callback.swap_ha_md)
     # slider stuff
     threshold_slider_and_scroll = scrool_slider(
         fig,
-        ax[0],
-        average_maps,
-        ax_img_0,
-        ax[1],
-        ha_maps,
-        ax_img_1,
+        average_map,
+        ha_map,
+        md_map,
     )
     fig.canvas.mpl_connect("scroll_event", threshold_slider_and_scroll.on_scroll)
 
-    plt.show()
+    plt.show(block=True)
 
     # retrieve the threshold mask
     thr_mask = threshold_slider_and_scroll.mask
