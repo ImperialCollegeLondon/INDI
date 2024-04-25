@@ -58,6 +58,7 @@ def heart_segmentation(
     # check if LV manual segmentation has been previously saved
     # if not calculate a prelim HA map
     prelim_ha = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
+    prelim_md = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
     # mask is all ones here for now.
     thr_mask = np.ones((n_slices, info["img_size"][0], info["img_size"][1]))
     # loop over the slices
@@ -89,7 +90,7 @@ def heart_segmentation(
                 local_cylindrical_coordinates,
                 prelim_eigenvectors,
             )
-            prelim_md = np.mean(prelim_eigenvalues, axis=-1)
+            prelim_md[slice_idx] = np.mean(prelim_eigenvalues, axis=-1)
 
             # threshold preliminary MD and HA maps
             prelim_ha[slice_idx] = prelim_ha[slice_idx] * thr_mask[slice_idx]
