@@ -3,6 +3,7 @@ import os
 import sys
 import time
 
+import cv2 as cv
 import itk
 import matplotlib.pyplot as plt
 import numpy as np
@@ -67,7 +68,7 @@ def denoise_img_nlm(c_img: NDArray) -> NDArray:
 
 
 def registration_loop(
-    data: pd.DataFrame, ref_images: dict, slices: NDArray, info: dict, settings: dict, logger: logging.Logger
+    data: pd.DataFrame, ref_images: dict, mask, info: dict, settings: dict, logger: logging.Logger
 ) -> tuple[pd.DataFrame, dict]:
     """
     Registration image loop. This is where we perform the registration of the DWIs.
@@ -180,177 +181,148 @@ def registration_loop(
 
     # dicts to store information about the registration
     registration_image_data = {}
-    registration_image_data["img_post_reg"] = {}
-    registration_image_data["img_pre_reg"] = {}
+
+    # initialise images after registration
+    registration_image_data["img_post_reg"] = np.empty(
+        [ref_images["n_images"], info["img_size"][0], info["img_size"][1]]
+    )
+    # initialise images before registration
+    registration_image_data["img_pre_reg"] = np.empty(
+        [ref_images["n_images"], info["img_size"][0], info["img_size"][1]]
+    )
+    # initialise deformation field and grid
     registration_image_data["deformation_field"] = {}
+    registration_image_data["deformation_field"]["field"] = np.zeros(
+        [ref_images["n_images"], info["img_size"][0], info["img_size"][1], 2]
+    )
+    registration_image_data["deformation_field"]["grid"] = np.zeros(
+        [ref_images["n_images"], info["img_size"][0], info["img_size"][1]]
+    )
 
-    # loop over slices
-    for slice_idx in slices:
-        # initialise images after registration
-        registration_image_data["img_post_reg"][slice_idx] = np.empty(
-            [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1]]
+    # reference image for this slice
+    ref = ref_images["image"]
+    ref = np.asarray(ref, dtype=np.float32)
+    if (
+        settings["registration"] == "elastix_rigid"
+        or settings["registration"] == "elastix_affine"
+        or settings["registration"] == "elastix_non_rigid"
+    ):
+        ref = itk.GetImageFromArray(ref)
+
+    # images to be registered
+    mov_all = np.transpose(np.dstack(data["image"].values), (2, 0, 1))
+
+    # mask only regions of interest in the middle of the FOV.
+    mask = itk.GetImageFromArray(mask)
+
+    # Groupwise registration
+    if settings["registration"] == "elastix_groupwise":
+        # get all images
+        mov_all = np.ascontiguousarray(np.array(mov_all, dtype=np.float32))
+
+        # store images before registration
+        registration_image_data["img_pre_reg"] = np.copy(mov_all)
+
+        # register all images groupwise
+        img_reg, result_transform_parameters = itk.elastix_registration_method(
+            mov_all,
+            mov_all,
+            parameter_object=parameter_object,
+            fixed_mask=mask,
+            log_to_console=False,
         )
-        # initialise images before registration
-        registration_image_data["img_pre_reg"][slice_idx] = np.empty(
-            [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1]]
-        )
-        # initialise deformation field and grid
-        registration_image_data["deformation_field"][slice_idx] = {}
-        registration_image_data["deformation_field"][slice_idx]["field"] = np.zeros(
-            [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1], 2]
-        )
-        registration_image_data["deformation_field"][slice_idx]["grid"] = np.zeros(
-            [ref_images[slice_idx]["n_images"], info["img_size"][0], info["img_size"][1]]
-        )
 
-        # reference image for this slice
-        ref = ref_images[slice_idx]["image"]
-        ref = np.asarray(ref, dtype=np.float32)
-        if (
-            settings["registration"] == "elastix_rigid"
-            or settings["registration"] == "elastix_affine"
-            or settings["registration"] == "elastix_non_rigid"
-        ):
-            ref = itk.GetImageFromArray(ref)
+        # format registered images
+        img_reg = np.copy(np.asarray(img_reg, dtype=np.float32))
+        img_reg[img_reg < 0] = 0
+        img_reg[np.isnan(img_reg)] = 0
 
-        # dataframe for this slice
-        current_entries = data.loc[data["slice_integer"] == slice_idx]
+        # store images after registration
+        registration_image_data["img_post_reg"] = np.copy(img_reg)
 
-        # images to be registered
-        mov_all = np.transpose(np.dstack(current_entries["image"].values), (2, 0, 1))
+        # replace images in the dataframe
+        for i in data.index:
+            data.at[i, "image"] = img_reg[i]
 
-        # create mask for the registration
-        # this mask removes the edges along the readout direction
-        mask = np.zeros([info["img_size"][0], info["img_size"][1]])
-        if info["img_size"][0] > info["img_size"][1]:
-            short_dim = info["img_size"][1]
-            large_dim = info["img_size"][0]
-            mask[int((large_dim - short_dim * 1.2) / 2) : int((large_dim + short_dim * 1.2) / 2), :] = 1
-        else:
-            short_dim = info["img_size"][0]
-            large_dim = info["img_size"][1]
-            mask[:, int((large_dim - short_dim * 1.2) / 2) : int((large_dim + short_dim * 1.2) / 2)] = 1
-        mask_arr = np.asarray(mask, dtype=np.ubyte)
-        if settings["registration"] == "elastix_groupwise":
-            # stack the mask for every image
-            mask_arr = np.repeat(mask_arr[np.newaxis, :, :], mov_all.shape[0], axis=0)
+    else:
+        # if not groupwise registration
+        # loop through all images and register one by one
+        for i in tqdm(range(ref_images["n_images"]), desc="Registering images"):
+            # moving image
+            mov = np.asarray(mov_all[i], dtype=np.float32)
+            registration_image_data["img_pre_reg"][i] = mov
 
-        mask = itk.GetImageFromArray(mask_arr)
+            # run registration
+            # elastix
+            if (
+                settings["registration"] == "elastix_rigid"
+                or settings["registration"] == "elastix_affine"
+                or settings["registration"] == "elastix_non_rigid"
+            ):
+                # apply the registration to a denoised version (helps with registration of low SNR images)
+                mov_norm = (mov - np.min(mov)) / (np.max(mov) - np.min(mov))
+                denoised_mov = denoise_img_nlm(mov_norm)
 
-        # Groupwise registration
-        if settings["registration"] == "elastix_groupwise":
-            # get all images
-            mov_all = np.ascontiguousarray(np.array(mov_all, dtype=np.float32))
+                denoised_mov = itk.GetImageFromArray(denoised_mov)
 
-            # store images before registration
-            registration_image_data["img_pre_reg"][slice_idx] = np.copy(mov_all)
+                img_reg, result_transform_parameters = itk.elastix_registration_method(
+                    ref,
+                    denoised_mov,
+                    parameter_object=parameter_object,
+                    fixed_mask=mask,
+                    log_to_console=False,
+                )
 
-            logger.info("Slice " + str(slice_idx).zfill(2) + ": Starting groupwise registration. Please hold...")
+                # get the deformation field and apply it to the grid image
+                def_field = itk.transformix_deformation_field(denoised_mov, result_transform_parameters)
+                os.remove("deformationField.raw")
+                os.remove("deformationField.mhd")
+                def_field = np.asarray(def_field).astype(np.float32)
+                registration_image_data["deformation_field"]["field"][i] = def_field
+                # get the deformation grid
+                grid_img = get_grid_image(info["img_size"], 10)
+                grid_img_itk = itk.GetImageFromArray(grid_img)
+                grid_img_transformed = itk.transformix_filter(grid_img_itk, result_transform_parameters)
+                grid_img_transformed_np = itk.GetArrayFromImage(grid_img_transformed)
+                grid_img_transformed_np[grid_img_transformed_np < 0.1] = 0
+                grid_img_transformed_np[grid_img_transformed_np >= 0.1] = 0.6
+                registration_image_data["deformation_field"]["grid"][i] = grid_img_transformed_np
+                # finally apply the deformation field to the moving image (without denoising)
+                mov = itk.GetImageFromArray(mov)
+                img_reg = itk.transformix_filter(mov, result_transform_parameters)
+                img_reg = itk.GetArrayFromImage(img_reg)
 
-            # register all images groupwise
-            img_reg, result_transform_parameters = itk.elastix_registration_method(
-                mov_all,
-                mov_all,
-                parameter_object=parameter_object,
-                fixed_mask=mask,
-                log_to_console=False,
-            )
+            # basic quick rigid
+            elif settings["registration"] == "quick_rigid":
+                shift, error, diffphase = phase_cross_correlation(
+                    ref,
+                    mov,
+                    upsample_factor=100,
+                    disambiguate=True,
+                    reference_mask=mask,
+                    moving_mask=mask,
+                    overlap_ratio=0.5,
+                )
+                img_reg = fourier_shift(np.fft.fftn(mov), shift)
+                img_reg = np.abs(np.fft.ifftn(img_reg))
 
-            # format registered images
-            img_reg = np.copy(np.asarray(img_reg, dtype=np.float32))
+            # none
+            elif settings["registration"] == "none":
+                img_reg = mov
+            else:
+                logger.error("No method available for registration: " + settings["registration"])
+                sys.exit()
+
+            # store registered image
+            # correct for registration small errors
+            img_reg = np.asarray(img_reg, dtype=np.float32)
             img_reg[img_reg < 0] = 0
-            img_reg[np.isnan(img_reg)] = 0
 
-            # store images after registration
-            registration_image_data["img_post_reg"][slice_idx] = np.copy(img_reg)
+            # replace the images in the dataframe with all slices
+            data.at[data.index[i], "image"] = img_reg
 
-            # replace images in the dataframe
-            for i in current_entries.index:
-                data.at[i, "image"] = img_reg[i]
-
-        else:
-            # if not groupwise registration
-            logger.info("Slice " + str(slice_idx).zfill(2) + ": Starting registration. Please hold...")
-            # loop through all images and register one by one
-            for i in tqdm(range(ref_images[slice_idx]["n_images"]), desc="Registering images"):
-                if i == ref_images[slice_idx]["index"]:
-                    # here the current image is the reference, so we do not perform registration
-                    registration_image_data["img_pre_reg"][slice_idx][i] = np.asarray(mov_all[i], dtype=np.float32)
-                    img_reg = registration_image_data["img_pre_reg"][slice_idx][i]
-
-                else:
-                    # moving image
-                    mov = np.asarray(mov_all[i], dtype=np.float32)
-                    registration_image_data["img_pre_reg"][slice_idx][i] = mov
-
-                    # run registration
-                    # elastix
-                    if (
-                        settings["registration"] == "elastix_rigid"
-                        or settings["registration"] == "elastix_affine"
-                        or settings["registration"] == "elastix_non_rigid"
-                    ):
-                        # apply the registration to a denoised version (helps with registration of low SNR images)
-                        denoised_mov = denoise_img_nlm(mov)
-                        denoised_mov = itk.GetImageFromArray(denoised_mov)
-                        img_reg, result_transform_parameters = itk.elastix_registration_method(
-                            ref,
-                            denoised_mov,
-                            parameter_object=parameter_object,
-                            fixed_mask=mask,
-                            log_to_console=False,
-                        )
-
-                        # get the deformation field and apply it to the grid image
-                        def_field = itk.transformix_deformation_field(denoised_mov, result_transform_parameters)
-                        os.remove("deformationField.raw")
-                        os.remove("deformationField.mhd")
-                        def_field = np.asarray(def_field).astype(np.float32)
-                        registration_image_data["deformation_field"][slice_idx]["field"][i] = def_field
-                        # get the deformation grid
-                        grid_img = get_grid_image(info["img_size"], 10)
-                        grid_img_itk = itk.GetImageFromArray(grid_img)
-                        grid_img_transformed = itk.transformix_filter(grid_img_itk, result_transform_parameters)
-                        grid_img_transformed_np = itk.GetArrayFromImage(grid_img_transformed)
-                        grid_img_transformed_np[grid_img_transformed_np < 0.1] = 0
-                        grid_img_transformed_np[grid_img_transformed_np >= 0.1] = 0.6
-                        registration_image_data["deformation_field"][slice_idx]["grid"][i] = grid_img_transformed_np
-                        # finally apply the deformation field to the moving image (without denoising)
-                        mov = itk.GetImageFromArray(mov)
-                        img_reg = itk.transformix_filter(mov, result_transform_parameters)
-                        img_reg = itk.GetArrayFromImage(img_reg)
-
-                    # basic quick rigid
-                    elif settings["registration"] == "quick_rigid":
-                        shift, error, diffphase = phase_cross_correlation(
-                            ref,
-                            mov,
-                            upsample_factor=100,
-                            disambiguate=True,
-                            reference_mask=mask,
-                            moving_mask=mask,
-                            overlap_ratio=0.5,
-                        )
-                        img_reg = fourier_shift(np.fft.fftn(mov), shift)
-                        img_reg = np.abs(np.fft.ifftn(img_reg))
-
-                    # none
-                    elif settings["registration"] == "none":
-                        img_reg = mov
-                    else:
-                        logger.error("No method available for registration: " + settings["registration"])
-                        sys.exit()
-
-                    # store registered image
-                    # correct for registration small errors
-                    img_reg = np.asarray(img_reg, dtype=np.float32)
-                    img_reg[img_reg < 0] = 0
-
-                # replace the images in the dataframe with all slices
-                data.at[current_entries.index[i], "image"] = img_reg
-
-                # store images post registration
-                registration_image_data["img_post_reg"][slice_idx][i] = img_reg
+            # store images post registration
+            registration_image_data["img_post_reg"][i] = img_reg
 
     return data, registration_image_data
 
@@ -411,7 +383,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
             denoised_img = denoise_img_nlm(c_img)
 
             ref_images["image"] = denoised_img
-            ref_images["index"] = index_pos
+            ref_images["index"] = index_pos[np.argmax(image_stack_sum)]
             ref_images["n_images"] = len(current_entries)
             ref_images["groupwise_reg_info"] = {}
         else:
@@ -509,7 +481,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
     return ref_images
 
 
-def plot_ref_images(ref_images: dict, slices: NDArray, settings: dict):
+def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, settings: dict):
     """
 
     Parameters
@@ -536,6 +508,24 @@ def plot_ref_images(ref_images: dict, slices: NDArray, settings: dict):
                 dpi=200,
                 bbox_inches="tight",
                 pad_inches=0,
+                transparent=False,
+            )
+            plt.close()
+
+        # plot registration mask
+        for slice_idx in slices:
+            current_entries = data.loc[data["slice_integer"] == slice_idx]
+            c_img_stack = np.stack(current_entries["image"].values)
+            c_img_mean = np.mean(c_img_stack, axis=0)
+
+            plt.figure(figsize=(5, 5))
+            plt.imshow(c_img_mean, cmap="Greys_r")
+            plt.plot(contour[:, 0], contour[:, 1], "r")
+            plt.axis("off")
+            plt.savefig(
+                os.path.join(settings["debug_folder"], "registration_masks_slice_" + str(slice_idx).zfill(2) + ".png"),
+                dpi=200,
+                bbox_inches="tight",
                 transparent=False,
             )
             plt.close()
@@ -589,6 +579,21 @@ def plot_ref_images(ref_images: dict, slices: NDArray, settings: dict):
                 plt.close()
 
 
+def get_registration_mask(info, settings):
+    # create a circular mask for the registration
+    shortest_dim = np.min(info["img_size"])
+    img_centre = [int(info["img_size"][0] / 2), int(info["img_size"][1] / 2)]
+    Y, X = np.ogrid[: info["img_size"][0], : info["img_size"][1]]
+    dist_from_center = np.sqrt((X - img_centre[0]) ** 2 + (Y - img_centre[1]) ** 2)
+    border = shortest_dim * settings["registration_mask_scale"]
+    mask = dist_from_center <= border
+    mask = np.asarray(mask, dtype=np.ubyte)
+    contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+    contour = np.squeeze(contours[0])
+
+    return mask, contour
+
+
 def image_registration(
     data: pd.DataFrame, slices: NDArray, info: dict, settings: dict, logger: logging.Logger
 ) -> tuple[pd.DataFrame, dict, dict]:
@@ -609,91 +614,101 @@ def image_registration(
 
     """
 
-    # check if registration has been done already
-    if not os.path.exists(os.path.join(settings["session"], "image_registration_data.zip")) or not os.path.exists(
-        os.path.join(settings["session"], "image_registration_extras.npz")
-    ):
-        logger.info("No saved registration found.")
-        logger.info("Registration type: " + settings["registration"])
-
-        # check if the reference images have been saved already
-        if not os.path.exists(os.path.join(settings["session"], "image_registration_references.npz")):
-            logger.info("No saved reference images found.")
-            # get reference image, index position and number of images per slice
-            ref_images = {}
-            for slice_idx in slices:
-                # dataframe for each slice
-                current_entries = data.loc[data["slice_integer"] == slice_idx]
-                # get the reference image
-                ref_images[slice_idx] = get_ref_image(current_entries, slice_idx, settings, logger)
-
-            # save reference images
-            save_path = os.path.join(settings["session"], "image_registration_references.npz")
-            np.savez_compressed(save_path, ref_images=ref_images)
-
-        else:
-            logger.info("Saved reference images found.")
-            # load reference images
-            save_path = os.path.join(settings["session"], "image_registration_references.npz")
-            npzfile = np.load(save_path, allow_pickle=True)
-            ref_images = npzfile["ref_images"].item()
-
-        # plot reference images
-        plot_ref_images(ref_images, slices, settings)
-
-        # run the registration loop
-        data, registration_image_data = registration_loop(data, ref_images, slices, info, settings, logger)
-
-        logger.info("Image registration done")
-
-        # saving registration data
-        save_path = os.path.join(settings["session"], "image_registration_data.zip")
-        # table with only filename, image, acquisition time and date
-        data_basic = data[["file_name", "image", "acquisition_date_time"]]
-        data_basic.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
-        # saving registration extras
-        np.savez_compressed(
-            os.path.join(settings["session"], "image_registration_extras.npz"),
-            registration_image_data=registration_image_data,
+    # reference images
+    ref_images = {}
+    for slice_idx in slices:
+        reg_file_reference = os.path.join(
+            settings["session"], "image_registration_reference_slice_" + str(slice_idx).zfill(2) + ".npz"
         )
 
-    else:
-        logger.info("Saved registration found.")
+        # check if the reference images have been saved already
+        if not os.path.exists(reg_file_reference):
+            logger.info("No saved reference image found for slice " + str(slice_idx).zfill(2))
 
-        # check if the reference images have been saved already too
-        if not os.path.exists(os.path.join(settings["session"], "image_registration_references.npz")):
-            logger.error("Image registration data exists but not reference image data!")
-            logger.error("Registration saved data needs to be deleted as no references images were saved!")
-            sys.exit()
+            # get reference image, index position and number of images per slice
+            # dataframe for each slice
+            current_entries = data.loc[data["slice_integer"] == slice_idx]
+            # get the reference image
+            ref_images[slice_idx] = get_ref_image(current_entries, slice_idx, settings, logger)
+
+            # save reference images
+            save_path = reg_file_reference
+            np.savez_compressed(save_path, ref_images=ref_images[slice_idx])
+
         else:
-            logger.info("Saved reference images found.")
+            logger.info("Saved reference images found for slice " + str(slice_idx).zfill(2))
             # load reference images
-            save_path = os.path.join(settings["session"], "image_registration_references.npz")
+            save_path = reg_file_reference
             npzfile = np.load(save_path, allow_pickle=True)
-            ref_images = npzfile["ref_images"].item()
+            ref_images[slice_idx] = npzfile["ref_images"].item()
 
-        # loading registration data
-        data_loaded_basic = pd.read_pickle(os.path.join(settings["session"], "image_registration_data.zip"))
-        data_basic = data[["file_name", "image", "acquisition_date_time"]]
-        # check if the original data basic table matches the loaded one (except the image column)
-        if not data_basic.drop(columns=["image"]).equals(data_loaded_basic.drop(columns=["image"])):
-            logger.error("Loaded Dataframe with registered images does not match pre-registered Dataframe!")
-            logger.error("Registration saved data needs to be deleted as something changed!")
-            sys.exit()
+    # get registration mask
+    reg_mask, contour = get_registration_mask(info, settings)
 
-        logger.info("Passed data consistency check. Loading registered data.")
-        # data matches, so now I need to replace the image column with the loaded one
-        data["image"] = data_loaded_basic["image"]
-        # also load the extra saved data
-        npzfile = np.load(os.path.join(settings["session"], "image_registration_extras.npz"), allow_pickle=True)
-        registration_image_data = npzfile["registration_image_data"].item()
-        logger.info("Image registration loaded")
+    # plot reference images and registration mask
+    plot_ref_images(data, ref_images, reg_mask, contour, slices, settings)
 
-        # plot reference images
-        plot_ref_images(ref_images, slices, settings)
+    # image registration based on the reference images
+    registration_image_data = {}
+    for slice_idx in slices:
+        logger.info("Slice " + str(slice_idx).zfill(2) + ": Starting image registration")
 
-    return (
-        data,
-        registration_image_data,
-        ref_images,
-    )
+        # check if registration has been done already
+        reg_file = os.path.join(
+            settings["session"], "image_registration_data_slice_" + str(slice_idx).zfill(2) + ".zip"
+        )
+        reg_file_extras = os.path.join(
+            settings["session"], "image_registration_extras_slice_" + str(slice_idx).zfill(2) + ".npz"
+        )
+
+        if not os.path.exists(reg_file) or not os.path.exists(reg_file_extras):
+            logger.info("No saved registration found for slice " + str(slice_idx).zfill(2))
+            logger.info("Registration type: " + settings["registration"])
+
+            # dataframe for this slice
+            current_entries = data.loc[data["slice_integer"] == slice_idx]
+
+            # run the registration loop
+            current_entries, registration_image_data[slice_idx] = registration_loop(
+                current_entries, ref_images[slice_idx], reg_mask, info, settings, logger
+            )
+
+            data.loc[data["slice_integer"] == slice_idx] = current_entries
+
+            # saving registration data
+            save_path = reg_file
+            # table with only filename, image, acquisition time and date
+            data_basic = current_entries[["file_name", "image", "acquisition_date_time"]]
+            data_basic.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
+            # saving registration extras
+            np.savez_compressed(
+                reg_file_extras,
+                registration_image_data=registration_image_data[slice_idx],
+            )
+
+        else:
+            logger.info("Saved registration found for slice " + str(slice_idx).zfill(2))
+
+            # loading registration data
+            data_loaded_basic = pd.read_pickle(reg_file)
+
+            # current non registered database
+            data_basic = data.loc[data["slice_integer"] == slice_idx]
+            data_basic = data_basic[["file_name", "image", "acquisition_date_time"]]
+
+            # check if the original data basic table matches the loaded one (except the image column)
+            if not data_basic.drop(columns=["image"]).equals(data_loaded_basic.drop(columns=["image"])):
+                logger.error("Loaded Dataframe with registered images does not match pre-registered Dataframe!")
+                logger.error("Registration saved data needs to be deleted as something changed!")
+                sys.exit()
+
+            logger.info("Passed data consistency check. Loading registered data.")
+            # data matches, so now I need to replace the image column with the loaded one
+            data.loc[data["slice_integer"] == slice_idx, "image"] = data_loaded_basic["image"]
+
+            # also load the extra saved data
+            npzfile = np.load(reg_file_extras, allow_pickle=True)
+            registration_image_data[slice_idx] = npzfile["registration_image_data"].item()
+            logger.info("Image registration loaded")
+
+    return (data, registration_image_data, ref_images, reg_mask)

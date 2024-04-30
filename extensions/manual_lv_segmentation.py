@@ -294,7 +294,7 @@ class scrool_slider:
             label="Threshold: ",
             valmin=0,
             valmax=1,
-            valinit=0.1,
+            valinit=0.01,
             valstep=0.01,
             orientation="horizontal",
         )
