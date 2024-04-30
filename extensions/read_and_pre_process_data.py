@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import py7zr
 import pydicom
+import scipy.ndimage
 from dotenv import dotenv_values
 from numpy.typing import NDArray
 
@@ -178,13 +179,28 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: int, frame_idx: int
 
     """
     pixel_array = ds.pixel_array
+    # check if largest dimension is lower than 192
+    # if so, then interpolate array by a factor of two
+    larger_dim = max(pixel_array.shape)
+    interp_img = True if larger_dim <= 192 else False
+
     if dicom_type == 2:
         if pixel_array.ndim == 3:
-            return pixel_array[frame_idx]
+            img = pixel_array[frame_idx]
+            if interp_img:
+                img = scipy.ndimage.zoom(img, 2, order=3)
         elif pixel_array.ndim == 2:
-            return pixel_array[:, :]
+            img = pixel_array[:, :]
+            if interp_img:
+                img = scipy.ndimage.zoom(img, 2, order=3)
     elif dicom_type == 1:
-        return pixel_array
+        img = pixel_array
+        if interp_img:
+            img = scipy.ndimage.zoom(img, 2, order=3)
+
+    # zero any negative pixels after interpolation
+    img[img < 0] = 0
+    return img
 
 
 def get_b_value(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> float:
@@ -579,6 +595,34 @@ def get_data_old_or_modern_dicoms(
     return df, info
 
 
+def get_nii_pixel_array(nii_px_array, c_slice_idx, c_frame_idx):
+    """
+    Get the pixel array from a nii file
+
+    Parameters
+    ----------
+    nii_px_array
+    c_slice_idx
+    c_frame_idx
+
+    Returns
+    -------
+    pixel array
+
+    """
+
+    img = np.rot90(nii_px_array[:, :, c_slice_idx, c_frame_idx], k=1, axes=(0, 1))
+    # check if largest dimension is lower than 192
+    # if so, then interpolate array by a factor of two
+    larger_dim = max(img.shape)
+    interp_img = True if larger_dim <= 192 else False
+    if interp_img:
+        img = scipy.ndimage.zoom(img, 2, order=3)
+        # zero potential negative values from the interpolation
+        img[img < 0] = 0
+    return img
+
+
 def get_nii_diffusion_direction(dir: NDArray) -> list:
     """
     Get diffusion directions from a nii file
@@ -776,7 +820,7 @@ def get_data_nii_files(
                     # file name
                     nii_file,
                     # array of pixel values
-                    np.rot90(nii_px_array[:, :, c_slice_idx, c_frame_idx], k=1, axes=(0, 1)),
+                    get_nii_pixel_array(nii_px_array, c_slice_idx, c_frame_idx),
                     # b-value
                     bval[c_frame_idx],
                     # diffusion directions, or [1, 1, 1] normalised if not a field
@@ -1362,7 +1406,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         data_type = "dicom"
 
     if not data_type:
-        # Check for nii files
+        # If no DICOMS, check for nii files
         included_extensions = ["nii", "nii.gz"]
         list_nii = [
             fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
