@@ -180,23 +180,29 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: int, frame_idx: int
     pixel array
 
     """
-    pixel_array = ds.pixel_array * ds.RescaleSlope + ds.RescaleIntercept
+    pixel_array = ds.pixel_array
     # check if largest dimension is lower than 192
     # if so, then interpolate array by a factor of two
     larger_dim = max(pixel_array.shape)
     interp_img = True if larger_dim <= 192 else False
 
     if dicom_type == 2:
+        slope = float(
+            ds["PerFrameFunctionalGroupsSequence"][frame_idx]["PixelValueTransformationSequence"][0].RescaleSlope
+        )
+        intercept = float(
+            ds["PerFrameFunctionalGroupsSequence"][frame_idx]["PixelValueTransformationSequence"][0].RescaleIntercept
+        )
         if pixel_array.ndim == 3:
-            img = pixel_array[frame_idx]
+            img = pixel_array[frame_idx] * slope + intercept
             if interp_img:
                 img = scipy.ndimage.zoom(img, 2, order=3)
         elif pixel_array.ndim == 2:
-            img = pixel_array[:, :]
+            img = pixel_array * slope + intercept
             if interp_img:
                 img = scipy.ndimage.zoom(img, 2, order=3)
     elif dicom_type == 1:
-        img = pixel_array
+        img = pixel_array * ds.RescaleSlope + ds.RescaleIntercept
         if interp_img:
             img = scipy.ndimage.zoom(img, 2, order=3)
 
@@ -284,7 +290,7 @@ def get_diffusion_directions(
             )
             return val
         else:
-            if settings["sequence"] == "steam":
+            if settings["sequence_type"] == "steam":
                 return (1 / math.sqrt(3), 1 / math.sqrt(3), 1 / math.sqrt(3))
             else:
                 return (0.0, 0.0, 0.0)
@@ -294,7 +300,7 @@ def get_diffusion_directions(
             if "DiffusionGradientDirection" in c_dicom_header:
                 return tuple([float(i) for i in c_dicom_header["DiffusionGradientDirection"]])
             else:
-                if settings["sequence"] == "steam":
+                if settings["sequence_type"] == "steam":
                     return (1 / math.sqrt(3), 1 / math.sqrt(3), 1 / math.sqrt(3))
                 else:
                     return (0.0, 0.0, 0.0)
@@ -554,8 +560,8 @@ def get_data_old_or_modern_dicoms(
 
     # check manufacturer
     if "Manufacturer" in ds:
-        if ds.Manufacturer == "SIEMENS":
-            logger.debug("Manufacturer: Siemens")
+        if ds.Manufacturer == "Siemens Healthineers":
+            logger.debug("Manufacturer: SIEMENS")
             dicom_manufacturer = "siemens"
         elif ds.Manufacturer == "Philips Medical Systems":
             logger.debug("Manufacturer: Philips")

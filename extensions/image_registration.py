@@ -582,10 +582,10 @@ def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, sett
 def get_registration_mask(info, settings):
     # create a circular mask for the registration
     shortest_dim = np.min(info["img_size"])
-    img_centre = [int(info["img_size"][0] / 2), int(info["img_size"][1] / 2)]
+    img_centre = [int(info["img_size"][0] / 2) - 1, int(info["img_size"][1] / 2) - 1]
     Y, X = np.ogrid[: info["img_size"][0], : info["img_size"][1]]
-    dist_from_center = np.sqrt((X - img_centre[0]) ** 2 + (Y - img_centre[1]) ** 2)
-    border = shortest_dim * settings["registration_mask_scale"]
+    dist_from_center = np.sqrt((Y - img_centre[0]) ** 2 + (X - img_centre[1]) ** 2)
+    border = shortest_dim * 0.5 * settings["registration_mask_scale"]
     mask = dist_from_center <= border
     mask = np.asarray(mask, dtype=np.ubyte)
     contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
