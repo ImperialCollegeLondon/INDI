@@ -180,7 +180,7 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: int, frame_idx: int
     pixel array
 
     """
-    pixel_array = ds.pixel_array
+    pixel_array = ds.pixel_array * ds.RescaleSlope + ds.RescaleIntercept
     # check if largest dimension is lower than 192
     # if so, then interpolate array by a factor of two
     larger_dim = max(pixel_array.shape)
