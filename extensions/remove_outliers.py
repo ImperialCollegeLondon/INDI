@@ -174,7 +174,7 @@ def manual_image_removal(
                 cols,
                 figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                 dpi=my_dpi,
-                num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
+                num="Slice " + str(slice_idx),
                 squeeze=False,
             )
         elif stage == "post":
@@ -189,7 +189,7 @@ def manual_image_removal(
         for idx, key in enumerate(c_img_stack):
             cc_img_stack = c_img_stack[key]
             for idx2, img in enumerate(cc_img_stack):
-                vmin, vmax = get_window(img, mask[slice_idx])
+                vmin, vmax = get_window(img, mask)
                 axs[idx, idx2].imshow(img, cmap="gray", vmin=vmin, vmax=vmax)
                 if segmentation:
                     axs[idx, idx2].scatter(
@@ -411,17 +411,17 @@ def remove_outliers(
         # remove the rejected images from the registration_image_data
         for slice_idx in slices:
             for idx in stored_indices_per_slice[slice_idx]:
-                registration_image_data["img_post_reg"][slice_idx] = np.delete(
-                    registration_image_data["img_post_reg"][slice_idx], idx, axis=0
+                registration_image_data[slice_idx]["img_post_reg"] = np.delete(
+                    registration_image_data[slice_idx]["img_post_reg"], idx, axis=0
                 )
-                registration_image_data["img_pre_reg"][slice_idx] = np.delete(
-                    registration_image_data["img_pre_reg"][slice_idx], idx, axis=0
+                registration_image_data[slice_idx]["img_pre_reg"] = np.delete(
+                    registration_image_data[slice_idx]["img_pre_reg"], idx, axis=0
                 )
-                registration_image_data["deformation_field"][slice_idx]["field"] = np.delete(
-                    registration_image_data["deformation_field"][slice_idx]["field"], idx, axis=0
+                registration_image_data[slice_idx]["deformation_field"]["field"] = np.delete(
+                    registration_image_data[slice_idx]["deformation_field"]["field"], idx, axis=0
                 )
-                registration_image_data["deformation_field"][slice_idx]["grid"] = np.delete(
-                    registration_image_data["deformation_field"][slice_idx]["grid"], idx, axis=0
+                registration_image_data[slice_idx]["deformation_field"]["grid"] = np.delete(
+                    registration_image_data[slice_idx]["deformation_field"]["grid"], idx, axis=0
                 )
 
         if stage == "post":

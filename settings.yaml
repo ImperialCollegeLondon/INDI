@@ -59,6 +59,9 @@ calculated_real_b0: 29
 remove_slices: []
 # print series description
 print_series_description: False
+#registration mask scale for circle radius > 0, 1 for a circle diameter = image width
+registration_mask_scale: 1
+
 
 # ========================================================================================
 # AI MODELS

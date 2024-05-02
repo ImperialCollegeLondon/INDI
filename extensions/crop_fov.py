@@ -12,6 +12,7 @@ def crop_images(
     dti: dict,
     data: pd.DataFrame,
     mask_3c: NDArray,
+    reg_mask: NDArray,
     segmentation: dict,
     slices: NDArray,
     average_images: NDArray,
@@ -28,6 +29,7 @@ def crop_images(
     dti: dict with DTI maps
     data: dataframe with the diffusion images
     mask_3c: segmentation mask of the heart
+    reg_mask: registration mask
     segmentation: segmentation information
     slices: array with slice positions
     average_images: average image of each slice
@@ -41,6 +43,7 @@ def crop_images(
     dti: dict with dti maps
     data: dataframe with the diffusion images now cropped.
     mask_3c: U-Net mask of the heart now cropped.
+    reg_mask: registration mask
     segmentation: dict with segmentation info
     average_images: average image of each slice now cropped.
     ref_images: reference_images used in the registration
@@ -64,8 +67,9 @@ def crop_images(
         y_pad[0][0] - pad_len_y : y_pad[0][-1] + pad_len_y,
     ] = True
 
-    # crop the heart mask and average images
+    # crop the heart mask, registration mask and average images
     mask_3c = mask_3c[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
+    reg_mask = reg_mask[np.ix_(crop_mask.any(1), crop_mask.any(0))]
     average_images = average_images[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     for slice_str in slices:
         if ref_images[slice_str]["image"] is not None:
@@ -112,7 +116,7 @@ def crop_images(
     # record the crop positions in the info dictionary
     dti["crop_mask"] = crop_mask
 
-    return dti, data, mask_3c, segmentation, average_images, ref_images, info, crop_mask
+    return dti, data, mask_3c, reg_mask, segmentation, average_images, ref_images, info, crop_mask
 
 
 def record_image_registration(
@@ -150,18 +154,18 @@ def record_image_registration(
         x_center, y_center = np.round(np.argwhere(lv_mask[slice_idx] == 1).sum(0) / count)
 
         # store the line profiles for the images before and after registration
-        store_h_lp_pre = registration_image_data["img_pre_reg"][slice_idx][
+        store_h_lp_pre = registration_image_data[slice_idx]["img_pre_reg"][
             :, int(x_center - 1) : int(x_center + 2) :, :
         ]
         store_h_lp_pre = np.mean(store_h_lp_pre, axis=1)
-        store_h_lp_post = registration_image_data["img_post_reg"][slice_idx][
+        store_h_lp_post = registration_image_data[slice_idx]["img_post_reg"][
             :, int(x_center - 1) : int(x_center + 2) :, :
         ]
         store_h_lp_post = np.mean(store_h_lp_post, axis=1)
 
-        store_v_lp_pre = registration_image_data["img_pre_reg"][slice_idx][:, :, int(y_center - 1) : int(y_center + 2)]
+        store_v_lp_pre = registration_image_data[slice_idx]["img_pre_reg"][:, :, int(y_center - 1) : int(y_center + 2)]
         store_v_lp_pre = np.mean(store_v_lp_pre, axis=2)
-        store_v_lp_post = registration_image_data["img_post_reg"][slice_idx][
+        store_v_lp_post = registration_image_data[slice_idx]["img_post_reg"][
             :, :, int(y_center - 1) : int(y_center + 2)
         ]
         store_v_lp_post = np.mean(store_v_lp_post, axis=2)
@@ -229,12 +233,12 @@ def record_image_registration(
 
         for slice_idx in slices:
             X, Y = np.meshgrid(
-                np.arange(0, registration_image_data["deformation_field"][slice_idx]["grid"][1].shape[1], step),
-                np.arange(0, registration_image_data["deformation_field"][slice_idx]["grid"][1].shape[0], step),
+                np.arange(0, registration_image_data[slice_idx]["deformation_field"]["grid"][1].shape[1], step),
+                np.arange(0, registration_image_data[slice_idx]["deformation_field"]["grid"][1].shape[0], step),
             )
 
             # number of frames
-            n_imgs = len(registration_image_data["img_pre_reg"][slice_idx])
+            n_imgs = len(registration_image_data[slice_idx]["img_pre_reg"])
 
             # make montage with:
             # - reference image
@@ -244,12 +248,12 @@ def record_image_registration(
             for img_idx in range(n_imgs):
                 c_ref = np.divide(ref_images[slice_idx]["image"], np.max(ref_images[slice_idx]["image"]))
                 c_img_pre = np.divide(
-                    registration_image_data["img_pre_reg"][slice_idx][img_idx],
-                    np.max(registration_image_data["img_pre_reg"][slice_idx][img_idx]),
+                    registration_image_data[slice_idx]["img_pre_reg"][img_idx],
+                    np.max(registration_image_data[slice_idx]["img_pre_reg"][img_idx]),
                 )
                 c_img_post = np.divide(
-                    registration_image_data["img_post_reg"][slice_idx][img_idx],
-                    np.max(registration_image_data["img_post_reg"][slice_idx][img_idx]),
+                    registration_image_data[slice_idx]["img_post_reg"][img_idx],
+                    np.max(registration_image_data[slice_idx]["img_post_reg"][img_idx]),
                 )
                 comp_1 = compare_images(c_ref, c_img_post, method="checkerboard")
                 comp_2 = compare_images(c_ref, c_img_post, method="diff")
@@ -290,8 +294,8 @@ def record_image_registration(
                 plt.subplot(3, 3, 7)
                 plt.imshow(c_img_post)
                 plt.imshow(
-                    registration_image_data["deformation_field"][slice_idx]["grid"][img_idx, :, :],
-                    alpha=registration_image_data["deformation_field"][slice_idx]["grid"][img_idx, :, :],
+                    registration_image_data[slice_idx]["deformation_field"]["grid"][img_idx, :, :],
+                    alpha=registration_image_data[slice_idx]["deformation_field"]["grid"][img_idx, :, :],
                     vmin=0,
                     vmax=2,
                     cmap="Oranges",
@@ -304,8 +308,8 @@ def record_image_registration(
                 plt.quiver(
                     X,
                     Y,
-                    -registration_image_data["deformation_field"][slice_idx]["field"][img_idx, ::step, ::step, 0],
-                    registration_image_data["deformation_field"][slice_idx]["field"][img_idx, ::step, ::step, 1],
+                    -registration_image_data[slice_idx]["deformation_field"]["field"][img_idx, ::step, ::step, 0],
+                    registration_image_data[slice_idx]["deformation_field"]["field"][img_idx, ::step, ::step, 1],
                     edgecolor="tab:blue",
                     facecolor="tab:orange",
                 )
@@ -330,6 +334,7 @@ def crop_fov(
     dti: dict,
     data: pd.DataFrame,
     mask_3c: NDArray,
+    reg_mask: NDArray,
     segmentation: dict,
     slices: NDArray,
     average_images: NDArray,
@@ -347,6 +352,7 @@ def crop_fov(
     dti: dictionary with DTI data
     data: dataframe with the diffusion images
     mask_3c: segmentation mask of the heart
+    reg_mask: registration mask
     segmentation: segmentation information
     slices: array with slice positions
     average_images: average image of each slice
@@ -362,16 +368,18 @@ def crop_fov(
     dti: dictionary with DTI data
     data: dataframe with the diffusion images now cropped.
     mask_3c: U-Net mask of the heart now cropped.
+    reg_mask: registration mask cropped.
     segmentation: segmentation information now cropped.
     average_images: average image of each slice now cropped.
     info: dictionary with useful stuff, here updates the image size to the cropped one.
     crop_mask: logical mask with the crop.
 
     """
-    dti, data, mask_3c, segmentation, average_images, ref_images, info, crop_mask = crop_images(
+    dti, data, mask_3c, reg_mask, segmentation, average_images, ref_images, info, crop_mask = crop_images(
         dti,
         data,
         mask_3c,
+        reg_mask,
         segmentation,
         slices,
         average_images,
@@ -384,43 +392,43 @@ def crop_fov(
 
     for slice_idx in slices:
         # crop the images before registration
-        registration_image_data["img_pre_reg"][slice_idx] = registration_image_data["img_pre_reg"][slice_idx][
+        registration_image_data[slice_idx]["img_pre_reg"] = registration_image_data[slice_idx]["img_pre_reg"][
             np.ix_(
-                np.repeat(True, registration_image_data["img_pre_reg"][slice_idx].shape[0]),
+                np.repeat(True, registration_image_data[slice_idx]["img_pre_reg"].shape[0]),
                 crop_mask.any(1),
                 crop_mask.any(0),
             )
         ]
 
         # crop the images after registration
-        registration_image_data["img_post_reg"][slice_idx] = registration_image_data["img_post_reg"][slice_idx][
+        registration_image_data[slice_idx]["img_post_reg"] = registration_image_data[slice_idx]["img_post_reg"][
             np.ix_(
-                np.repeat(True, registration_image_data["img_post_reg"][slice_idx].shape[0]),
+                np.repeat(True, registration_image_data[slice_idx]["img_post_reg"].shape[0]),
                 crop_mask.any(1),
                 crop_mask.any(0),
             )
         ]
 
         # crop the deformation field
-        registration_image_data["deformation_field"][slice_idx]["field"] = registration_image_data[
+        registration_image_data[slice_idx]["deformation_field"]["field"] = registration_image_data[slice_idx][
             "deformation_field"
-        ][slice_idx]["field"][
+        ]["field"][
             np.ix_(
-                np.repeat(True, registration_image_data["deformation_field"][slice_idx]["field"].shape[0]),
+                np.repeat(True, registration_image_data[slice_idx]["deformation_field"]["field"].shape[0]),
                 crop_mask.any(1),
                 crop_mask.any(0),
             )
         ]
 
         # crop the deformation grid
-        registration_image_data["deformation_field"][slice_idx]["grid"] = registration_image_data["deformation_field"][
-            slice_idx
+        registration_image_data[slice_idx]["deformation_field"]["grid"] = registration_image_data[slice_idx][
+            "deformation_field"
         ]["grid"][
             np.ix_(
-                np.repeat(True, registration_image_data["deformation_field"][slice_idx]["grid"].shape[0]),
+                np.repeat(True, registration_image_data[slice_idx]["deformation_field"]["grid"].shape[0]),
                 crop_mask.any(1),
                 crop_mask.any(0),
             )
         ]
 
-    return dti, data, mask_3c, segmentation, average_images, info, crop_mask
+    return dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask

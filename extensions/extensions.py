@@ -920,7 +920,7 @@ def get_window(img: NDArray, mask: NDArray) -> (float, float):
     # check if mask is not empty
     if mask.size == 0:
         mask = np.ones_like(img)
-    # get all the non background pixel values from image
+    # get all the non-background pixel values from image
     px_values = img[mask == 1]
     # get mean and std
     img_mean = np.nanmean(px_values)

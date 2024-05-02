@@ -10,7 +10,6 @@ import os
 import sys
 
 import matplotlib
-import numpy as np
 import pyautogui
 
 from extensions.crop_fov import crop_fov, record_image_registration
@@ -43,6 +42,7 @@ from extensions.u_net_segmentation import get_average_images
 # matplotlib
 matplotlib.rcParams["toolbar"] = "None"
 matplotlib.rcParams["font.size"] = 5
+# matplotlib.use("MACOSX")
 
 # script path
 abspath = os.path.abspath(sys.argv[0])
@@ -93,7 +93,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # DWIs registration
     # =========================================================
-    data, registration_image_data, ref_images = image_registration(data, slices, info, settings, logger)
+    data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
 
     # =========================================================
     # Option to perform only registration
@@ -116,7 +116,7 @@ for current_folder in all_to_be_analysed_folders:
             logger,
             stage="pre",
             segmentation={},
-            mask=np.zeros((info["n_slices"], 0, 0)),
+            mask=reg_mask,
         )
     else:
         # initialise some variables if we are not removing outliers manually
@@ -153,10 +153,11 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # crop the images to the region around the segmented area only
     # use the same crop for all slices and then pad with 3 pixels on all sides
-    dti, data, mask_3c, segmentation, average_images, info, crop_mask = crop_fov(
+    dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
         dti,
         data,
         mask_3c,
+        reg_mask,
         segmentation,
         slices,
         average_images,
@@ -180,7 +181,7 @@ for current_folder in all_to_be_analysed_folders:
         logger,
         stage="post",
         segmentation=segmentation,
-        mask=mask_3c,
+        mask=reg_mask,
     )
 
     # =========================================================
