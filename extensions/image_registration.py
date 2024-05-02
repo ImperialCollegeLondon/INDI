@@ -77,7 +77,7 @@ def registration_loop(
     ----------
     data: data to be registered
     ref_images: dictionary with the reference images and some other info
-    slices: array with slice positions
+    mask: registration mask
     info: useful info
     settings: useful info
     logger: logger
@@ -486,7 +486,10 @@ def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, sett
 
     Parameters
     ----------
+    data: dataframe with diffusion info
     ref_images dictionaary with all the info on the reference images used
+    mask: registration mask
+    contour: registration mask contours
     slices array with strings of slice positions
     settings
 
@@ -579,7 +582,23 @@ def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, sett
                 plt.close()
 
 
-def get_registration_mask(info, settings):
+def get_registration_mask(info: dict, settings: dict) -> [NDArray, NDArray]:
+    """
+    Define registration mask. A circular region from the centre of the FOV.
+    Radius is scaled by settings["registration_mask_scale"]. A scale of 1 gives us
+    a diameter equal to the shortest dimension of the image.
+
+    Parameters
+    ----------
+    info
+    settings
+
+    Returns
+    -------
+    registratio mask and its contour points for debug plotting
+
+    """
+
     # create a circular mask for the registration
     shortest_dim = np.min(info["img_size"])
     img_centre = [int(info["img_size"][0] / 2) - 1, int(info["img_size"][1] / 2) - 1]
@@ -610,11 +629,13 @@ def image_registration(
 
     Returns
     -------
-    registered dataframe, images pre- and post-registration, reference images
+    registered dataframe, images pre- and post-registration, reference images, registration mask
 
     """
 
-    # reference images
+    # Registration is going to be a loop over each slice
+
+    # reference images information dictionary
     ref_images = {}
     for slice_idx in slices:
         reg_file_reference = os.path.join(
@@ -673,6 +694,7 @@ def image_registration(
                 current_entries, ref_images[slice_idx], reg_mask, info, settings, logger
             )
 
+            # table with current slice
             data.loc[data["slice_integer"] == slice_idx] = current_entries
 
             # saving registration data

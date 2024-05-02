@@ -165,9 +165,10 @@ def collect_global_header_info(dicom_header_fields: dict, dicom_type: int) -> di
     return header_info
 
 
-def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: int, frame_idx: int) -> NDArray:
+def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int) -> NDArray:
     """
-    Get the pixel array from the DICOM header
+    Get the pixel array from the DICOM header.
+    Pixel values = data_array * slope + intercept
 
     Parameters
     ----------
@@ -211,7 +212,7 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: int, frame_idx: int
     return img
 
 
-def get_b_value(c_dicom_header: dict, dicom_type: int, dicom_manufacturer: int, frame_idx: int) -> float:
+def get_b_value(c_dicom_header: dict, dicom_type: str, dicom_manufacturer: str, frame_idx: int) -> float:
     """
     Get b-value from a dict with the DICOM header.
     If no b-value fond, then return 0.0
@@ -308,7 +309,7 @@ def get_diffusion_directions(
             return tuple(c_dicom_header["DiffusionGradientOrientation"])
 
 
-def get_image_position(c_dicom_header: dict, dicom_type: int, frame_idx: int) -> Tuple:
+def get_image_position(c_dicom_header: dict, dicom_type: str, frame_idx: int) -> Tuple:
     """
     Get the image position patient info from the DICOM header
 

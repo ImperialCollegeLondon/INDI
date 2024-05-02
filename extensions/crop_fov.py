@@ -29,6 +29,7 @@ def crop_images(
     dti: dict with DTI maps
     data: dataframe with the diffusion images
     mask_3c: segmentation mask of the heart
+    reg_mask: registration mask
     segmentation: segmentation information
     slices: array with slice positions
     average_images: average image of each slice
@@ -42,6 +43,7 @@ def crop_images(
     dti: dict with dti maps
     data: dataframe with the diffusion images now cropped.
     mask_3c: U-Net mask of the heart now cropped.
+    reg_mask: registration mask
     segmentation: dict with segmentation info
     average_images: average image of each slice now cropped.
     ref_images: reference_images used in the registration
@@ -65,7 +67,7 @@ def crop_images(
         y_pad[0][0] - pad_len_y : y_pad[0][-1] + pad_len_y,
     ] = True
 
-    # crop the heart mask and average images
+    # crop the heart mask, registration mask and average images
     mask_3c = mask_3c[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     reg_mask = reg_mask[np.ix_(crop_mask.any(1), crop_mask.any(0))]
     average_images = average_images[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
@@ -350,6 +352,7 @@ def crop_fov(
     dti: dictionary with DTI data
     data: dataframe with the diffusion images
     mask_3c: segmentation mask of the heart
+    reg_mask: registration mask
     segmentation: segmentation information
     slices: array with slice positions
     average_images: average image of each slice
@@ -365,6 +368,7 @@ def crop_fov(
     dti: dictionary with DTI data
     data: dataframe with the diffusion images now cropped.
     mask_3c: U-Net mask of the heart now cropped.
+    reg_mask: registration mask cropped.
     segmentation: segmentation information now cropped.
     average_images: average image of each slice now cropped.
     info: dictionary with useful stuff, here updates the image size to the cropped one.
