@@ -560,7 +560,7 @@ def get_data_old_or_modern_dicoms(
 
     # check manufacturer
     if "Manufacturer" in ds:
-        if ds.Manufacturer == "Siemens Healthineers":
+        if ds.Manufacturer == "Siemens Healthineers" or ds.Manufacturer == "Siemens":
             logger.debug("Manufacturer: SIEMENS")
             dicom_manufacturer = "siemens"
         elif ds.Manufacturer == "Philips Medical Systems":
