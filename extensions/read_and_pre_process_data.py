@@ -1116,7 +1116,7 @@ def adjust_b_val_and_dir(
     data = estimate_rr_interval(data, settings)
 
     # adjust b-values if STEAM sequence and DICOM data
-    if settings["sequence_type"] == "steam" and data_type == "dicom":
+    if settings["sequence_type"] == "steam" and (data_type == "dicom" or data_type == "pandas"):
         if info["image_comments"]:
             logger.debug("Dicom header comment found: " + info["image_comments"])
             # get all numbers from comment field
@@ -1177,7 +1177,7 @@ def adjust_b_val_and_dir(
         logger.debug("SE sequence or NIFTI data: not adjusting b-values")
 
     # adjust the diffusion directions to the image plane
-    if data_type == "dicom":
+    if data_type == "dicom" or data_type == "pandas":
         logger.debug("DICOM data: rotating directions to the image plane.")
 
         # get the rotation matrix
