@@ -56,7 +56,7 @@ assumed_rr_interval: 1000
 # float in msec
 calculated_real_b0: 29
 # remove slices when reading data
-remove_slices: []
+remove_slices: [0, 2]
 # print series description
 print_series_description: False
 #registration mask scale for circle radius > 0, 1 for a circle diameter = image width

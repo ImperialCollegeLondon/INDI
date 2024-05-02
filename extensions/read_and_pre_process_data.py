@@ -1540,8 +1540,33 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         # =========================================================
         # save the dataframe and the info dict
         data.attrs["info"] = info
-        save_path = os.path.join(settings["dicom_folder"], "data.zip")
-        data.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
+        save_path = os.path.join(settings["dicom_folder"], "data.gz")
+        data_without_imgs = data.drop(columns=["image"])
+        data_without_imgs.to_pickle(save_path, compression={"method": "gzip", "compresslevel": 1, "mtime": 1})
+
+        # also save some diffusion info to a csv file
+        save_path = os.path.join(settings["dicom_folder"], "diff_info_dataframe_h5.csv")
+        data.to_csv(
+            save_path,
+            columns=[
+                "file_name",
+                "b_value",
+                "direction",
+                "dir_in_image_plane",
+                "image_position",
+                "nominal_interval",
+                "series_description",
+                "series_number",
+            ],
+            index=False,
+        )
+
+        # finally save the pixel values to HDF5
+        image_pixel_values = data["image"].to_numpy()
+        image_pixel_values = np.stack(image_pixel_values)
+        save_path = os.path.join(settings["dicom_folder"], "images.h5")
+        with h5py.File(save_path, "w") as hf:
+            hf.create_dataset("pixel_values", data=image_pixel_values, compression="gzip", compression_opts=1)
 
         # if workflow is anon, we are going to archive the DICOMs
         # in a 7z file with the password set in the .env file.
@@ -1588,11 +1613,21 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         logger.debug("No DICOM or Nii files found. Reading diffusion database files previously created.")
 
         # read the dataframe
-        save_path = os.path.join(settings["dicom_folder"], "data.zip")
+        save_path = os.path.join(settings["dicom_folder"], "data.gz")
         data = pd.read_pickle(save_path)
         info = data.attrs["info"]
 
-    # now that we loaded the dicom information we need to organise it as
+        # read the pixel arrays from the h5 file and add them to the dataframe
+        save_path = os.path.join(settings["dicom_folder"], "images.h5")
+        with h5py.File(save_path, "r") as hf:
+            pixel_values = hf["pixel_values"][:]
+
+        assert (
+            len(pixel_values) == data.shape[0]
+        ), "Number of pixel slices does not match the number of entries in the dataframe."
+        data["image"] = pd.Series([x for x in pixel_values])
+
+    # now that we loaded the images and headers we need to organise it as
     # we cannot assume that the dicom files are in any particular order
 
     # sort the dataframe by date and time, this is needed in case we need to adjust
@@ -1640,7 +1675,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         )
 
     # also save some diffusion info to a csv file
-    save_path = os.path.join(settings["dicom_folder"], "diff_info.csv")
+    save_path = os.path.join(settings["dicom_folder"], "diff_info_sorted.csv")
     data.to_csv(
         save_path,
         columns=[
@@ -1661,13 +1696,6 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         ],
         index=False,
     )
-
-    # finally save the pixel values to HDF5
-    image_pixel_values = data["image"].to_numpy()
-    image_pixel_values = np.stack(image_pixel_values)
-    save_path = os.path.join(settings["dicom_folder"], "images.h5")
-    with h5py.File(save_path, "w") as hf:
-        hf.create_dataset("pixel_values", data=image_pixel_values, compression="gzip", compression_opts=9)
 
     # plot the b-values (before and after adjustment)
     if settings["debug"] and settings["sequence_type"] == "steam":
