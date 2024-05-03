@@ -85,20 +85,25 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     dataframe with sorted values
     """
     # create a new column with date and time, drop the previous two columns
-    df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
-
-    # check if acquisition date and time information exist
-    if not (df["acquisition_date"] == "None").all():
-        df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d %H%M%S.%f")
-        # sort by date and time
+    # if this column doesn't exist already
+    if "acquisition_date_time" in df.columns:
         df = df.sort_values(["acquisition_date_time"], ascending=True)
     else:
-        df["acquisition_date_time"] = "None"
-        # if we don't have the acquisition time and date, then sort by series number? Not for now.
-        # df = df.sort_values(["series_number"], ascending=True)
+        df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
 
-    # drop these two columns as we now have a single column with time and date
-    df = df.drop(columns=["acquisition_date", "acquisition_time"])
+        # check if acquisition date and time information exist
+        if not (df["acquisition_date"] == "None").all():
+            df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d %H%M%S.%f")
+            # sort by date and time
+            df = df.sort_values(["acquisition_date_time"], ascending=True)
+        else:
+            df["acquisition_date_time"] = "None"
+            # if we don't have the acquisition time and date, then sort by series number? Not for now.
+            # df = df.sort_values(["series_number"], ascending=True)
+
+        # drop these two columns as we now have a single column with time and date
+        df = df.drop(columns=["acquisition_date", "acquisition_time"])
+
     df = df.reset_index(drop=True)
 
     return df
@@ -866,6 +871,7 @@ def get_data_nii_files(
             bval = [float(b) for b in bval]
         bval = np.array(bval)
         bval = np.repeat(bval[np.newaxis, :], n_slices_per_file, axis=0)
+        bval_original = np.copy(bval)
         # load bvec file
         bvec_file = nii_file.replace(".nii", ".bvec")
         bvec_file = os.path.join(settings["dicom_folder"], bvec_file)
@@ -878,29 +884,39 @@ def get_data_nii_files(
         bvec = np.repeat(bvec[np.newaxis, :, :], n_slices_per_file, axis=0)
 
         # if file exists load rr interval csv file as a dataframe
-        rr_interval_file = os.path.join(settings["dicom_folder"], "rr_timings.csv")
-        if os.path.exists(rr_interval_file):
-            rr_interval_table = pd.read_csv(rr_interval_file)
+        b_values_file = nii_file.replace(".nii", ".csv")
+        b_values_file = os.path.join(settings["dicom_folder"], b_values_file)
+        if os.path.exists(b_values_file):
+            b_values_table = pd.read_csv(b_values_file)
             if idx == 0:
-                logger.debug("Found file with RR interval timings.")
+                logger.debug("Found file with adjusted b-values.")
         else:
-            rr_interval_table = pd.DataFrame()
+            b_values_table = pd.DataFrame()
             if idx == 0:
-                logger.debug("Did not find file with RR interval timings.")
+                logger.debug("Did not find file with adjusted b-values.")
 
-        # get current table of values for this series
-        c_rr_table = get_current_rr_table(rr_interval_table, nii_file)
+        # replace current array of b-values for this series
+        if not b_values_table.empty:
+            for slice_idx in range(bval.shape[0]):
+                for img_idx in range(bval.shape[1]):
+                    bval[slice_idx, img_idx] = b_values_table.loc[
+                        (
+                            (b_values_table["slice_dim_idx"] == slice_idx)
+                            & (b_values_table["frame_dim_idx"] == img_idx)
+                        ),
+                        "b_value",
+                    ].iloc[0]
+
         # if empty then return a table with nan values
-        if c_rr_table.empty:
-            c_rr_table = pd.DataFrame(
+        if b_values_table.empty:
+            b_values_table = pd.DataFrame(
                 index=np.arange(n_slices_per_file * n_images_per_file),
                 columns=["nominal_interval_(msec)", "acquisition_time", "acquisition_date"],
             )
-            c_rr_table["nominal_interval_(msec)"] = "None"
-            c_rr_table["acquisition_time"] = "None"
-            c_rr_table["acquisition_date"] = "None"
-            c_rr_table["slice_pos"] = np.repeat(np.arange(n_slices_per_file), n_images_per_file)
-            c_rr_table["img_idx"] = np.tile(np.arange(n_images_per_file), n_slices_per_file)
+            b_values_table["nominal_interval"] = "None"
+            b_values_table["acquisition_date_time"] = "None"
+            b_values_table["slice_dim_idx"] = np.repeat(np.arange(n_slices_per_file), n_images_per_file)
+            b_values_table["frame_dim_idx"] = np.tile(np.arange(n_images_per_file), n_slices_per_file)
 
         # loop over each slice and each image
         for slice_idx in range(n_slices_per_file):
@@ -914,29 +930,24 @@ def get_data_nii_files(
                         get_nii_pixel_array(nii_px_array, slice_idx, img_idx),
                         # b-value
                         bval[slice_idx, img_idx],
+                        # b-value original
+                        bval_original[slice_idx, img_idx],
                         # diffusion directions
                         get_nii_diffusion_direction(bvec[slice_idx, :, img_idx], settings),
                         # image position
                         (0, 0, first_nii_header["pixdim"][3] * slice_idx),
                         # nominal interval
-                        c_rr_table.loc[
-                            (c_rr_table["slice_pos"] == slice_idx) & (c_rr_table["img_idx"] == img_idx),
-                            "nominal_interval_(msec)",
+                        b_values_table.loc[
+                            (b_values_table["slice_dim_idx"] == slice_idx)
+                            & (b_values_table["frame_dim_idx"] == img_idx),
+                            "nominal_interval",
                         ].values[0],
-                        # acquisition time
-                        str(
-                            c_rr_table.loc[
-                                (c_rr_table["slice_pos"] == slice_idx) & (c_rr_table["img_idx"] == img_idx),
-                                "acquisition_time",
-                            ].values[0]
-                        ),
-                        # acquisition date
-                        str(
-                            c_rr_table.loc[
-                                (c_rr_table["slice_pos"] == slice_idx) & (c_rr_table["img_idx"] == img_idx),
-                                "acquisition_date",
-                            ].values[0]
-                        ),
+                        # acquisition date and time
+                        b_values_table.loc[
+                            (b_values_table["slice_dim_idx"] == slice_idx)
+                            & (b_values_table["frame_dim_idx"] == img_idx),
+                            "acquisition_date_time",
+                        ].values[0],
                         # False if diffusion direction is a field
                         True,
                         # series description
@@ -954,17 +965,21 @@ def get_data_nii_files(
             "file_name",
             "image",
             "b_value",
+            "b_value_original",
             "direction",
             "image_position",
             "nominal_interval",
-            "acquisition_time",
-            "acquisition_date",
+            "acquisition_date_time",
             "dir_in_image_plane",
             "series_description",
             "series_number",
             "header",
         ],
     )
+
+    # convert acquisition date and time to a datetime object
+    if not (df["acquisition_date_time"] == "None").all():
+        df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y-%m-%d %H:%M:%S.%f")
 
     # merge header info into info
     info = {**info, **header_info}
@@ -1111,7 +1126,9 @@ def adjust_b_val_and_dir(
 
     # copy the b-values to another column to save the original prescribed
     # b-value
-    data["b_value_original"] = data["b_value"]
+    # this is not done for NIFTI data because we already have this columns
+    if data_type == "dicom" or data_type == "pandas":
+        data["b_value_original"] = data["b_value"]
     data["direction_original"] = data["direction"]
 
     data = estimate_rr_interval(data, settings)
