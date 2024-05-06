@@ -1,18 +1,22 @@
 # YAML settings
 
 The yaml file controls the workflow of the pipeline.
-There are three main workflows with this tool. This is controlled by the `workflow_mode` parameter as explained in the section below.
+There are three main workflows with this tool. 
+This is controlled by the `workflow_mode` parameter as explained in the section below.
 
 ## WORKFLOWS
 
-`start_folder = PATH`: path to where any subfolder with the name `diffusion_images` will be processed.
+`start_folder = PATH`: path to where any subfolder with the name `diffusion_images` will be processed. 
+We can alternatively define this path when calling the python script in the terminal. 
 
 `workflow_mode = anon | reg | main`:
 
-- `anon`: No post-processing is done. Reads the DICOM files and converts the relevant data to a pandas dataframe. No patient identifying information is stored. After this **all DICOM files are deleted**!
+- `anon`: No post-processing is done. Reads the DICOM files and converts the relevant data to a pandas dataframe, and an h5 file. 
+No patient identifying information is stored. After this **all DICOM files are archived** in a 7zip file encrypted with a password!
+The password is defined in the `.env` file.
 
 >[!WARNING]
-> When using the `anon` mode, all DICOM files are deleted automatically. So make sure there is a backup of the data.
+> For safety, make sure there is a backup of the DICOM files somewhere else before anonymising.
 
 - `reg`: Runs image registration only. This is useful when batch processing many datasets, we can pre-register all the data and then run the full post-processing later with the option `main`.
 - `main`: Runs the full post-processing, may require manual input if processing for the first time.

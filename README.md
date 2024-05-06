@@ -78,7 +78,9 @@ See [YAML settings](docs/YAML_settings.md) for more information.
 
 Then run:
 
-```python main_script.py```
+```python main_script.py <data_path>```
+
+Where `data_path` is a folder that contains diffusion files in a subfolder called `diffusion_images`. 
 
 ## Documentation
 
