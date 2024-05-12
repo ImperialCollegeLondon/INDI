@@ -19,17 +19,7 @@ Post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 
 ## Requirements
 
-### Download AI models
 
-Download the U-Net and Tranformer models from the following link:
-
-[One drive link](https://imperiallondon-my.sharepoint.com/:f:/g/personal/pferreir_ic_ac_uk/EtbqXB1XJY9JmBJ8kFcT40sBq9qHJrVZPwrzgEcW12VwUQ?e=qqDY8C)
-
-U-Net models need to be copied to the following path:
-```/usr/local/dtcmr/unet_ensemble/```
-
-Tranformer models need to be copied to the following path:
-```/usr/local/dtcmr/transformer_tensor_denoising/```
 
 ## Installation
 
@@ -89,6 +79,24 @@ See [Pipeline](docs/Pipeline.md) for details on the post-processing pipeline.
 See [YAML settings](docs/YAML_settings.md) for more information.
 
 
+## Experimental
+
+We have AI models to:
+- automatically segment the LV myocardium for STEAM sequences (U-Net based)
+- denoise the diffusion tensor for STEAM sequences (Transformer based)
+
+This is still experimental and should not be used for now.
+
+### Download AI models
+Download the U-Net and Tranformer models from the following link:
+
+[One drive link](https://imperiallondon-my.sharepoint.com/:f:/g/personal/pferreir_ic_ac_uk/EtbqXB1XJY9JmBJ8kFcT40sBq9qHJrVZPwrzgEcW12VwUQ?e=qqDY8C)
+
+U-Net models need to be copied to the following path:
+```/usr/local/dtcmr/unet_ensemble/```
+
+Tranformer models need to be copied to the following path:
+```/usr/local/dtcmr/transformer_tensor_denoising/```
 
 
 
