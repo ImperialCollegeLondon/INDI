@@ -9,17 +9,14 @@ In-vivo diffusion analysis (INDI)<br>
 Post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 </p>
 
-
 ## Table of Contents
 
-- [Requirements](#Requirements)
-- [Installation](#Installation)
-- [Run](#Run)
-- [Documentation](#Documentation)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Run](#run)
+- [Documentation](#documentation)
 
 ## Requirements
-
-
 
 ## Installation
 
@@ -40,6 +37,8 @@ You also need ImageMagick installed. You can install it with [Homebrew](https://
 brew install imagemagick
 ```
 
+#### Development
+
 For development, also install the git hook scripts:
 
 ```bash
@@ -52,25 +51,17 @@ Now pre-commit will run automatically on git commit. You can also run it manuall
 pre-commit run --all-files
 ```
 
-You will also need to create a file in the code root directory called `.env` with the following content: 
-`ARCHIVE_PASS=your_password`. Replace `your_password` with a robust string. 
-You can do this by running the following command:
-
-```bash
-echo "ARCHIVE_PASS=your_password" > .env
-``` 
-This password will be used to encrypt DICOM files when using the option `workflow_mode: anon`.
-
 ## Run
 
-Configure the `settings.yaml` file with the correct paths and parameters. 
+Configure the `settings.yaml` file with the correct paths and parameters.
 See [YAML settings](docs/YAML_settings.md) for more information.
 
 Then run:
 
 ```python main_script.py <data_path>```
 
-Where `data_path` is a folder that contains diffusion files in a subfolder called `diffusion_images`. 
+Where `data_path` is a folder that must contain a subfolder named `diffusion_images` with all the diffusion image data.
+These data can be DICOM files, NIFTI data, or anonymised data files created by INDI.
 
 ## Documentation
 
@@ -78,19 +69,21 @@ See [Pipeline](docs/Pipeline.md) for details on the post-processing pipeline.
 
 See [YAML settings](docs/YAML_settings.md) for more information.
 
+---
 
-## Experimental
+## Experimental (only use for development and testing)
+
+>[!WARNING]
+> The following features are experimental and should only be used for testing and further development.
+
+### AI models
 
 We have AI models to:
+
 - automatically segment the LV myocardium for STEAM sequences (U-Net based)
 - denoise the diffusion tensor for STEAM sequences (Transformer based)
 
-This is still experimental and should not be used for now.
-
-### Download AI models
-Download the U-Net and Tranformer models from the following link:
-
-[One drive link](https://imperiallondon-my.sharepoint.com/:f:/g/personal/pferreir_ic_ac_uk/EtbqXB1XJY9JmBJ8kFcT40sBq9qHJrVZPwrzgEcW12VwUQ?e=qqDY8C)
+[One drive download link](https://imperiallondon-my.sharepoint.com/:f:/g/personal/pferreir_ic_ac_uk/EtbqXB1XJY9JmBJ8kFcT40sBq9qHJrVZPwrzgEcW12VwUQ?e=qqDY8C)
 
 U-Net models need to be copied to the following path:
 ```/usr/local/dtcmr/unet_ensemble/```
@@ -98,8 +91,14 @@ U-Net models need to be copied to the following path:
 Tranformer models need to be copied to the following path:
 ```/usr/local/dtcmr/transformer_tensor_denoising/```
 
+### Archive DICOMs
 
+You will also need to create a file in the code root directory called `.env` with the following content:
+`ARCHIVE_PASS=your_password`. Replace `your_password` with a robust string.
+You can do this by running the following command:
 
+```bash
+echo "ARCHIVE_PASS=your_password" > .env
+```
 
-
-
+This password will be used to encrypt DICOM files locally when using the option `workflow_mode: anon`.

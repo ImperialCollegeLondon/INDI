@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder: /path_to_subject
+start_folder:
 # anon, reg, main
 workflow_mode: main
 # se, steam
@@ -43,7 +43,7 @@ tensor_fit_method: NLLS
 # True, False
 remove_outliers_manually: True
 # True, False
-remove_outliers_manually_pre: True
+remove_outliers_manually_pre: False
 # True, False
 # NOT WORKING WELL AT THE MOMENT
 remove_outliers_with_ai: False
@@ -59,6 +59,8 @@ calculated_real_b0: 29
 remove_slices: []
 # print series description
 print_series_description: False
+#registration mask scale for circle radius > 0, 1 for a circle diameter = image width
+registration_mask_scale: 1
 
 # ========================================================================================
 # AI MODELS
