@@ -943,11 +943,12 @@ def get_data_nii_files(
                             "nominal_interval",
                         ].values[0],
                         # acquisition date and time
-                        b_values_table.loc[
-                            (b_values_table["slice_dim_idx"] == slice_idx)
-                            & (b_values_table["frame_dim_idx"] == img_idx),
-                            "acquisition_date_time",
-                        ].values[0],
+                        None,
+                        # b_values_table.loc[
+                        #     (b_values_table["slice_dim_idx"] == slice_idx)
+                        #     & (b_values_table["frame_dim_idx"] == img_idx),
+                        #     "acquisition_date_time",
+                        # ].values[0],
                         # False if diffusion direction is a field
                         True,
                         # series description
