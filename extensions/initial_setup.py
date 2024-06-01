@@ -32,6 +32,24 @@ def solve_conflicts(settings: dict, logger: logging.Logger) -> dict:
         logger.info("Enabling manual removal post segmentation as remove_outliers_manually_pre is enabled!")
         settings["remove_outliers_manually"] = True
 
+    # ex-vivo settings
+    if settings["ex_vivo"]:
+        logger.info("Ex-vivo settings enabled!")
+        settings["registration_extra_debug"] = False
+        logger.info("registration_extra_debug set to False!")
+        settings["remove_outliers_manually"] = False
+        logger.info("remove_outliers_manually set to False!")
+        settings["remove_outliers_manually_pre"] = False
+        logger.info("remove_outliers_manually_pre set to False!")
+        settings["remove_outliers_with_ai"] = False
+        logger.info("remove_outliers_with_ai set to False!")
+        settings["print_series_description"] = False
+        logger.info("print_series_description set to False!")
+        settings["u_net_segmentation"] = False
+        logger.info("u_net_segmentation set to False!")
+        settings["uformer_denoise"] = False
+        logger.info("uformer_denoise set to False!")
+
     # check we have a path defined in either the YAML file or as a command argument
     if not settings["start_folder"] and len(sys.argv) == 1:
         logger.error("No path defined in YAML file or command argument!")

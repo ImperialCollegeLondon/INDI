@@ -10,7 +10,7 @@ start_folder:
 # anon, reg, main
 workflow_mode: main
 # se, steam
-sequence_type: se
+sequence_type: steam
 
 # ========================================================================================
 # DEBUGGING
@@ -62,6 +62,11 @@ print_series_description: False
 #registration mask scale for circle radius > 0, 1 for a circle diameter = image width
 registration_mask_scale: 1
 
+# ========================================================================================
+# ex-vivo
+# ========================================================================================
+# process ex-vivo data
+ex_vivo: True
 
 # ========================================================================================
 # AI MODELS
