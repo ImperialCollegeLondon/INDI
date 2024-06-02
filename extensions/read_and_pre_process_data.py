@@ -363,11 +363,14 @@ def get_nominal_interval(c_dicom_header: dict, dicom_type: int, frame_idx: int) 
 
     """
     if dicom_type == 2:
-        val = float(
-            c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["CardiacSynchronizationSequence"][0][
-                "RRIntervalTimeNominal"
-            ]
-        )
+        if "CardiacSynchronizationSequence" in c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]:
+            val = float(
+                c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["CardiacSynchronizationSequence"][0][
+                    "RRIntervalTimeNominal"
+                ]
+            )
+        else:
+            val = "None"
         return val
 
     elif dicom_type == 1:
@@ -1182,7 +1185,7 @@ def adjust_b_val_and_dir(
             # Otherwise use the estimated RR interval.
             c_nominal_interval = data.loc[idx, "nominal_interval"]
             c_estimated_rr_interval = data.loc[idx, "estimated_rr_interval"]
-            if c_nominal_interval != 0.0:
+            if c_nominal_interval != 0.0 and c_nominal_interval != "None":
                 c_b_value = c_b_value * (c_nominal_interval * 1e-3) / (assumed_rr_int * 1e-3)
             else:
                 c_b_value = c_b_value * (c_estimated_rr_interval * 1e-3) / (assumed_rr_int * 1e-3)
