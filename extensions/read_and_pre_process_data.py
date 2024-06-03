@@ -1181,17 +1181,20 @@ def adjust_b_val_and_dir(
             if c_b_value == 0:
                 c_b_value = calculated_real_b0
 
+            # This is bypassed for ex-vivo data, as the prescribed b-value is the correct one
+            # (with the exception of the b0 which was corrected above)
             # correct b_value relative to the assumed RR interval with the nominal interval if not 0.0.
             # Otherwise use the estimated RR interval.
-            c_nominal_interval = data.loc[idx, "nominal_interval"]
-            c_estimated_rr_interval = data.loc[idx, "estimated_rr_interval"]
-            if c_nominal_interval != 0.0 and c_nominal_interval != "None":
-                c_b_value = c_b_value * (c_nominal_interval * 1e-3) / (assumed_rr_int * 1e-3)
-            else:
-                c_b_value = c_b_value * (c_estimated_rr_interval * 1e-3) / (assumed_rr_int * 1e-3)
+            if not settings["ex_vivo"]:
+                c_nominal_interval = data.loc[idx, "nominal_interval"]
+                c_estimated_rr_interval = data.loc[idx, "estimated_rr_interval"]
+                if c_nominal_interval != 0.0 and c_nominal_interval != "None":
+                    c_b_value = c_b_value * (c_nominal_interval * 1e-3) / (assumed_rr_int * 1e-3)
+                else:
+                    c_b_value = c_b_value * (c_estimated_rr_interval * 1e-3) / (assumed_rr_int * 1e-3)
 
-            # add the adjusted b-value to the database
-            data.at[idx, "b_value"] = c_b_value
+                # add the adjusted b-value to the database
+                data.at[idx, "b_value"] = c_b_value
 
     else:
         assumed_rr_int = None
