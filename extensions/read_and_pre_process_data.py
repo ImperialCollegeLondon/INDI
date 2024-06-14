@@ -208,7 +208,10 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int
             if interp_img:
                 img = scipy.ndimage.zoom(img, 2, order=3)
     elif dicom_type == 1:
-        img = pixel_array * ds.RescaleSlope + ds.RescaleIntercept
+        if "RescaleSlope" in ds:
+            img = pixel_array * ds.RescaleSlope + ds.RescaleIntercept
+        else:
+            img = pixel_array
         if interp_img:
             img = scipy.ndimage.zoom(img, 2, order=3)
 
@@ -363,11 +366,14 @@ def get_nominal_interval(c_dicom_header: dict, dicom_type: int, frame_idx: int) 
 
     """
     if dicom_type == 2:
-        val = float(
-            c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["CardiacSynchronizationSequence"][0][
-                "RRIntervalTimeNominal"
-            ]
-        )
+        if "CardiacSynchronizationSequence" in c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]:
+            val = float(
+                c_dicom_header["PerFrameFunctionalGroupsSequence"][frame_idx]["CardiacSynchronizationSequence"][0][
+                    "RRIntervalTimeNominal"
+                ]
+            )
+        else:
+            val = "None"
         return val
 
     elif dicom_type == 1:
@@ -566,10 +572,10 @@ def get_data_old_or_modern_dicoms(
 
     # check manufacturer
     if "Manufacturer" in ds:
-        if ds.Manufacturer == "Siemens Healthineers" or ds.Manufacturer == "Siemens":
+        if ds.Manufacturer == "Siemens Healthineers" or ds.Manufacturer == "Siemens" or ds.Manufacturer == "SIEMENS":
             logger.debug("Manufacturer: SIEMENS")
             dicom_manufacturer = "siemens"
-        elif ds.Manufacturer == "Philips Medical Systems":
+        elif ds.Manufacturer == "Philips Medical Systems" or ds.Manufacturer == "Philips":
             logger.debug("Manufacturer: Philips")
             dicom_manufacturer = "philips"
         elif ds.Manufacturer == "GE MEDICAL SYSTEMS":
@@ -1178,17 +1184,21 @@ def adjust_b_val_and_dir(
             if c_b_value == 0:
                 c_b_value = calculated_real_b0
 
+            # This is bypassed for ex-vivo data, as the prescribed b-value is the correct one
+            # (with the exception of the b0 which was corrected above)
             # correct b_value relative to the assumed RR interval with the nominal interval if not 0.0.
             # Otherwise use the estimated RR interval.
-            c_nominal_interval = data.loc[idx, "nominal_interval"]
-            c_estimated_rr_interval = data.loc[idx, "estimated_rr_interval"]
-            if c_nominal_interval != 0.0:
-                c_b_value = c_b_value * (c_nominal_interval * 1e-3) / (assumed_rr_int * 1e-3)
+            if settings["ex_vivo"]:
+                data.at[idx, "b_value"] = c_b_value
             else:
-                c_b_value = c_b_value * (c_estimated_rr_interval * 1e-3) / (assumed_rr_int * 1e-3)
-
-            # add the adjusted b-value to the database
-            data.at[idx, "b_value"] = c_b_value
+                c_nominal_interval = data.loc[idx, "nominal_interval"]
+                c_estimated_rr_interval = data.loc[idx, "estimated_rr_interval"]
+                if c_nominal_interval != 0.0 and c_nominal_interval != "None":
+                    c_b_value = c_b_value * (c_nominal_interval * 1e-3) / (assumed_rr_int * 1e-3)
+                else:
+                    c_b_value = c_b_value * (c_estimated_rr_interval * 1e-3) / (assumed_rr_int * 1e-3)
+                # add the adjusted b-value to the database
+                data.at[idx, "b_value"] = c_b_value
 
     else:
         assumed_rr_int = None
