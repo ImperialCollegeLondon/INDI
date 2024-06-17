@@ -778,7 +778,7 @@ def manual_lv_segmentation(
     button_si = Button(ax_swap_images, label="", image=si_icon)
     button_si.on_clicked(callback.swap_images)
     # ha/md map button
-    hm_icon = plt.imread(os.path.join("/Users/pf/GitHub/INDI/assets/icons/ha_md.png"))
+    hm_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "ha_md.png"))
     ax_ha_md = fig.add_axes([0.05, 0.15, 0.10, 0.10])
     ax_ha_md.axis("off")
     button_hm = Button(ax_ha_md, label="", image=hm_icon)
