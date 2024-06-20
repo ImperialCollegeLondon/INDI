@@ -43,6 +43,7 @@ from extensions.u_net_segmentation import get_average_images
 matplotlib.rcParams["toolbar"] = "None"
 matplotlib.rcParams["font.size"] = 5
 # matplotlib.use("MACOSX")
+matplotlib.use("TkAgg")
 
 # script path
 abspath = os.path.abspath(sys.argv[0])
