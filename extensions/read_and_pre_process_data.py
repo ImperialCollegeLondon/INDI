@@ -1581,18 +1581,19 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             list_dicoms_phase = [
                 fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
             ]
-            data_type = "dicom"
-            settings["complex_data"] = True
-            settings["dicom_folder"] = mag_folder
-            settings["dicom_folder_phase"] = phase_folder
-            # check if both folders have the same number of files
-            if len(list_dicoms) != len(list_dicoms_phase):
-                logger.error("Number of DICOM files in mag and phase folders are different.")
-                sys.exit(1)
-            logger.debug("Magnitude and phase DICOM files found.")
-            logger.debug("Complex averaging on.")
-            list_dicoms.sort()
-            list_dicoms_phase.sort()
+            if len(list_dicoms) > 0 and len(list_dicoms_phase) > 0:
+                data_type = "dicom"
+                settings["complex_data"] = True
+                settings["dicom_folder"] = mag_folder
+                settings["dicom_folder_phase"] = phase_folder
+                # check if both folders have the same number of files
+                if len(list_dicoms) != len(list_dicoms_phase):
+                    logger.error("Number of DICOM files in mag and phase folders are different.")
+                    sys.exit(1)
+                logger.debug("Magnitude and phase DICOM files found.")
+                logger.debug("Complex averaging on.")
+                list_dicoms.sort()
+                list_dicoms_phase.sort()
 
     if not data_type:
         # If no DICOMS, check for nii files
@@ -1765,24 +1766,50 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
 
         logger.debug("No DICOM or Nii files found. Reading diffusion database files previously created.")
 
+        # check if subfolders "mag" and "phase" exist
+        mag_folder = os.path.join(settings["dicom_folder"], "mag")
+        phase_folder = os.path.join(settings["dicom_folder"], "phase")
+        if os.path.exists(mag_folder) and os.path.exists(phase_folder):
+            settings["complex_data"] = True
+            settings["dicom_folder"] = mag_folder
+            settings["dicom_folder_phase"] = phase_folder
+
+            logger.debug("Magnitude and phase folders found.")
+            logger.debug("Complex averaging on.")
+
+        # =========================================================
         # read the dataframe
+        # =========================================================
         save_path = os.path.join(settings["dicom_folder"], "data.gz")
         data = pd.read_pickle(save_path)
         info = data.attrs["info"]
 
+        if settings["complex_data"]:
+            save_path = os.path.join(settings["dicom_folder_phase"], "data.gz")
+            data_phase = pd.read_pickle(save_path)
+
+        # =========================================================
         # read the pixel arrays from the h5 file and add them to the dataframe
+        # =========================================================
         save_path = os.path.join(settings["dicom_folder"], "images.h5")
         with h5py.File(save_path, "r") as hf:
             pixel_values = hf["pixel_values"][:]
-
         assert (
             len(pixel_values) == data.shape[0]
         ), "Number of pixel slices does not match the number of entries in the dataframe."
         data["image"] = pd.Series([x for x in pixel_values])
 
+        if settings["complex_data"]:
+            save_path = os.path.join(settings["dicom_folder_phase"], "images.h5")
+            with h5py.File(save_path, "r") as hf:
+                pixel_values_phase = hf["pixel_values"][:]
+            assert (
+                len(pixel_values_phase) == data_phase.shape[0]
+            ), "Number of pixel slices does not match the number of entries in the dataframe."
+            data_phase["image"] = pd.Series([x for x in pixel_values_phase])
+
     # now that we loaded the images and headers we need to organise it as
     # we cannot assume that the dicom files are in any particular order
-
     # sort the dataframe by date and time, this is needed in case we need to adjust
     # the b-values by the DICOM timings
     data = sort_by_date_time(data)

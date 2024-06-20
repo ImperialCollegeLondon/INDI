@@ -8,7 +8,7 @@
 # Startup folder
 start_folder:
 # anon, reg, main
-workflow_mode: anon
+workflow_mode: main
 # se, steam
 sequence_type: se
 
