@@ -12,6 +12,7 @@ import sys
 import matplotlib
 import pyautogui
 
+# from extensions.complex_averaging import complex_averaging
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
@@ -195,6 +196,11 @@ for current_folder in all_to_be_analysed_folders:
     # Get SNR maps
     # =========================================================
     [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
+
+    # =========================================================
+    # complex averaging
+    # =========================================================
+    # data = complex_averaging(data)
 
     # =========================================================
     # Calculate tensor
