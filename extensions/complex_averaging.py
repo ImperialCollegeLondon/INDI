@@ -28,10 +28,22 @@ def complex_averaging(data):
         mean_imag = c_table["image_imag"].mean()
         mean_img = np.sqrt(np.square(mean_real) + np.square(mean_imag))
 
+        # # testing results
+        # magnitude = np.sqrt(np.square(c_table["image_real"].iloc[0]) + np.square(c_table["image_imag"].iloc[0]))
+        # phase = np.arctan2(c_table["image_imag"].iloc[0], c_table["image_real"].iloc[0])
+        # magnitude_2 = c_table["image"].iloc[0]
+        # phase_2 = c_table["image_phase"].iloc[0]
+        # mag_diff = np.abs(magnitude - magnitude_2)
+        # phase_diff = np.abs(phase - phase_2)
+        # mean_img_2 = c_table["image"].mean()
+        # mean_img_diff = np.abs(mean_img - mean_img_2)
+        # import matplotlib.pyplot as plt
+        #
+        # plt.imshow(mean_img_diff)
+
         data_complex_averaged.append(
             [
                 mean_img,
-                # c_table["image"].mean(),
                 c_table["b_value"].iloc[0],
                 c_table["direction"].iloc[0],
                 c_table["image_position"].iloc[0],
