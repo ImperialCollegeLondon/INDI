@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 
 
-def complex_averaging(data):
+def complex_averaging(data, logger):
+    logger.debug("Complex averaging.")
+
     data[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(data["direction"].tolist(), index=data.index)
     unique_configs = data[["dir_x", "dir_y", "dir_z", "b_value", "slice_integer"]].drop_duplicates()
 

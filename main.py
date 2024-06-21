@@ -202,7 +202,7 @@ for current_folder in all_to_be_analysed_folders:
     # complex averaging
     # =========================================================
     if settings["complex_data"]:
-        data = complex_averaging(data)
+        data = complex_averaging(data, logger)
 
     # =========================================================
     # Calculate tensor
