@@ -170,7 +170,7 @@ def collect_global_header_info(dicom_header_fields: dict, dicom_type: int) -> di
     return header_info
 
 
-def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int) -> NDArray:
+def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int, image_type: str) -> NDArray:
     """
     Get the pixel array from the DICOM header.
     Pixel values = data_array * slope + intercept
@@ -180,6 +180,7 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int
     ds
     dicom_type
     frame_idx
+    image type: mag or phase
 
     Returns
     -------
@@ -192,6 +193,23 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int
     larger_dim = max(pixel_array.shape)
     interp_img = True if larger_dim <= 192 else False
 
+    def interpolate_img(img, image_type):
+        if image_type == "mag":
+            img = scipy.ndimage.zoom(img, 2, order=3)
+            # zero any negative pixels after interpolation
+            img[img < 0] = 0
+        elif image_type == "phase":
+            # convert phase to real and imaginary before interpolating
+            img = np.pi * img / 4096
+            img_real = np.cos(img)
+            img_real = scipy.ndimage.zoom(img_real, 2, order=0)
+            img_imag = np.sin(img)
+            img_imag = scipy.ndimage.zoom(img_imag, 2, order=0)
+            # revert back to the original phase values
+            img = np.arctan2(img_imag, img_real)
+            img = 4096 * img / np.pi
+        return img
+
     if dicom_type == 2:
         slope = float(
             ds["PerFrameFunctionalGroupsSequence"][frame_idx]["PixelValueTransformationSequence"][0].RescaleSlope
@@ -202,24 +220,18 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int
         if pixel_array.ndim == 3:
             img = pixel_array[frame_idx] * slope + intercept
             if interp_img:
-                img = scipy.ndimage.zoom(img, 2, order=3)
-                # zero any negative pixels after interpolation
-                img[img < 0] = 0
+                img = interpolate_img(img, image_type)
         elif pixel_array.ndim == 2:
             img = pixel_array * slope + intercept
             if interp_img:
-                img = scipy.ndimage.zoom(img, 2, order=3)
-                # zero any negative pixels after interpolation
-                img[img < 0] = 0
+                img = interpolate_img(img, image_type)
     elif dicom_type == 1:
         if "RescaleSlope" in ds:
             img = pixel_array * ds.RescaleSlope + ds.RescaleIntercept
         else:
             img = pixel_array
         if interp_img:
-            img = scipy.ndimage.zoom(img, 2, order=3)
-            # zero any negative pixels after interpolation
-            img[img < 0] = 0
+            img = interpolate_img(img, image_type)
 
     return img
 
@@ -632,7 +644,7 @@ def get_data_old_or_modern_dicoms(
                     # file name
                     file_name,
                     # array of pixel values
-                    get_pixel_array(ds, dicom_type, frame_idx),
+                    get_pixel_array(ds, dicom_type, frame_idx, image_type),
                     # b-value or zero if not a field
                     get_b_value(c_dicom_header, dicom_type, dicom_manufacturer, frame_idx),
                     # diffusion directions

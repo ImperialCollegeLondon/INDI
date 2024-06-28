@@ -39,9 +39,10 @@ def complex_averaging(data, logger):
         # phase_diff = np.abs(phase - phase_2)
         # mean_img_2 = c_table["image"].mean()
         # mean_img_diff = np.abs(mean_img - mean_img_2)
+        #
         # import matplotlib.pyplot as plt
         #
-        # plt.imshow(mean_img_diff)
+        # plt.imshow(mean_img_2)
 
         data_complex_averaged.append(
             [
