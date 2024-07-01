@@ -31,3 +31,9 @@ flowchart LR
     G --> H
     H --> I
 ```
+
+**Diagram summarising the workflow.**
+
+### Loading data
+
+The pipeline accepts Siemens and Philips diffusion weighted DICOM data, as well as NIFTI data. It also supports both STEAM and SE sequences.
