@@ -30,7 +30,7 @@ After the data is loaded, the pipeline performs the following steps:
 
 ![alt text](assets/images/summary_figure.png)
 
-INDI runs from the command line and when processing a dataset for the first time, INDI will require user input (matplotlib windows) which will be saved for future runs.
+INDI runs from the command line, and when processing a dataset for the first time, INDI will require user input (matplotlib windows) which will be saved for future runs.
 
 For more details:
 

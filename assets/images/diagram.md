@@ -1,5 +1,3 @@
-# Post-processing pipeline for cardiac diffusion tensor imaging
-
 ```mermaid
 flowchart LR
     A(loading data)
