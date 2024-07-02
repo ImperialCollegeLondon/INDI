@@ -82,38 +82,4 @@ Then run:
 
 ```python main_script.py <data_path>```
 
-Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the diffusion weighted images inside. Multiple subfolders can be processed at once. For more information see [Pipeline](docs/Pipeline.md).
-
----
-
-## Experimental (only use for development and testing)
-
->[!WARNING]
-> The following features are experimental and should only be used for testing and further development.
-
-### AI models
-
-We have AI models to:
-
-- automatically segment the LV myocardium for STEAM sequences (U-Net based)
-- denoise the diffusion tensor for STEAM sequences (Transformer based)
-
-[One drive download link](https://imperiallondon-my.sharepoint.com/:f:/g/personal/pferreir_ic_ac_uk/EtbqXB1XJY9JmBJ8kFcT40sBq9qHJrVZPwrzgEcW12VwUQ?e=qqDY8C)
-
-U-Net models need to be copied to the following path:
-```/usr/local/dtcmr/unet_ensemble/```
-
-Transformer models need to be copied to the following path:
-```/usr/local/dtcmr/transformer_tensor_denoising/```
-
-### Archive DICOMs
-
-You will also need to create a file in the code root directory called `.env` with the following content:
-`ARCHIVE_PASS=your_password`. Replace `your_password` with a robust string.
-You can do this by running the following command:
-
-```bash
-echo "ARCHIVE_PASS=your_password" > .env
-```
-
-This password will be used to encrypt DICOM files locally when using the option `workflow_mode: anon`.
+Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the diffusion weighted images inside. Multiple subfolders can be processed at once. For more detailed information see [documentation](docs/documentation.md).
