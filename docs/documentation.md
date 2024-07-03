@@ -1,7 +1,5 @@
 # Post-processing cardiac diffusion tensor imaging
 
-## Workflow
-
 ```mermaid
 flowchart LR
     A(loading data)
@@ -79,7 +77,14 @@ If we want to analyse `scan_01` and `scan_02`, we can run the following command:
 python main_script.py <path to study_01>
 ```
 
-The DICOM or NIFTI files must be inside the `diffusion_images` folder.
+Alternatively if we want to analyse only `scan_01`, we can run the following command:
+
+```bash
+python main_script.py <path to scan_01>
+```
+
+>[!WARNING]
+> The DICOM or NIFTI files must always be inside a subfolder named `diffusion_images`.
 
 ## Post-processing pipeline
 
@@ -87,7 +92,15 @@ The DICOM or NIFTI files must be inside the `diffusion_images` folder.
 
 The pipeline accepts Siemens and Philips diffusion weighted DICOM data, as well as NIFTI data. It also supports both STEAM and SE sequences.
 
-For DICOM data, the DICOM files need to be inside the
+If `sequence_type` is set to STEAM (YAML settings), the b0 values are adjusted to a >0 value (defined by the sequence spoilers), and then all b-values are adjusted for RR variations from the assumed value set in the protocol.
+
+#### Adjusting b-values for the STEAM sequence
+
+The way INDI adjusts the b-values depend on the data type and manufacturer. The current supported workflows are:
+
+- **Siemens DICOM files:** b-values are adjusted by using information in the DICOM header, the nominal time and the comment DICOM...
+
+---
 
 ## Experimental (only use for development and testing)
 
