@@ -1084,7 +1084,14 @@ def denoise_tensor(D: np.ndarray, settings: dict) -> np.ndarray:
 
 
 def plot_results_maps(
-    slices: NDArray, mask_3c: NDArray, average_images: dict, dti, segmentation: dict, colormaps: dict, settings: dict
+    slices: NDArray,
+    mask_3c: NDArray,
+    average_images: dict,
+    dti,
+    segmentation: dict,
+    colormaps: dict,
+    settings: dict,
+    folder_id: str,
 ):
     """
     Plots the main montage of results
@@ -1105,14 +1112,9 @@ def plot_results_maps(
         DTI maps colormaps
     settings : dict
         settings
+    folder_id : str
+        folder id string to use on the filename
     """
-
-    # create a string with the folder names
-    folder_id = settings["work_folder"]
-    folder_id = os.path.normpath(folder_id)
-    folders = folder_id.split(os.sep)
-    folder_id = folders[-5:-1]
-    folder_id = "_".join(folder_id)
 
     # plt.style.use("seaborn-deep")
     colors = ["tab:orange", "tab:green", "tab:blue", "tab:red", "tab:brown", "tab:olive"]
@@ -1585,11 +1587,18 @@ def export_results(
 
     logger.info("Exporting results to disk...")
 
+    # create a string with the folder names
+    folder_id = settings["work_folder"]
+    folder_id = os.path.normpath(folder_id)
+    folders = folder_id.split(os.sep)
+    folder_id = folders[-4:-1]
+    folder_id = "_".join(folder_id)
+
     # plot eigenvectors and tensor in VTK format
     export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)
 
     # plot results maps
-    plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, settings)
+    plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, settings, folder_id)
 
     # save xarray to NetCDF
     # ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))
@@ -1636,6 +1645,8 @@ def export_results(
             + settings["results"]
             + " "
             + str(slice_idx).zfill(2)
+            + " "
+            + folder_id
         )
         os.system(run_command)
 
