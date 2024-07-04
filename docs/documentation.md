@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart LR
-    A("`loading data
+    A("`loading data:
     - DICOM or NIFTI
     - STEAM or SE`")
     B("`image registration:
@@ -17,7 +17,7 @@ flowchart LR
     - linear
     - non-linear
     - RESTORE`")
-    H("`DTI parameters
+    H("`DTI parameters:
     FA, MD, HA, E2A, TA`")
     I("`export results:
     - csv
