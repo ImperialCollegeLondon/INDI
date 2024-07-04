@@ -17,13 +17,13 @@ def complex_averaging(data, logger):
             & (data["dir_y"] == config["dir_y"])
             & (data["dir_z"] == config["dir_z"])
             & (data["slice_integer"] == config["slice_integer"])
-        ]
+        ].copy()
 
         # new column with real and imaginary part
-        c_table["image_real"] = c_table["image_phase"].apply(lambda x: np.cos(x))
-        c_table["image_real"] = c_table["image_real"] * c_table["image"]
-        c_table["image_imag"] = c_table["image_phase"].apply(lambda x: np.sin(x))
-        c_table["image_imag"] = c_table["image_imag"] * c_table["image"]
+        c_table.loc[:, "image_real"] = c_table.loc[:, "image_phase"].apply(lambda x: np.cos(x))
+        c_table.loc[:, "image_real"] = c_table.loc[:, "image_real"] * c_table["image"]
+        c_table.loc[:, "image_imag"] = c_table.loc[:, "image_phase"].apply(lambda x: np.sin(x))
+        c_table.loc[:, "image_imag"] = c_table.loc[:, "image_imag"] * c_table["image"]
 
         # average the real and imaginary part
         mean_real = c_table["image_real"].mean()
