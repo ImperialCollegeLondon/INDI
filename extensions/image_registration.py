@@ -211,12 +211,18 @@ def registration_loop(
 
     # images to be registered
     mov_all = np.transpose(np.dstack(data["image"].values), (2, 0, 1))
+    if settings["complex_data"]:
+        mov_all_phase = np.transpose(np.dstack(data["image_phase"].values), (2, 0, 1))
 
     # mask only regions of interest in the middle of the FOV.
     mask = itk.GetImageFromArray(mask)
 
     # Groupwise registration
     if settings["registration"] == "elastix_groupwise":
+        if settings["complex_data"]:
+            logger.error("Elastix groupwise registration not tested for complex data.")
+            sys.exit()
+
         # get all images
         mov_all = np.ascontiguousarray(np.array(mov_all, dtype=np.float32))
 
@@ -251,6 +257,8 @@ def registration_loop(
             # moving image
             mov = np.asarray(mov_all[i], dtype=np.float32)
             registration_image_data["img_pre_reg"][i] = mov
+            if settings["complex_data"]:
+                mov_phase = np.asarray(mov_all_phase[i], dtype=np.float32)
 
             # run registration
             # elastix
@@ -288,9 +296,23 @@ def registration_loop(
                 grid_img_transformed_np[grid_img_transformed_np >= 0.1] = 0.6
                 registration_image_data["deformation_field"]["grid"][i] = grid_img_transformed_np
                 # finally apply the deformation field to the moving image (without denoising)
-                mov = itk.GetImageFromArray(mov)
-                img_reg = itk.transformix_filter(mov, result_transform_parameters)
-                img_reg = itk.GetArrayFromImage(img_reg)
+                if settings["complex_data"]:
+                    # complex data registration
+                    c_real = np.multiply(mov, np.cos(mov_phase))
+                    c_imag = np.multiply(mov, np.sin(mov_phase))
+                    c_real = itk.GetImageFromArray(c_real)
+                    c_imag = itk.GetImageFromArray(c_imag)
+                    img_reg_real = itk.transformix_filter(c_real, result_transform_parameters)
+                    img_reg_imag = itk.transformix_filter(c_imag, result_transform_parameters)
+                    img_reg_real = itk.GetArrayFromImage(img_reg_real)
+                    img_reg_imag = itk.GetArrayFromImage(img_reg_imag)
+                    img_reg = np.sqrt(np.square(img_reg_real) + np.square(img_reg_imag))
+                    img_phase_reg = np.arctan2(img_reg_imag, img_reg_real)
+                else:
+                    # magnitude only data registration
+                    mov = itk.GetImageFromArray(mov)
+                    img_reg = itk.transformix_filter(mov, result_transform_parameters)
+                    img_reg = itk.GetArrayFromImage(img_reg)
 
             # basic quick rigid
             elif settings["registration"] == "quick_rigid":
@@ -303,12 +325,26 @@ def registration_loop(
                     moving_mask=mask,
                     overlap_ratio=0.5,
                 )
-                img_reg = fourier_shift(np.fft.fftn(mov), shift)
-                img_reg = np.abs(np.fft.ifftn(img_reg))
+                if settings["complex_data"]:
+                    # complex data registration
+                    c_real = np.multiply(mov, np.cos(mov_phase))
+                    c_imag = np.multiply(mov, np.sin(mov_phase))
+                    c_complex = c_real + 1j * c_imag
+                    img_complex_reg = fourier_shift(np.fft.fftn(c_complex), shift)
+                    img_complex_reg = np.fft.ifftn(img_complex_reg)
+                    img_reg = np.abs(img_complex_reg)
+                    img_phase_reg = np.arctan2(np.imag(img_complex_reg), np.real(img_complex_reg))
+                else:
+                    # magnitude only data registration
+                    img_reg = fourier_shift(np.fft.fftn(mov), shift)
+                    img_reg = np.abs(np.fft.ifftn(img_reg))
 
             # none
             elif settings["registration"] == "none":
                 img_reg = mov
+                if settings["complex_data"]:
+                    img_phase_reg = mov_phase
+
             else:
                 logger.error("No method available for registration: " + settings["registration"])
                 sys.exit()
@@ -317,9 +353,15 @@ def registration_loop(
             # correct for registration small errors
             img_reg = np.asarray(img_reg, dtype=np.float32)
             img_reg[img_reg < 0] = 0
+            if settings["complex_data"]:
+                img_phase_reg = np.asarray(img_phase_reg, dtype=np.float32)
+                img_phase_reg[img_phase_reg < -np.pi] = -np.pi
+                img_phase_reg[img_phase_reg > np.pi] = np.pi
 
             # replace the images in the dataframe with all slices
             data.at[data.index[i], "image"] = img_reg
+            if settings["complex_data"]:
+                data.at[data.index[i], "image_phase"] = img_phase_reg
 
             # store images post registration
             registration_image_data["img_post_reg"][i] = img_reg
@@ -700,7 +742,10 @@ def image_registration(
             # saving registration data
             save_path = reg_file
             # table with only filename, image, acquisition time and date
-            data_basic = current_entries[["file_name", "image", "acquisition_date_time"]]
+            if settings["complex_data"]:
+                data_basic = current_entries[["file_name", "image", "image_phase", "acquisition_date_time"]]
+            else:
+                data_basic = current_entries[["file_name", "image", "acquisition_date_time"]]
             data_basic.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
             # saving registration extras
             np.savez_compressed(
@@ -716,17 +761,30 @@ def image_registration(
 
             # current non registered database
             data_basic = data.loc[data["slice_integer"] == slice_idx]
-            data_basic = data_basic[["file_name", "image", "acquisition_date_time"]]
+            if settings["complex_data"]:
+                data_basic = data_basic[["file_name", "image", "image_phase", "acquisition_date_time"]]
+            else:
+                data_basic = data_basic[["file_name", "image", "acquisition_date_time"]]
 
             # check if the original data basic table matches the loaded one (except the image column)
-            if not data_basic.drop(columns=["image"]).equals(data_loaded_basic.drop(columns=["image"])):
-                logger.error("Loaded Dataframe with registered images does not match pre-registered Dataframe!")
-                logger.error("Registration saved data needs to be deleted as something changed!")
-                sys.exit()
+            if settings["complex_data"]:
+                if not data_basic.drop(columns=["image", "image_phase"]).equals(
+                    data_loaded_basic.drop(columns=["image", "image_phase"])
+                ):
+                    logger.error("Loaded Dataframe with registered images does not match pre-registered Dataframe!")
+                    logger.error("Registration saved data needs to be deleted as something changed!")
+                    sys.exit()
+            else:
+                if not data_basic.drop(columns=["image"]).equals(data_loaded_basic.drop(columns=["image"])):
+                    logger.error("Loaded Dataframe with registered images does not match pre-registered Dataframe!")
+                    logger.error("Registration saved data needs to be deleted as something changed!")
+                    sys.exit()
 
             logger.info("Passed data consistency check. Loading registered data.")
             # data matches, so now I need to replace the image column with the loaded one
             data.loc[data["slice_integer"] == slice_idx, "image"] = data_loaded_basic["image"]
+            if settings["complex_data"]:
+                data.loc[data["slice_integer"] == slice_idx, "image_phase"] = data_loaded_basic["image_phase"]
 
             # also load the extra saved data
             npzfile = np.load(reg_file_extras, allow_pickle=True)

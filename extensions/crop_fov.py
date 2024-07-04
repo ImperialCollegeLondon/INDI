@@ -107,6 +107,8 @@ def crop_images(
         background_mask = np.copy(mask_3c[c_slice_position])
         background_mask[background_mask > 0] = 1
         data.at[i, "image"] = data.loc[i, "image"][np.ix_(crop_mask.any(1), crop_mask.any(0))]
+        if settings["complex_data"]:
+            data.at[i, "image_phase"] = data.loc[i, "image_phase"][np.ix_(crop_mask.any(1), crop_mask.any(0))]
 
     # update image size
     info["original_img_size"] = info["img_size"]

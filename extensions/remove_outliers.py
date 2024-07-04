@@ -439,6 +439,21 @@ def remove_outliers(
                 segmentation,
                 False,
             )
+            if settings["complex_data"]:
+                create_2d_montage_from_database(
+                    data,
+                    "b_value_original",
+                    "direction_original",
+                    settings,
+                    info,
+                    slices,
+                    "dwis_accepted_phase",
+                    settings["debug_folder"],
+                    [],
+                    segmentation,
+                    False,
+                    "image_phase",
+                )
 
     else:
         # no image removal to be done

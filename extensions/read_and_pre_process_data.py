@@ -170,7 +170,7 @@ def collect_global_header_info(dicom_header_fields: dict, dicom_type: int) -> di
     return header_info
 
 
-def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int) -> NDArray:
+def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int, image_type: str) -> NDArray:
     """
     Get the pixel array from the DICOM header.
     Pixel values = data_array * slope + intercept
@@ -180,6 +180,7 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int
     ds
     dicom_type
     frame_idx
+    image type: mag or phase
 
     Returns
     -------
@@ -192,6 +193,23 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int
     larger_dim = max(pixel_array.shape)
     interp_img = True if larger_dim <= 192 else False
 
+    def interpolate_img(img, image_type):
+        if image_type == "mag":
+            img = scipy.ndimage.zoom(img, 2, order=3)
+            # zero any negative pixels after interpolation
+            img[img < 0] = 0
+        elif image_type == "phase":
+            # convert phase to real and imaginary before interpolating
+            img = np.pi * img / 4096
+            img_real = np.cos(img)
+            img_real = scipy.ndimage.zoom(img_real, 2, order=0)
+            img_imag = np.sin(img)
+            img_imag = scipy.ndimage.zoom(img_imag, 2, order=0)
+            # revert back to the original phase values
+            img = np.arctan2(img_imag, img_real)
+            img = 4096 * img / np.pi
+        return img
+
     if dicom_type == 2:
         slope = float(
             ds["PerFrameFunctionalGroupsSequence"][frame_idx]["PixelValueTransformationSequence"][0].RescaleSlope
@@ -202,21 +220,19 @@ def get_pixel_array(ds: pydicom.dataset.Dataset, dicom_type: str, frame_idx: int
         if pixel_array.ndim == 3:
             img = pixel_array[frame_idx] * slope + intercept
             if interp_img:
-                img = scipy.ndimage.zoom(img, 2, order=3)
+                img = interpolate_img(img, image_type)
         elif pixel_array.ndim == 2:
             img = pixel_array * slope + intercept
             if interp_img:
-                img = scipy.ndimage.zoom(img, 2, order=3)
+                img = interpolate_img(img, image_type)
     elif dicom_type == 1:
         if "RescaleSlope" in ds:
             img = pixel_array * ds.RescaleSlope + ds.RescaleIntercept
         else:
             img = pixel_array
         if interp_img:
-            img = scipy.ndimage.zoom(img, 2, order=3)
+            img = interpolate_img(img, image_type)
 
-    # zero any negative pixels after interpolation
-    img[img < 0] = 0
     return img
 
 
@@ -535,7 +551,7 @@ def dictify(ds: pydicom.dataset.Dataset) -> dict:
 
 
 def get_data_old_or_modern_dicoms(
-    list_dicoms: list, settings: dict, info: dict, logger: logging.Logger
+    list_dicoms: list, settings: dict, info: dict, logger: logging.Logger, image_type: str = "mag"
 ) -> Tuple[pd.DataFrame, dict]:
     """
     Read all the DICOM files in data_folder_path and store important info
@@ -546,13 +562,23 @@ def get_data_old_or_modern_dicoms(
     list_dicoms: list with DICOM files
     settings: dict
     info: dict
+    logger
+    image_type: str
 
     Returns
     -------
     df: dataframe with the DICOM diffusion information
     info: dictionary with useful info
     """
-    data_folder_path = settings["dicom_folder"]
+    # path to DICOM files
+    if image_type == "mag":
+        data_folder_path = settings["dicom_folder"]
+        logger.debug("Magnitude DICOMs")
+    elif image_type == "phase":
+        data_folder_path = settings["dicom_folder_phase"]
+        logger.debug("Phase DICOMs")
+    else:
+        sys.exit("Image type not supported.")
 
     # collect some header info in a dictionary from the first DICOM
     ds = pydicom.dcmread(open(os.path.join(data_folder_path, list_dicoms[0]), "rb"))
@@ -618,7 +644,7 @@ def get_data_old_or_modern_dicoms(
                     # file name
                     file_name,
                     # array of pixel values
-                    get_pixel_array(ds, dicom_type, frame_idx),
+                    get_pixel_array(ds, dicom_type, frame_idx, image_type),
                     # b-value or zero if not a field
                     get_b_value(c_dicom_header, dicom_type, dicom_manufacturer, frame_idx),
                     # diffusion directions
@@ -1253,6 +1279,7 @@ def create_2d_montage_from_database(
     list_to_highlight: list = [],
     segmentation: dict = {},
     print_series: bool = False,
+    image_label: str = "image",
 ):
     """
     Create a grid with all DWIs for each slice
@@ -1276,6 +1303,7 @@ def create_2d_montage_from_database(
         list of indices to highlight, by default []
     segmentation: dict with segmentation information
     print_series: bool print series description switch
+    image_label: "image" or "image_phase"
 
     """
 
@@ -1317,7 +1345,7 @@ def create_2d_montage_from_database(
                 c_df_b_d = c_df_b.loc[c_df_b[direction_column_name] == dir].copy()
 
                 # for each b_val and each dir collect all images
-                c_img_stack[b_val, dir_idx] = np.stack(c_df_b_d.image.values, axis=0)
+                c_img_stack[b_val, dir_idx] = np.stack(c_df_b_d[image_label].values, axis=0)
                 c_img_stack_series_description[b_val, dir_idx] = c_df_b_d.series_description.values
 
                 # create a mask with 0s and 1s to highlight images in certain positions of the dataframe
@@ -1365,9 +1393,15 @@ def create_2d_montage_from_database(
                 ] = cc_mask_stack
 
         # create RGB image of montage and increase brightness
-        montage = montage / np.max(montage)
-        montage = 2 * montage
-        montage[montage > 1] = 1
+        if image_label == "image":
+            montage = montage / np.max(montage)
+            montage = 2 * montage
+            montage[montage > 1] = 1
+        elif image_label == "image_phase":
+            montage = montage + np.pi
+            montage = montage / np.max(montage)
+            montage[montage > 1] = 1
+            montage[montage < 0] = 0
         # add RGB channels
         montage = np.stack([montage, montage, montage], axis=-1)
 
@@ -1395,7 +1429,7 @@ def create_2d_montage_from_database(
             montage_mask = np.stack([montage_mask, 0 * montage_mask, 0 * montage_mask], axis=-1)
             montage_mask = np.dstack([montage_mask, montage_mask[:, :, 0] * 0.2])
 
-        # check if fov is vertical, if so tetx needs to be rotated
+        # check if fov is vertical, if so text needs to be rotated
         if info["img_size"][0] < info["img_size"][1]:
             text_rotation = 0
         else:
@@ -1536,6 +1570,8 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
 
     # initiate data type as None [None, dicom, nii, pandas]
     data_type = None
+    # initiate complex data setting as False
+    settings["complex_data"] = False
 
     # Check for DICOM files
     included_extensions = ["dcm", "DCM", "IMA"]
@@ -1544,6 +1580,32 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     ]
     if len(list_dicoms) > 0:
         data_type = "dicom"
+        logger.debug("DICOM files found.")
+        list_dicoms.sort()
+
+    else:
+        # check if subfolders "mag" and "phase" exist
+        # if so read all dicom files in those folders
+        mag_folder = os.path.join(settings["dicom_folder"], "mag")
+        phase_folder = os.path.join(settings["dicom_folder"], "phase")
+        if os.path.exists(mag_folder) and os.path.exists(phase_folder):
+            list_dicoms = [fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)]
+            list_dicoms_phase = [
+                fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
+            ]
+            if len(list_dicoms) > 0 and len(list_dicoms_phase) > 0:
+                data_type = "dicom"
+                settings["complex_data"] = True
+                settings["dicom_folder"] = mag_folder
+                settings["dicom_folder_phase"] = phase_folder
+                # check if both folders have the same number of files
+                if len(list_dicoms) != len(list_dicoms_phase):
+                    logger.error("Number of DICOM files in mag and phase folders are different.")
+                    sys.exit(1)
+                logger.debug("Magnitude and phase DICOM files found.")
+                logger.debug("Complex averaging on.")
+                list_dicoms.sort()
+                list_dicoms_phase.sort()
 
     if not data_type:
         # If no DICOMS, check for nii files
@@ -1558,11 +1620,24 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     # If DICOMs are not present but NIFTI files are, then we will read them and build our diffusion database.
     # If neither DICOMs nor NIFTI files are present, then we will read the pre-saved database
     if data_type == "dicom":
-        list_dicoms.sort()
-        logger.debug("DICOM files found.")
-
         # read DICOM info
-        data, info = get_data_old_or_modern_dicoms(list_dicoms, settings, info, logger)
+        data, info = get_data_old_or_modern_dicoms(list_dicoms, settings, info, logger, image_type="mag")
+
+        if settings["complex_data"]:
+            data_phase, info = get_data_old_or_modern_dicoms(
+                list_dicoms_phase, settings, info, logger, image_type="phase"
+            )
+
+            # check if the magnitude and phase tables match
+            data_sort = sort_by_date_time(data)
+            data_phase_sort = sort_by_date_time(data_phase)
+            if not data_sort.drop(columns=["file_name", "image", "series_number", "header"]).equals(
+                data_phase_sort.drop(columns=["file_name", "image", "series_number", "header"])
+            ):
+                logger.error("Magnitude and phase DICOM tables do not match!")
+                sys.exit()
+            del data_phase_sort
+            del data_sort
 
         # =========================================================
         # export the dataframe to a zip file
@@ -1572,6 +1647,14 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         save_path = os.path.join(settings["dicom_folder"], "data.gz")
         data_without_imgs = data.drop(columns=["image"])
         data_without_imgs.to_pickle(save_path, compression={"method": "gzip", "compresslevel": 1, "mtime": 1})
+
+        if settings["complex_data"]:
+            data_phase.attrs["info"] = info
+            save_path = os.path.join(settings["dicom_folder_phase"], "data.gz")
+            data_without_imgs_phase = data_phase.drop(columns=["image"])
+            data_without_imgs_phase.to_pickle(
+                save_path, compression={"method": "gzip", "compresslevel": 1, "mtime": 1}
+            )
 
         # also save some diffusion info to a csv file
         save_path = os.path.join(settings["dicom_folder"], "diff_info_dataframe_h5.csv")
@@ -1590,6 +1673,23 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             index=False,
         )
 
+        if settings["complex_data"]:
+            save_path = os.path.join(settings["dicom_folder_phase"], "diff_info_dataframe_h5.csv")
+            data_phase.to_csv(
+                save_path,
+                columns=[
+                    "file_name",
+                    "b_value",
+                    "direction",
+                    "dir_in_image_plane",
+                    "image_position",
+                    "nominal_interval",
+                    "series_description",
+                    "series_number",
+                ],
+                index=False,
+            )
+
         # finally save the pixel values to HDF5
         image_pixel_values = data["image"].to_numpy()
         image_pixel_values = np.stack(image_pixel_values)
@@ -1597,11 +1697,20 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         with h5py.File(save_path, "w") as hf:
             hf.create_dataset("pixel_values", data=image_pixel_values, compression="gzip", compression_opts=1)
 
+        if settings["complex_data"]:
+            image_pixel_values_phase = data_phase["image"].to_numpy()
+            image_pixel_values_phase = np.stack(image_pixel_values_phase)
+            save_path = os.path.join(settings["dicom_folder_phase"], "images.h5")
+            with h5py.File(save_path, "w") as hf:
+                hf.create_dataset(
+                    "pixel_values", data=image_pixel_values_phase, compression="gzip", compression_opts=1
+                )
+
         # if workflow is anon, we are going to archive the DICOMs
         # in a 7z file with the password set in the .env file.
         if settings["workflow_mode"] == "anon":
             # =========================================================
-            # Aechive DICOM files in a 7z file
+            # Archive DICOM files in a 7z file
             # =========================================================
             # create folder to store DICOMs
             dicom_archive_folder = os.path.join(settings["dicom_folder"], "dicom_archive")
@@ -1631,6 +1740,34 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             # DELETE FOLDER WITH DICOMS!
             shutil.rmtree(dicom_archive_folder)
 
+            if settings["complex_data"]:
+                # create folder to store DICOMs
+                dicom_archive_folder = os.path.join(settings["dicom_folder_phase"], "dicom_archive")
+                if not os.path.exists(dicom_archive_folder):
+                    os.makedirs(dicom_archive_folder)
+
+                # move all DICOMs to the archive folder
+                def move_file(file):
+                    file_path = os.path.join(settings["dicom_folder_phase"], file)
+                    shutil.move(file_path, os.path.join(dicom_archive_folder, file))
+
+                # get all dicom filenames
+                dicom_list = data_phase["file_name"].tolist()
+                # remove any duplicates (happens with multiframe DICOMs)
+                dicom_list = list(dict.fromkeys(dicom_list))
+                [move_file(item) for item in dicom_list]
+
+                # now encrypt folder with 7zip
+                with py7zr.SevenZipFile(
+                    os.path.join(settings["dicom_folder_phase"], "dicom_archive.7z"),
+                    "w",
+                    password=env_vars["ARCHIVE_PASS"],
+                ) as archive:
+                    archive.writeall(dicom_archive_folder, "dicom_archive")
+
+                # DELETE FOLDER WITH DICOMS!
+                shutil.rmtree(dicom_archive_folder)
+
     elif data_type == "nii":
         # read nii files
         logger.debug("Nii files found.")
@@ -1641,27 +1778,63 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
 
         logger.debug("No DICOM or Nii files found. Reading diffusion database files previously created.")
 
+        # check if subfolders "mag" and "phase" exist
+        mag_folder = os.path.join(settings["dicom_folder"], "mag")
+        phase_folder = os.path.join(settings["dicom_folder"], "phase")
+        if os.path.exists(mag_folder) and os.path.exists(phase_folder):
+            settings["complex_data"] = True
+            settings["dicom_folder"] = mag_folder
+            settings["dicom_folder_phase"] = phase_folder
+
+            logger.debug("Magnitude and phase folders found.")
+            logger.debug("Complex averaging on.")
+
+        # =========================================================
         # read the dataframe
+        # =========================================================
         save_path = os.path.join(settings["dicom_folder"], "data.gz")
         data = pd.read_pickle(save_path)
         info = data.attrs["info"]
 
+        if settings["complex_data"]:
+            save_path = os.path.join(settings["dicom_folder_phase"], "data.gz")
+            data_phase = pd.read_pickle(save_path)
+
+        # =========================================================
         # read the pixel arrays from the h5 file and add them to the dataframe
+        # =========================================================
         save_path = os.path.join(settings["dicom_folder"], "images.h5")
         with h5py.File(save_path, "r") as hf:
             pixel_values = hf["pixel_values"][:]
-
         assert (
             len(pixel_values) == data.shape[0]
         ), "Number of pixel slices does not match the number of entries in the dataframe."
         data["image"] = pd.Series([x for x in pixel_values])
 
+        if settings["complex_data"]:
+            save_path = os.path.join(settings["dicom_folder_phase"], "images.h5")
+            with h5py.File(save_path, "r") as hf:
+                pixel_values_phase = hf["pixel_values"][:]
+            assert (
+                len(pixel_values_phase) == data_phase.shape[0]
+            ), "Number of pixel slices does not match the number of entries in the dataframe."
+            data_phase["image"] = pd.Series([x for x in pixel_values_phase])
+
     # now that we loaded the images and headers we need to organise it as
     # we cannot assume that the dicom files are in any particular order
-
     # sort the dataframe by date and time, this is needed in case we need to adjust
     # the b-values by the DICOM timings
     data = sort_by_date_time(data)
+    if settings["complex_data"]:
+        data_phase = sort_by_date_time(data_phase)
+
+        # copy the image column to the data table
+        data["image_phase"] = data_phase["image"]
+        # discard the data_phase dataframe
+        del data_phase
+
+        # translate phase magnitude values to angles in radians
+        data["image_phase"] = np.pi * (data["image_phase"]) / 4096
 
     # =========================================================
     # adjust b-values and diffusion directions to image
@@ -1701,7 +1874,23 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
             [],
             {},
             True,
+            "image",
         )
+        if settings["complex_data"]:
+            create_2d_montage_from_database(
+                data,
+                "b_value_original",
+                "direction_original",
+                settings,
+                info,
+                slices,
+                "dwis_original_dicoms_phase",
+                settings["debug_folder"],
+                [],
+                {},
+                True,
+                "image_phase",
+            )
 
     # also save some diffusion info to a csv file
     save_path = os.path.join(settings["dicom_folder"], "diff_info_sorted.csv")

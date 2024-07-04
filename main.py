@@ -12,6 +12,7 @@ import sys
 import matplotlib
 import pyautogui
 
+from extensions.complex_averaging import complex_averaging
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
@@ -40,9 +41,11 @@ from extensions.u_net_segmentation import get_average_images
 # np.seterr(all="raise")
 
 # matplotlib
-matplotlib.rcParams["toolbar"] = "None"
 matplotlib.rcParams["font.size"] = 5
-# matplotlib.use("MACOSX")
+# to run efficiently
+matplotlib.rcParams["toolbar"] = "None"
+# # for debugging
+# matplotlib.use("TkAgg")
 
 # script path
 abspath = os.path.abspath(sys.argv[0])
@@ -194,6 +197,12 @@ for current_folder in all_to_be_analysed_folders:
     # Get SNR maps
     # =========================================================
     [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
+
+    # =========================================================
+    # complex averaging
+    # =========================================================
+    if settings["complex_data"]:
+        data = complex_averaging(data, logger)
 
     # =========================================================
     # Calculate tensor
