@@ -18,19 +18,19 @@ Post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 ## Introduction
 
 This software is a post-processing pipeline designed to post-process in-vivo cardiac diffusion tensor imaging.
-It currently accepts Siemens and Philips diffusion weighted DICOM data, as well as NIFTI data. It also supports both STEAM and SE sequences.
+It currently accepts Siemens and Philips diffusion weighted DICOM data, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). It also supports both STEAM and SE sequences.
 
 After the data is loaded, the pipeline performs the following steps:
 
 - Image registration
 - Image curation
 - Tensor fitting
-- Diffusion tensor fitting
+- Segmentation
 - Results export
 
 ![alt text](assets/images/summary_figure.png)
 
-INDI runs from the command line, and when processing a dataset for the first time, INDI will require user input (matplotlib windows) which will be saved for future runs.
+INDI runs from the command line, and when processing a dataset for the first time, INDI will require user input (pop-up matplotlib windows) which will be saved for future runs.
 
 For more details:
 
