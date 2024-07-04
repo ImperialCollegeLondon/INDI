@@ -175,7 +175,7 @@ def get_negative_eigenvalues_map(
 
         negative_eig_map[slice_idx] = eig_1 + eig_2 + eig_3
 
-    cmap = matplotlib.colors.ListedColormap(matplotlib.cm.get_cmap("Set3").colors[1:4])
+    cmap = matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("Set3").colors[1:4])
     for slice_idx in slices:
         alphas = np.copy(negative_eig_map[slice_idx])
         alphas[alphas > 0.1] = 1

@@ -581,7 +581,7 @@ def get_data_old_or_modern_dicoms(
         sys.exit("Image type not supported.")
 
     # collect some header info in a dictionary from the first DICOM
-    ds = pydicom.dcmread(open(os.path.join(data_folder_path, list_dicoms[0]), "rb"))
+    ds = pydicom.dcmread(os.path.join(data_folder_path, list_dicoms[0]))
 
     # check version of dicom
     dicom_type = 0
@@ -627,7 +627,7 @@ def get_data_old_or_modern_dicoms(
     df = []
     for idx, file_name in enumerate(list_dicoms):
         # read current DICOM
-        ds = pydicom.dcmread(open(os.path.join(data_folder_path, file_name), "rb"))
+        ds = pydicom.dcmread(os.path.join(data_folder_path, file_name))
         # loop over the dictionary of header fields and collect them for this DICOM file
         c_dicom_header = dictify(ds)
         # remove sensitive data

@@ -685,7 +685,7 @@ def get_ha_line_profiles(
         model.fit(x, average_lp.reshape(-1, 1))
         r_sq = model.score(x, average_lp.reshape(-1, 1))
         y_pred = model.predict(x)
-        slope = model.coef_
+        slope = model.coef_[0, 0]
 
         # store all this info in the dictionary
         ha_lines_profiles[slice_idx]["average_lp"] = average_lp
@@ -806,7 +806,7 @@ def get_snr_maps(
 
     for slice_idx in slices:
         # dataframe for each slice
-        current_entries = data.loc[data["slice_integer"] == slice_idx]
+        current_entries = data.loc[data["slice_integer"] == slice_idx].copy()
         # how many diffusion configs do we have for this slice?
         current_entries["direction"] = [tuple(lst_in) for lst_in in current_entries["direction"]]
         diffusion_configs_table = (
@@ -1364,7 +1364,7 @@ def plot_results_maps(
             alpha=alphas_whole_heart * 0.5,
             vmin=1,
             vmax=12,
-            cmap=matplotlib.colors.ListedColormap(matplotlib.cm.get_cmap("tab20c").colors[0:12]),
+            cmap=matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("tab20c").colors[0:12]),
         )
         if segmentation[slice_idx]["anterior_ip"].size != 0:
             plt.plot(

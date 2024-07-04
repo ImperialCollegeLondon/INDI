@@ -101,8 +101,8 @@ def initial_setup(script_path: str) -> [dict, dict, dict, logging, logging, list
 
     # read settings from YAML file
     settings = {}
-    yaml_file = open(os.path.join(script_path, "settings.yaml"), "r")
-    settings = yaml.safe_load(yaml_file)
+    with open(os.path.join(script_path, "settings.yaml"), "r") as handle:
+        settings = yaml.safe_load(handle)
 
     # add root path of the code
     settings["code_path"] = script_path
