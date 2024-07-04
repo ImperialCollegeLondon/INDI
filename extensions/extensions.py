@@ -1606,6 +1606,9 @@ def export_results(
     # save results to h5 file
     export_to_hdf5(dti, mask_3c, settings)
 
+    # save results summary to a csv table
+    export_summary_table(dti, settings, slices)
+
     # save to disk dti dictionary
     dti["info"] = info
     with open(os.path.join(settings["results"], "data", "DTI_data.dat"), "wb") as handle:
@@ -1649,6 +1652,71 @@ def export_results(
             + folder_id
         )
         os.system(run_command)
+
+
+def export_summary_table(dti: dict, settings: dict, slices: NDArray):
+    """
+    Export summary of DTI values to a csv table
+
+    Parameters
+    ----------
+    dti: dict
+    settings: dict
+    slices: NDArray
+
+    Returns
+    -------
+
+    """
+    # get absolute E2A and TA
+    dti["abs_e2a"] = np.abs(dti["e2a"])
+    dti["abs_ta"] = np.abs(dti["ta"])
+    dti["md_1e3"] = dti["md"] * 1000
+    var_list = ["fa", "md_1e3", "ha", "e2a", "ta", "abs_e2a", "abs_ta"]
+    str_list = ["FA", "MD", "HA", "E2A", "TA", "|E2A|", "|TA|"]
+    # global values
+    table_global = []
+    for idx, var in enumerate(var_list):
+        table_global.append(
+            [
+                str_list[idx],
+                np.nanmean(dti[var]),
+                np.nanstd(dti[var]),
+                np.nanmedian(dti[var]),
+                np.nanquantile(dti[var], 0.25),
+                np.nanquantile(dti[var], 0.75),
+                np.nanmin(dti[var]),
+                np.nanmax(dti[var]),
+            ]
+        )
+    if len(slices) > 1:
+        # per slice values
+        table_per_slice = []
+        for idx, var in enumerate(var_list):
+            table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+            for slice_idx in slices:
+                table_per_slice.append(
+                    [
+                        str_list[idx] + "_" + str(slice_idx).zfill(2),
+                        np.nanmean(dti[var][slice_idx]),
+                        np.nanstd(dti[var][slice_idx]),
+                        np.nanmedian(dti[var][slice_idx]),
+                        np.nanquantile(dti[var][slice_idx], 0.25),
+                        np.nanquantile(dti[var][slice_idx], 0.75),
+                        np.nanmin(dti[var][slice_idx]),
+                        np.nanmax(dti[var][slice_idx]),
+                    ]
+                )
+        # add to the global table
+        table_global.extend(table_per_slice)
+    # convert table to dataframe
+    table_global = pd.DataFrame(
+        table_global,
+        columns=["Parameter", "Mean", "Std", "Median", "Q25", "Q75", "Min", "Max"],
+    )
+    table_global = table_global.round(decimals=2)
+    # export dataframe csv
+    table_global.to_csv(os.path.join(settings["results"], "results_table.csv"), index=False)
 
 
 def get_lv_segments(
