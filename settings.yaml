@@ -10,7 +10,7 @@ start_folder:
 # anon, reg, main
 workflow_mode: main
 # se, steam
-sequence_type: steam
+sequence_type: se
 
 # ========================================================================================
 # DEBUGGING
@@ -25,7 +25,7 @@ registration_extra_debug: False
 # ========================================================================================
 # none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid
 # elastix_groupwise (not working well at the moment)
-registration: none
+registration: elastix_non_rigid
 # fast, slow
 registration_speed: fast
 # best, groupwise
@@ -66,7 +66,7 @@ registration_mask_scale: 1
 # ex-vivo
 # ========================================================================================
 # process ex-vivo data
-ex_vivo: True
+ex_vivo: False
 
 # ========================================================================================
 # AI MODELS

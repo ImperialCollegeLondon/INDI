@@ -1,13 +1,31 @@
+import logging
+
 import numpy as np
 import pandas as pd
 
 
-def complex_averaging(data, logger):
+def complex_averaging(data: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
+    """
+    Performs complex averaging of the data
+
+    Parameters
+    ----------
+    data: dataframe with data
+    logger: logger
+
+    Returns
+    -------
+    dataframe with complex averaged data
+
+    """
+
     logger.debug("Complex averaging.")
 
+    # Split the direction column into three columns X, Y, Z
     data[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(data["direction"].tolist(), index=data.index)
     unique_configs = data[["dir_x", "dir_y", "dir_z", "b_value", "slice_integer"]].drop_duplicates()
 
+    # loop over the unique configurations of b-value, diff direction and slice position
     data_complex_averaged = []
     for idx, config in unique_configs.iterrows():
         # Select the data for the current configuration
@@ -28,22 +46,10 @@ def complex_averaging(data, logger):
         # average the real and imaginary part
         mean_real = c_table["image_real"].mean()
         mean_imag = c_table["image_imag"].mean()
+        # get the averaged magnitude
         mean_img = np.sqrt(np.square(mean_real) + np.square(mean_imag))
 
-        # # testing results
-        # magnitude = np.sqrt(np.square(c_table["image_real"].iloc[0]) + np.square(c_table["image_imag"].iloc[0]))
-        # phase = np.arctan2(c_table["image_imag"].iloc[0], c_table["image_real"].iloc[0])
-        # magnitude_2 = c_table["image"].iloc[0]
-        # phase_2 = c_table["image_phase"].iloc[0]
-        # mag_diff = np.abs(magnitude - magnitude_2)
-        # phase_diff = np.abs(phase - phase_2)
-        # mean_img_2 = c_table["image"].mean()
-        # mean_img_diff = np.abs(mean_img - mean_img_2)
-        #
-        # import matplotlib.pyplot as plt
-        #
-        # plt.imshow(mean_img_2)
-
+        # add to the complex averaged dataframe
         data_complex_averaged.append(
             [
                 mean_img,
@@ -55,6 +61,7 @@ def complex_averaging(data, logger):
             ]
         )
 
+    # convert list to dataframe
     data_complex_averaged = pd.DataFrame(
         data_complex_averaged,
         columns=[
@@ -67,6 +74,7 @@ def complex_averaging(data, logger):
         ],
     )
 
+    # add a column marking all images not to be removed
     data_complex_averaged["to_be_removed"] = False
 
     return data_complex_averaged
