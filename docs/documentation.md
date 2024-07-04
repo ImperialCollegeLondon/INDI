@@ -2,7 +2,9 @@
 
 ```mermaid
 flowchart LR
-    A(loading data)
+    A("`loading data
+    - DICOM or NIFTI
+    - STEAM or SE`")
     B("`image registration:
     - quick rigid
     - non-rigid (elastix)`")
@@ -13,9 +15,10 @@ flowchart LR
     F(data curation)
     G("`tensor fitting:
     - linear
-    -non-linear
+    - non-linear
     - RESTORE`")
-    H(DTI parameters)
+    H("`DTI parameters
+    FA, MD, HA, E2A, TA`")
     I("`export results:
     - csv
     - vtk
@@ -90,7 +93,9 @@ python main_script.py <path to scan_01>
 
 ### Loading data
 
-The pipeline accepts Siemens and Philips diffusion weighted DICOM data, as well as NIFTI data. It also supports both STEAM and SE sequences.
+The pipeline accepts Siemens and Philips diffusion weighted DICOM data, as well as anonymised NIFTI data. It also supports both STEAM and SE sequences.
+
+For more details on creating anonymised NIFTI files from DICOMs please have a look at [this repository](https://github.com/ImperialCollegeLondon/cdti_data_export).
 
 If `sequence_type` is set to STEAM (YAML settings), the b0 values are adjusted to a >0 value (defined by the sequence spoilers), and then all b-values are adjusted for RR variations from the assumed value set in the protocol.
 
