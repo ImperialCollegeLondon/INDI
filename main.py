@@ -41,7 +41,10 @@ from extensions.u_net_segmentation import get_average_images
 # np.seterr(all="raise")
 
 # matplotlib
-matplotlib.rcParams["font.size"] = 5
+# better looking
+# matplotlib.rcParams["font.size"] = 15
+# more suitable for manuscripts
+matplotlib.rcParams["font.size"] = 15
 # to run efficiently
 matplotlib.rcParams["toolbar"] = "None"
 # # for debugging
