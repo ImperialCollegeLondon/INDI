@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 
 from extensions.dwis_classifier import dwis_classifier
 from extensions.extensions import crop_pad_rotate_array, get_window
-from extensions.read_and_pre_process_data import create_2d_montage_from_database
+from extensions.read_data.read_and_pre_process_data import create_2d_montage_from_database
 
 
 def remove_outliers_ai(

@@ -32,7 +32,7 @@ from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
 from extensions.heart_segmentation import heart_segmentation
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
-from extensions.read_and_pre_process_data import read_data
+from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.remove_outliers import remove_outliers
 from extensions.tensor_fittings import dipy_tensor_fit
 from extensions.u_net_segmentation import get_average_images
@@ -85,7 +85,7 @@ for current_folder in all_to_be_analysed_folders:
 
     # =========================================================
     # START processing
-    # read and pre-process dicom files
+    # read and pre-process data
     # =========================================================
     [data, info, slices] = read_data(settings, info, logger)
 

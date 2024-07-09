@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from extensions.read_and_pre_process_data import get_data
+from extensions.read_data.read_and_pre_process_data import get_data
 
 
 def test_get_data():

@@ -834,7 +834,7 @@ def get_current_rr_table(rr_interval_table: pd.DataFrame, nii_file: str) -> pd.D
     return c_table
 
 
-def get_data_nii_files(
+def read_and_process_niis(
     list_nii: list, settings: dict, info: dict, logger: logging.Logger
 ) -> Tuple[pd.DataFrame, dict]:
     """
@@ -1568,260 +1568,34 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
 
     """
 
-    # initiate data type as None [None, dicom, nii, pandas]
+    # initiate variables
     data_type = None
-    # initiate complex data setting as False
     settings["complex_data"] = False
+    list_dicoms = []
+    list_dicoms_phase = []
+    list_nii = []
 
-    # Check for DICOM files
-    included_extensions = ["dcm", "DCM", "IMA"]
-    list_dicoms = [
-        fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
-    ]
-    if len(list_dicoms) > 0:
-        data_type = "dicom"
-        logger.debug("DICOM files found.")
-        list_dicoms.sort()
-
-    else:
-        # check if subfolders "mag" and "phase" exist
-        # if so read all dicom files in those folders
-        mag_folder = os.path.join(settings["dicom_folder"], "mag")
-        phase_folder = os.path.join(settings["dicom_folder"], "phase")
-        if os.path.exists(mag_folder) and os.path.exists(phase_folder):
-            list_dicoms = [fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)]
-            list_dicoms_phase = [
-                fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
-            ]
-            if len(list_dicoms) > 0 and len(list_dicoms_phase) > 0:
-                data_type = "dicom"
-                settings["complex_data"] = True
-                settings["dicom_folder"] = mag_folder
-                settings["dicom_folder_phase"] = phase_folder
-                # check if both folders have the same number of files
-                if len(list_dicoms) != len(list_dicoms_phase):
-                    logger.error("Number of DICOM files in mag and phase folders are different.")
-                    sys.exit(1)
-                logger.debug("Magnitude and phase DICOM files found.")
-                logger.debug("Complex averaging on.")
-                list_dicoms.sort()
-                list_dicoms_phase.sort()
-
-    if not data_type:
-        # If no DICOMS, check for nii files
-        included_extensions = ["nii", "nii.gz"]
-        list_nii = [
-            fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
-        ]
-        if len(list_nii) > 0:
-            data_type = "nii"
+    # gather possible dicoms, or nii file paths into a list
+    data_type, list_dicoms, list_dicoms_phase, list_nii = list_files(data_type, logger, settings)
 
     # If DICOMs are present, then we will read them and build our diffusion database.
     # If DICOMs are not present but NIFTI files are, then we will read them and build our diffusion database.
     # If neither DICOMs nor NIFTI files are present, then we will read the pre-saved database
     if data_type == "dicom":
-        # read DICOM info
-        data, info = get_data_old_or_modern_dicoms(list_dicoms, settings, info, logger, image_type="mag")
-
-        if settings["complex_data"]:
-            data_phase, info = get_data_old_or_modern_dicoms(
-                list_dicoms_phase, settings, info, logger, image_type="phase"
-            )
-
-            # check if the magnitude and phase tables match
-            data_sort = sort_by_date_time(data)
-            data_phase_sort = sort_by_date_time(data_phase)
-            if not data_sort.drop(columns=["file_name", "image", "series_number", "header"]).equals(
-                data_phase_sort.drop(columns=["file_name", "image", "series_number", "header"])
-            ):
-                logger.error("Magnitude and phase DICOM tables do not match!")
-                sys.exit()
-            del data_phase_sort
-            del data_sort
-
-        # =========================================================
-        # export the dataframe to a zip file
-        # =========================================================
-        # save the dataframe and the info dict
-        data.attrs["info"] = info
-        save_path = os.path.join(settings["dicom_folder"], "data.gz")
-        data_without_imgs = data.drop(columns=["image"])
-        data_without_imgs.to_pickle(save_path, compression={"method": "gzip", "compresslevel": 1, "mtime": 1})
-
-        if settings["complex_data"]:
-            data_phase.attrs["info"] = info
-            save_path = os.path.join(settings["dicom_folder_phase"], "data.gz")
-            data_without_imgs_phase = data_phase.drop(columns=["image"])
-            data_without_imgs_phase.to_pickle(
-                save_path, compression={"method": "gzip", "compresslevel": 1, "mtime": 1}
-            )
-
-        # also save some diffusion info to a csv file
-        save_path = os.path.join(settings["dicom_folder"], "diff_info_dataframe_h5.csv")
-        data.to_csv(
-            save_path,
-            columns=[
-                "file_name",
-                "b_value",
-                "direction",
-                "dir_in_image_plane",
-                "image_position",
-                "nominal_interval",
-                "series_description",
-                "series_number",
-            ],
-            index=False,
-        )
-
-        if settings["complex_data"]:
-            save_path = os.path.join(settings["dicom_folder_phase"], "diff_info_dataframe_h5.csv")
-            data_phase.to_csv(
-                save_path,
-                columns=[
-                    "file_name",
-                    "b_value",
-                    "direction",
-                    "dir_in_image_plane",
-                    "image_position",
-                    "nominal_interval",
-                    "series_description",
-                    "series_number",
-                ],
-                index=False,
-            )
-
-        # finally save the pixel values to HDF5
-        image_pixel_values = data["image"].to_numpy()
-        image_pixel_values = np.stack(image_pixel_values)
-        save_path = os.path.join(settings["dicom_folder"], "images.h5")
-        with h5py.File(save_path, "w") as hf:
-            hf.create_dataset("pixel_values", data=image_pixel_values, compression="gzip", compression_opts=1)
-
-        if settings["complex_data"]:
-            image_pixel_values_phase = data_phase["image"].to_numpy()
-            image_pixel_values_phase = np.stack(image_pixel_values_phase)
-            save_path = os.path.join(settings["dicom_folder_phase"], "images.h5")
-            with h5py.File(save_path, "w") as hf:
-                hf.create_dataset(
-                    "pixel_values", data=image_pixel_values_phase, compression="gzip", compression_opts=1
-                )
-
-        # if workflow is anon, we are going to archive the DICOMs
-        # in a 7z file with the password set in the .env file.
-        if settings["workflow_mode"] == "anon":
-            # =========================================================
-            # Archive DICOM files in a 7z file
-            # =========================================================
-            # create folder to store DICOMs
-            dicom_archive_folder = os.path.join(settings["dicom_folder"], "dicom_archive")
-            if not os.path.exists(dicom_archive_folder):
-                os.makedirs(dicom_archive_folder)
-
-            # move all DICOMs to the archive folder
-            def move_file(file):
-                file_path = os.path.join(settings["dicom_folder"], file)
-                shutil.move(file_path, os.path.join(dicom_archive_folder, file))
-
-            # get all dicom filenames
-            dicom_list = data["file_name"].tolist()
-            # remove any duplicates (happens with multiframe DICOMs)
-            dicom_list = list(dict.fromkeys(dicom_list))
-            [move_file(item) for item in dicom_list]
-
-            # load password from .env file
-            env_vars = dotenv_values(os.path.join(settings["code_path"], ".env"))
-
-            # now encrypt folder with 7zip
-            with py7zr.SevenZipFile(
-                os.path.join(settings["dicom_folder"], "dicom_archive.7z"), "w", password=env_vars["ARCHIVE_PASS"]
-            ) as archive:
-                archive.writeall(dicom_archive_folder, "dicom_archive")
-
-            # DELETE FOLDER WITH DICOMS!
-            shutil.rmtree(dicom_archive_folder)
-
-            if settings["complex_data"]:
-                # create folder to store DICOMs
-                dicom_archive_folder = os.path.join(settings["dicom_folder_phase"], "dicom_archive")
-                if not os.path.exists(dicom_archive_folder):
-                    os.makedirs(dicom_archive_folder)
-
-                # move all DICOMs to the archive folder
-                def move_file(file):
-                    file_path = os.path.join(settings["dicom_folder_phase"], file)
-                    shutil.move(file_path, os.path.join(dicom_archive_folder, file))
-
-                # get all dicom filenames
-                dicom_list = data_phase["file_name"].tolist()
-                # remove any duplicates (happens with multiframe DICOMs)
-                dicom_list = list(dict.fromkeys(dicom_list))
-                [move_file(item) for item in dicom_list]
-
-                # now encrypt folder with 7zip
-                with py7zr.SevenZipFile(
-                    os.path.join(settings["dicom_folder_phase"], "dicom_archive.7z"),
-                    "w",
-                    password=env_vars["ARCHIVE_PASS"],
-                ) as archive:
-                    archive.writeall(dicom_archive_folder, "dicom_archive")
-
-                # DELETE FOLDER WITH DICOMS!
-                shutil.rmtree(dicom_archive_folder)
+        data, data_phase, info = read_and_process_dicoms(info, list_dicoms, list_dicoms_phase, logger, settings)
 
     elif data_type == "nii":
         # read nii files
         logger.debug("Nii files found.")
-        data, info = get_data_nii_files(list_nii, settings, info, logger)
+        data, info = read_and_process_niis(list_nii, settings, info, logger)
 
     else:
+        # read pandas
         data_type = "pandas"
-
-        logger.debug("No DICOM or Nii files found. Reading diffusion database files previously created.")
-
-        # check if subfolders "mag" and "phase" exist
-        mag_folder = os.path.join(settings["dicom_folder"], "mag")
-        phase_folder = os.path.join(settings["dicom_folder"], "phase")
-        if os.path.exists(mag_folder) and os.path.exists(phase_folder):
-            settings["complex_data"] = True
-            settings["dicom_folder"] = mag_folder
-            settings["dicom_folder_phase"] = phase_folder
-
-            logger.debug("Magnitude and phase folders found.")
-            logger.debug("Complex averaging on.")
-
-        # =========================================================
-        # read the dataframe
-        # =========================================================
-        save_path = os.path.join(settings["dicom_folder"], "data.gz")
-        data = pd.read_pickle(save_path)
-        info = data.attrs["info"]
-
-        if settings["complex_data"]:
-            save_path = os.path.join(settings["dicom_folder_phase"], "data.gz")
-            data_phase = pd.read_pickle(save_path)
-
-        # =========================================================
-        # read the pixel arrays from the h5 file and add them to the dataframe
-        # =========================================================
-        save_path = os.path.join(settings["dicom_folder"], "images.h5")
-        with h5py.File(save_path, "r") as hf:
-            pixel_values = hf["pixel_values"][:]
-        assert (
-            len(pixel_values) == data.shape[0]
-        ), "Number of pixel slices does not match the number of entries in the dataframe."
-        data["image"] = pd.Series([x for x in pixel_values])
-
-        if settings["complex_data"]:
-            save_path = os.path.join(settings["dicom_folder_phase"], "images.h5")
-            with h5py.File(save_path, "r") as hf:
-                pixel_values_phase = hf["pixel_values"][:]
-            assert (
-                len(pixel_values_phase) == data_phase.shape[0]
-            ), "Number of pixel slices does not match the number of entries in the dataframe."
-            data_phase["image"] = pd.Series([x for x in pixel_values_phase])
+        data, data_phase, info = read_and_process_pandas(info, logger, settings)
 
     # now that we loaded the images and headers we need to organise it as
-    # we cannot assume that the dicom files are in any particular order
+    # we cannot assume that the files are in any particular order
     # sort the dataframe by date and time, this is needed in case we need to adjust
     # the b-values by the DICOM timings
     data = sort_by_date_time(data)
@@ -1920,3 +1694,274 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
         plot_b_values_adjustment(data, settings)
 
     return data, info, slices
+
+
+def read_and_process_pandas(info: dict, logger: logging, settings: dict) -> [pd.DataFrame, pd.DataFrame, dict]:
+    """
+    Read pandas dataframe
+
+    Parameters
+    ----------
+    info
+    logger
+    settings
+
+    Returns
+    -------
+
+    """
+    logger.debug("No DICOM or Nii files found. Reading diffusion database files previously created.")
+    # check if subfolders "mag" and "phase" exist
+    mag_folder = os.path.join(settings["dicom_folder"], "mag")
+    phase_folder = os.path.join(settings["dicom_folder"], "phase")
+    if os.path.exists(mag_folder) and os.path.exists(phase_folder):
+        settings["complex_data"] = True
+        settings["dicom_folder"] = mag_folder
+        settings["dicom_folder_phase"] = phase_folder
+
+        logger.debug("Magnitude and phase folders found.")
+        logger.debug("Complex averaging on.")
+    # =========================================================
+    # read the dataframe
+    # =========================================================
+    save_path = os.path.join(settings["dicom_folder"], "data.gz")
+    data = pd.read_pickle(save_path)
+    info = data.attrs["info"]
+    if settings["complex_data"]:
+        save_path = os.path.join(settings["dicom_folder_phase"], "data.gz")
+        data_phase = pd.read_pickle(save_path)
+    # =========================================================
+    # read the pixel arrays from the h5 file and add them to the dataframe
+    # =========================================================
+    save_path = os.path.join(settings["dicom_folder"], "images.h5")
+    with h5py.File(save_path, "r") as hf:
+        pixel_values = hf["pixel_values"][:]
+    assert (
+        len(pixel_values) == data.shape[0]
+    ), "Number of pixel slices does not match the number of entries in the dataframe."
+    data["image"] = pd.Series([x for x in pixel_values])
+    if settings["complex_data"]:
+        save_path = os.path.join(settings["dicom_folder_phase"], "images.h5")
+        with h5py.File(save_path, "r") as hf:
+            pixel_values_phase = hf["pixel_values"][:]
+        assert (
+            len(pixel_values_phase) == data_phase.shape[0]
+        ), "Number of pixel slices does not match the number of entries in the dataframe."
+        data_phase["image"] = pd.Series([x for x in pixel_values_phase])
+    return data, data_phase, info
+
+
+def read_and_process_dicoms(
+    info: dict, list_dicoms: list, list_dicoms_phase: list, logger: logging, settings: dict
+) -> [pd.DataFrame, pd.DataFrame, dict]:
+    """
+    Read DICOM files into pandas
+    Export the dataframe to a zip file
+    Export diffusion info to css
+    Export pixel values to HDF5
+    Potentially archive DICOMs
+
+    Parameters
+    ----------
+    info
+    list_dicoms
+    list_dicoms_phase
+    logger
+    settings
+
+    Returns
+    -------
+
+    """
+
+    # create empty dataframe
+    data_phase = pd.DataFrame()
+
+    # read DICOM info
+    data, info = get_data_old_or_modern_dicoms(list_dicoms, settings, info, logger, image_type="mag")
+    if settings["complex_data"]:
+        data_phase, info = get_data_old_or_modern_dicoms(list_dicoms_phase, settings, info, logger, image_type="phase")
+
+        # check if the magnitude and phase tables match
+        data_sort = sort_by_date_time(data)
+        data_phase_sort = sort_by_date_time(data_phase)
+        if not data_sort.drop(columns=["file_name", "image", "series_number", "header"]).equals(
+            data_phase_sort.drop(columns=["file_name", "image", "series_number", "header"])
+        ):
+            logger.error("Magnitude and phase DICOM tables do not match!")
+            sys.exit()
+        del data_phase_sort
+        del data_sort
+
+    # =========================================================
+    # export the dataframe to a zip file
+    # =========================================================
+    # save the dataframe and the info dict
+    data.attrs["info"] = info
+    save_path = os.path.join(settings["dicom_folder"], "data.gz")
+    data_without_imgs = data.drop(columns=["image"])
+    data_without_imgs.to_pickle(save_path, compression={"method": "gzip", "compresslevel": 1, "mtime": 1})
+    if settings["complex_data"]:
+        data_phase.attrs["info"] = info
+        save_path = os.path.join(settings["dicom_folder_phase"], "data.gz")
+        data_without_imgs_phase = data_phase.drop(columns=["image"])
+        data_without_imgs_phase.to_pickle(save_path, compression={"method": "gzip", "compresslevel": 1, "mtime": 1})
+
+    # also save some diffusion info to a csv file
+    save_path = os.path.join(settings["dicom_folder"], "diff_info_dataframe_h5.csv")
+    data.to_csv(
+        save_path,
+        columns=[
+            "file_name",
+            "b_value",
+            "direction",
+            "dir_in_image_plane",
+            "image_position",
+            "nominal_interval",
+            "series_description",
+            "series_number",
+        ],
+        index=False,
+    )
+    if settings["complex_data"]:
+        save_path = os.path.join(settings["dicom_folder_phase"], "diff_info_dataframe_h5.csv")
+        data_phase.to_csv(
+            save_path,
+            columns=[
+                "file_name",
+                "b_value",
+                "direction",
+                "dir_in_image_plane",
+                "image_position",
+                "nominal_interval",
+                "series_description",
+                "series_number",
+            ],
+            index=False,
+        )
+
+    # finally save the pixel values to HDF5
+    image_pixel_values = data["image"].to_numpy()
+    image_pixel_values = np.stack(image_pixel_values)
+    save_path = os.path.join(settings["dicom_folder"], "images.h5")
+    with h5py.File(save_path, "w") as hf:
+        hf.create_dataset("pixel_values", data=image_pixel_values, compression="gzip", compression_opts=1)
+    if settings["complex_data"]:
+        image_pixel_values_phase = data_phase["image"].to_numpy()
+        image_pixel_values_phase = np.stack(image_pixel_values_phase)
+        save_path = os.path.join(settings["dicom_folder_phase"], "images.h5")
+        with h5py.File(save_path, "w") as hf:
+            hf.create_dataset("pixel_values", data=image_pixel_values_phase, compression="gzip", compression_opts=1)
+
+    # if workflow is anon, we are going to archive the DICOMs
+    # in a 7z file with the password set in the .env file.
+    if settings["workflow_mode"] == "anon":
+        # =========================================================
+        # Archive DICOM files in a 7z file
+        # =========================================================
+        # create folder to store DICOMs
+        dicom_archive_folder = os.path.join(settings["dicom_folder"], "dicom_archive")
+        if not os.path.exists(dicom_archive_folder):
+            os.makedirs(dicom_archive_folder)
+
+        # move all DICOMs to the archive folder
+        def move_file(file):
+            file_path = os.path.join(settings["dicom_folder"], file)
+            shutil.move(file_path, os.path.join(dicom_archive_folder, file))
+
+        # get all dicom filenames
+        dicom_list = data["file_name"].tolist()
+        # remove any duplicates (happens with multiframe DICOMs)
+        dicom_list = list(dict.fromkeys(dicom_list))
+        [move_file(item) for item in dicom_list]
+
+        # load password from .env file
+        env_vars = dotenv_values(os.path.join(settings["code_path"], ".env"))
+
+        # now encrypt folder with 7zip
+        with py7zr.SevenZipFile(
+            os.path.join(settings["dicom_folder"], "dicom_archive.7z"), "w", password=env_vars["ARCHIVE_PASS"]
+        ) as archive:
+            archive.writeall(dicom_archive_folder, "dicom_archive")
+
+        # DELETE FOLDER WITH DICOMS!
+        shutil.rmtree(dicom_archive_folder)
+
+        if settings["complex_data"]:
+            # create folder to store DICOMs
+            dicom_archive_folder = os.path.join(settings["dicom_folder_phase"], "dicom_archive")
+            if not os.path.exists(dicom_archive_folder):
+                os.makedirs(dicom_archive_folder)
+
+            # move all DICOMs to the archive folder
+            def move_file(file):
+                file_path = os.path.join(settings["dicom_folder_phase"], file)
+                shutil.move(file_path, os.path.join(dicom_archive_folder, file))
+
+            # get all dicom filenames
+            dicom_list = data_phase["file_name"].tolist()
+            # remove any duplicates (happens with multiframe DICOMs)
+            dicom_list = list(dict.fromkeys(dicom_list))
+            [move_file(item) for item in dicom_list]
+
+            # now encrypt folder with 7zip
+            with py7zr.SevenZipFile(
+                os.path.join(settings["dicom_folder_phase"], "dicom_archive.7z"),
+                "w",
+                password=env_vars["ARCHIVE_PASS"],
+            ) as archive:
+                archive.writeall(dicom_archive_folder, "dicom_archive")
+
+            # DELETE FOLDER WITH DICOMS!
+            shutil.rmtree(dicom_archive_folder)
+
+    return data, data_phase, info
+
+
+def list_files(data_type, logger, settings):
+    list_dicoms = []
+    list_dicoms_phase = []
+    list_nii = []
+
+    # Check for DICOM files
+    included_extensions = ["dcm", "DCM", "IMA"]
+    list_dicoms = [
+        fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
+    ]
+    if len(list_dicoms) > 0:
+        data_type = "dicom"
+        logger.debug("DICOM files found.")
+        list_dicoms.sort()
+
+    else:
+        # check if subfolders "mag" and "phase" exist
+        # if so read all dicom files in those folders
+        mag_folder = os.path.join(settings["dicom_folder"], "mag")
+        phase_folder = os.path.join(settings["dicom_folder"], "phase")
+        if os.path.exists(mag_folder) and os.path.exists(phase_folder):
+            list_dicoms = [fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)]
+            list_dicoms_phase = [
+                fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
+            ]
+            if len(list_dicoms) > 0 and len(list_dicoms_phase) > 0:
+                data_type = "dicom"
+                settings["complex_data"] = True
+                settings["dicom_folder"] = mag_folder
+                settings["dicom_folder_phase"] = phase_folder
+                # check if both folders have the same number of files
+                if len(list_dicoms) != len(list_dicoms_phase):
+                    logger.error("Number of DICOM files in mag and phase folders are different.")
+                    sys.exit(1)
+                logger.debug("Magnitude and phase DICOM files found.")
+                logger.debug("Complex averaging on.")
+                list_dicoms.sort()
+                list_dicoms_phase.sort()
+    if not data_type:
+        # If no DICOMS, check for nii files
+        included_extensions = ["nii", "nii.gz"]
+        list_nii = [
+            fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
+        ]
+        if len(list_nii) > 0:
+            data_type = "nii"
+    return data_type, list_dicoms, list_dicoms_phase, list_nii
