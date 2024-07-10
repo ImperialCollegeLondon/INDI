@@ -74,7 +74,7 @@ def complex_averaging(data: pd.DataFrame, logger: logging.Logger) -> pd.DataFram
         ],
     )
 
-    # add a column marking all images not to be removed
+    # add a column marking all images as good
     data_complex_averaged["to_be_removed"] = False
 
     return data_complex_averaged

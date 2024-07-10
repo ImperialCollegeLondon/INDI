@@ -1923,9 +1923,13 @@ def remove_slices(data: pd.DataFrame, slices, segmentation, logger):
 
     """
 
-    # remove all entries marked to be removed
-    data = data[data.to_be_removed == False]
-    data = data.reset_index(drop=True)
+    # remove slices that are marked as to be removed for all entries
+    for slice_idx in slices:
+        c_data = data[data.slice_integer == slice_idx]
+        # check if to_be_removed column are all true
+        if c_data.to_be_removed.all():
+            # if so, then remove all rows for this column
+            data = data[data.slice_integer != slice_idx]
 
     original_n_slices = len(slices)
 
@@ -1943,3 +1947,27 @@ def remove_slices(data: pd.DataFrame, slices, segmentation, logger):
         logger.info(f"Number of slices reduced from {original_n_slices} to {n_slices}")
 
     return data, slices, segmentation
+
+
+def remove_outliers(data: pd.DataFrame, info: dict) -> [pd.DataFrame, dict]:
+    """
+    Remove outliers from the dataframe
+    they will be marked as True in the to_be_removed column
+
+    Parameters
+    ----------
+    data
+    info
+
+    Returns
+    -------
+    data
+    info
+
+    """
+    # remove the rejected images from the dataframe
+    data = data.loc[data["to_be_removed"] == False]
+    data.reset_index(drop=True, inplace=True)
+    info["n_images"] = len(data)
+
+    return data, info
