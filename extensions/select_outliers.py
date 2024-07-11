@@ -439,7 +439,7 @@ def select_outliers(
                     slices,
                     "dwis_accepted_phase",
                     settings["debug_folder"],
-                    [],
+                    info["rejected_indices"],
                     segmentation,
                     False,
                     "image_phase",

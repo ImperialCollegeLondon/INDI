@@ -1909,8 +1909,11 @@ def image_histogram_equalization(image: NDArray, number_bins: int = 256):
     return image_equalized.reshape(image.shape)
 
 
-def remove_slices(data: pd.DataFrame, slices, segmentation, logger):
+def remove_slices(
+    data: pd.DataFrame, slices: NDArray, segmentation: dict, logger: logging
+) -> [pd.DataFrame, NDArray, dict]:
     """
+    Remove slices that are marked as to be removed for all entries
 
     Parameters
     ----------
@@ -1920,10 +1923,10 @@ def remove_slices(data: pd.DataFrame, slices, segmentation, logger):
 
     Returns
     -------
+    data, slices, segmentation
 
     """
 
-    # remove slices that are marked as to be removed for all entries
     for slice_idx in slices:
         c_data = data[data.slice_integer == slice_idx]
         # check if to_be_removed column are all true
