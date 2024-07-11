@@ -8,12 +8,13 @@ flowchart LR
     B("`image registration:
     - quick rigid
     - non-rigid (elastix)`")
-    C("`data curation
+    C("`outlier removal I
     (optional)`")
     D(LV segmentation)
     E(cropping data)
-    F(data curation)
-    G("`tensor fitting:
+    F("`outlier removal II
+    (optional)`")
+    G("`tensor fitting (DiPy):
     - linear
     - non-linear
     - RESTORE`")
