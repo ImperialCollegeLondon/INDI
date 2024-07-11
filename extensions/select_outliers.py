@@ -105,11 +105,8 @@ def manual_image_removal(
 
     # now we need to collect all the index positions of the rejected frames
     stored_indices_all_slices = []
-    stored_indices_per_slice = {}
     # loop over the slices
     for slice_idx in slices:
-        stored_indices_per_slice[slice_idx] = []
-
         # dataframe with current slice
         c_df = data.loc[data["slice_integer"] == slice_idx].copy()
         c_df = c_df.reset_index()
@@ -290,20 +287,14 @@ def manual_image_removal(
 
             # store the index of the rejected image
             stored_indices_all_slices.append(c_table[(c_table["file_name"] == c_filename)]["index"].iloc[0])
-            stored_indices_per_slice[slice_idx].append(c_table[(c_table["file_name"] == c_filename)]["index"].index[0])
-
-    # store indices in descending order
-    stored_indices_all_slices.sort(reverse=True)
-    for slice_idx in slices:
-        stored_indices_per_slice[slice_idx].sort(reverse=True)
 
     # the indices of the rejected frames
     rejected_indices = stored_indices_all_slices
 
-    return rejected_indices, stored_indices_per_slice
+    return rejected_indices
 
 
-def remove_outliers(
+def select_outliers(
     data: pd.DataFrame,
     slices: NDArray,
     registration_image_data: dict,
@@ -365,17 +356,15 @@ def remove_outliers(
                     data.loc[idx, "to_be_removed"] = True
                 # add attributes stored in data_to_load to data
                 data.attrs["rejected_images"] = data_to_load.attrs["rejected_images"]
-                data.attrs["rejected_images_per_slice"] = data_to_load.attrs["rejected_images_per_slice"]
 
             rejected_indices = data.attrs["rejected_images"]
-            stored_indices_per_slice = data.attrs["rejected_images_per_slice"]
             info["n_images_rejected"] += len(rejected_indices)
             info["rejected_indices"].extend(rejected_indices)
 
         else:
             # Manual image removal
             # logger.info("Starting manual image removal...")
-            rejected_indices, stored_indices_per_slice = manual_image_removal(
+            rejected_indices = manual_image_removal(
                 data,
                 slices,
                 segmentation,
@@ -390,7 +379,6 @@ def remove_outliers(
             for idx in rejected_indices:
                 data.loc[idx, "to_be_removed"] = True
             data.attrs["rejected_images"] = rejected_indices
-            data.attrs["rejected_images_per_slice"] = stored_indices_per_slice
             # save a table with the acquisition_date_time and to_be_removed columns
             data_to_be_saved = data[["acquisition_date_time", "to_be_removed"]]
             data_to_be_saved.to_pickle(session_file, compression={"method": "zip", "compresslevel": 9})
@@ -403,25 +391,27 @@ def remove_outliers(
         # simplify this list to be able to save it in the yaml file
         info["rejected_indices"] = [int(i) for i in info["rejected_indices"]]
 
-        # remove the rejected images from the dataframe and also from the registration_image_data
-        data = data.loc[data["to_be_removed"] == False]
-        data.reset_index(drop=True, inplace=True)
-        info["n_images"] = len(data)
+        if stage == "post":
+            # remove the rejected images from the registration_image_data
+            for slice_idx in slices:
+                c_indices = data[data.slice_integer == slice_idx].index.values
+                all_rejected_indices = info["rejected_indices"]
+                all_rejected_indices.sort(reverse=True)
 
-        # remove the rejected images from the registration_image_data
-        for slice_idx in slices:
-            for idx in stored_indices_per_slice[slice_idx]:
+                to_remove_idxs = c_indices[np.isin(c_indices, all_rejected_indices)]
+                to_remove_idxs = [np.where(c_indices == x)[0][0] for x in to_remove_idxs]
+
                 registration_image_data[slice_idx]["img_post_reg"] = np.delete(
-                    registration_image_data[slice_idx]["img_post_reg"], idx, axis=0
+                    registration_image_data[slice_idx]["img_post_reg"], to_remove_idxs, axis=0
                 )
                 registration_image_data[slice_idx]["img_pre_reg"] = np.delete(
-                    registration_image_data[slice_idx]["img_pre_reg"], idx, axis=0
+                    registration_image_data[slice_idx]["img_pre_reg"], to_remove_idxs, axis=0
                 )
                 registration_image_data[slice_idx]["deformation_field"]["field"] = np.delete(
-                    registration_image_data[slice_idx]["deformation_field"]["field"], idx, axis=0
+                    registration_image_data[slice_idx]["deformation_field"]["field"], to_remove_idxs, axis=0
                 )
                 registration_image_data[slice_idx]["deformation_field"]["grid"] = np.delete(
-                    registration_image_data[slice_idx]["deformation_field"]["grid"], idx, axis=0
+                    registration_image_data[slice_idx]["deformation_field"]["grid"], to_remove_idxs, axis=0
                 )
 
         if stage == "post":
@@ -435,7 +425,7 @@ def remove_outliers(
                 slices,
                 "dwis_accepted",
                 os.path.join(settings["results"], "results_b"),
-                [],  # info["rejected_indices"],
+                info["rejected_indices"],
                 segmentation,
                 False,
             )
@@ -449,7 +439,7 @@ def remove_outliers(
                     slices,
                     "dwis_accepted_phase",
                     settings["debug_folder"],
-                    [],
+                    info["rejected_indices"],
                     segmentation,
                     False,
                     "image_phase",

@@ -51,8 +51,6 @@ def crop_images(
     crop_mask: logical mask with the crop.
     """
 
-    n_entries, _ = data.shape
-
     global_crop_mask = sum(mask_3c[i] for i in range(mask_3c.shape[0]))
     crop_mask = global_crop_mask != 0
 
@@ -101,18 +99,37 @@ def crop_images(
     temp_val = list(first_corner)
     info["crop_corner"] = [int(i) for i in temp_val]
 
-    # crop the diffusion images
-    for i in range(n_entries):
-        c_slice_position = data.loc[i, "slice_integer"]
-        background_mask = np.copy(mask_3c[c_slice_position])
+    # crop the diffusion images from the table
+    for slice_idx in slices:
+        c_data = data[data.slice_integer == slice_idx].copy()
+        background_mask = np.copy(mask_3c[slice_idx])
         background_mask[background_mask > 0] = 1
-        data.at[i, "image"] = data.loc[i, "image"][np.ix_(crop_mask.any(1), crop_mask.any(0))]
+
+        # crop the diffusion images
+        array_stack = np.stack(c_data["image"].values)
+        array_stack = array_stack[np.ix_(np.repeat(True, array_stack.shape[0]), crop_mask.any(1), crop_mask.any(0))]
+        # create a new dataframe with the cropped images, matching column name and index
+        df = pd.DataFrame.from_records(array_stack[:, None])
+        df.index = c_data.index
+        df.columns = ["image"]
+        # update the data table with the cropped images for the correct indices
+        data.update(df)
+
         if settings["complex_data"]:
-            data.at[i, "image_phase"] = data.loc[i, "image_phase"][np.ix_(crop_mask.any(1), crop_mask.any(0))]
+            array_stack_phase = np.stack(c_data["image_phase"].values)
+            array_stack_phase = array_stack_phase[
+                np.ix_(np.repeat(True, array_stack.shape[0]), crop_mask.any(1), crop_mask.any(0))
+            ]
+            # create a new dataframe with the cropped images, matching column name and index
+            df = pd.DataFrame.from_records(array_stack_phase[:, None])
+            df.index = c_data.index
+            df.columns = ["image_phase"]
+            # update the data table with the cropped images for the correct indices
+            data.update(df)
 
     # update image size
     info["original_img_size"] = info["img_size"]
-    info["img_size"] = data.loc[0, "image"].shape
+    info["img_size"] = data["image"].iloc[0].shape
     logger.debug("Image size updated to: " + str(info["img_size"]))
 
     # record the crop positions in the info dictionary
