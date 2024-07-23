@@ -8,6 +8,8 @@ from numpy import ndarray
 from numpy.typing import NDArray
 from scipy import stats
 
+# import time
+
 
 def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, prefix: str = ""):
     """
@@ -262,6 +264,7 @@ def dipy_tensor_fit(
         image_data = np.stack(current_entries["image"])
         image_data = image_data[..., np.newaxis]
         image_data = image_data.transpose(1, 2, 3, 0)
+        # t0 = time.time()
         if not quick_mode:
             sigma = ne.estimate_sigma(image_data)
             info["tensor fitting sigma"][str(slice_idx).zfill(2)] = (
@@ -282,6 +285,10 @@ def dipy_tensor_fit(
         tenfit = tenmodel.fit(image_data)
         tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
         s0[..., slice_idx] = np.squeeze(tenfit.S0_hat)
+
+        # t1 = time.time()
+        # total = t1 - t0
+        # logger.info(f"Slice {slice_idx}: Time for tensor fitting: {total = :.3f} seconds")
 
         if not quick_mode:
             if method != "RESTORE":

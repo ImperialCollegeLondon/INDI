@@ -10,17 +10,19 @@ flowchart LR
     - non-rigid (elastix)`")
     C("`outlier removal I
     (optional)`")
-    D(LV segmentation)
-    E(cropping data)
-    F("`outlier removal II
+    D("`initial tensor fitting
+    (quick LLS)`")
+    E(LV segmentation)
+    F(cropping data)
+    G("`outlier removal II
     (optional)`")
-    G("`tensor fitting (DiPy):
+    H("`final tensor fitting (DiPy):
     - linear
     - non-linear
     - RESTORE`")
-    H("`DTI parameters:
+    I("`DTI parameters:
     FA, MD, HA, E2A, TA`")
-    I("`export results:
+    J("`export results:
     - csv
     - vtk
     - python dictionaries
@@ -34,6 +36,7 @@ flowchart LR
     F --> G
     G --> H
     H --> I
+    I --> J
 ```
 
 **Diagram summarising the workflow.**
