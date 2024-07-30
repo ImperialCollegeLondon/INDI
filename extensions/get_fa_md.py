@@ -28,21 +28,22 @@ def get_fa_md(eigv: NDArray, info, mask_3c, slices, logger) -> [NDArray, NDArray
     # get mean and std of dti["md"] and dti["fa"] in the myocardium
     var_names = ["MD", "FA"]
     for var in var_names:
-        info["DTI_" + var] = {}
         for slice_idx in slices:
             vals = eval(var.lower())[slice_idx][mask_3c[slice_idx] == 1]
             if var == "MD":
                 vals = 1e3 * vals
-            info["DTI_" + var][str(slice_idx).zfill(2)] = (
-                "%.2f" % np.nanmean(vals) + " +/- " + "%.2f" % np.nanstd(vals)
-            )
             logger.debug(
-                "Mean "
+                "Median "
                 + var
                 + " for slice "
                 + str(slice_idx).zfill(2)
                 + ": "
-                + str("%.2f" % np.nanmean(vals) + " +/- " + "%.2f" % np.nanstd(vals))
+                + "%.2f" % np.nanmedian(vals)
+                + " ["
+                + "%.2f" % np.nanpercentile(vals, 25)
+                + ", "
+                + "%.2f" % np.nanpercentile(vals, 75)
+                + "]"
             )
 
     return md, fa, info

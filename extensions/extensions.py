@@ -558,7 +558,7 @@ def get_colourmaps(script_path: str) -> dict:
     return colormaps
 
 
-def fix_angle_wrap(lp: NDArray) -> NDArray:
+def fix_angle_wrap(lp: NDArray, angle_jump=90) -> NDArray:
     """
     Remove points and all subsequent points where the line profile differs from 90 deg
     or more from the previous point.
@@ -569,27 +569,40 @@ def fix_angle_wrap(lp: NDArray) -> NDArray:
     Parameters
     ----------
     lp: line profile before fix
+    angle_jump: angle jump threshold
 
     Returns
     -------
     line profile after fix
 
     """
-    # divide the line profile in two, with the meso mid point as the start
-    meso_point = int(len(lp) * 0.5)
-    half_lp = {}
-    half_lp["meso_endo"] = np.flip(lp[0:meso_point].copy())
-    half_lp["meso_epi"] = lp[meso_point:].copy()
-    # remove all points after diff > 90
-    for key in half_lp:
-        diff = np.abs(np.diff(half_lp[key]))
-        pos = diff > 90
-        if pos.any():
-            pos = np.argmax(diff > 90)
-            half_lp[key][pos + 1 :] = np.nan
+    # # OLD_METHOD
+    # # divide the line profile in two, with the meso mid point as the start
+    # meso_point = int(len(lp) * 0.5)
+    # half_lp = {}
+    # half_lp["meso_endo"] = np.flip(lp[0:meso_point].copy())
+    # half_lp["meso_epi"] = lp[meso_point:].copy()
+    # # remove all points after diff > 90
+    # for key in half_lp:
+    #     diff = np.abs(np.diff(half_lp[key]))
+    #     pos = diff > angle_jump
+    #     if pos.any():
+    #         pos = np.argmax(diff > angle_jump)
+    #         half_lp[key][pos + 1 :] = np.nan
+    #
+    # # put entire line profile back together
+    # lp_new = np.concatenate((np.flip(half_lp["meso_endo"]), half_lp["meso_epi"]))
 
-    # put entire line profile back together
-    lp_new = np.concatenate((np.flip(half_lp["meso_endo"]), half_lp["meso_epi"]))
+    # NEW METHOD
+    diff = np.diff(lp)
+    pos = diff > angle_jump
+    if pos.any():
+        pos = np.argmax(diff > angle_jump)
+        lp_new = np.copy(lp)
+        lp_new[pos + 1 :] = np.nan
+    else:
+        lp_new = np.copy(lp)
+
     return lp_new
 
 
@@ -662,7 +675,7 @@ def get_ha_line_profiles(
             # remove background points
             lp = lp[~np.isnan(lp)]
             # fix angle wrap
-            lp_wrap_fix = fix_angle_wrap(lp)
+            lp_wrap_fix = fix_angle_wrap(lp, 45)
             # get wall thickness in mm (Assuming square pixels with pixe spacing the same in x and y!)
             wt.append(len(lp) * info["pixel_spacing"][0])
             # interpolate line profile valid points to interp_len
@@ -847,13 +860,15 @@ def get_snr_maps(
                 if round(row["b_value_original"]) == 0:
                     snr_values = snr[slice_idx][key_string]
                     snr_b0_lv[slice_idx] = {}
-                    snr_b0_lv[slice_idx]["mean"] = np.nanmean(snr_values[mask_3c[slice_idx] == 1])
-                    snr_b0_lv[slice_idx]["std"] = np.nanstd(snr_values[mask_3c[slice_idx] == 1])
+                    snr_b0_lv[slice_idx]["median"] = np.nanmedian(snr_values[mask_3c[slice_idx] == 1])
+                    snr_b0_lv[slice_idx]["iqr"] = [
+                        np.nanpercentile(snr_values[mask_3c[slice_idx] == 1], 25),
+                        np.nanpercentile(snr_values[mask_3c[slice_idx] == 1], 75),
+                    ]
 
     # we can only store these values if we have b0 data
     if bool(snr_b0_lv):
         # add to logger mean SNR for each slice for b0
-        mean_snr_b0 = []
         info["LV SNR b0"] = {}
         for slice_idx in slices:
             if slice_idx in snr_b0_lv:
@@ -861,14 +876,13 @@ def get_snr_maps(
                     "LV SNR for slice "
                     + str(slice_idx).zfill(2)
                     + " b0 images = "
-                    + "%.2f" % snr_b0_lv[slice_idx]["mean"]
-                    + " +/- "
-                    + "%.2f" % snr_b0_lv[slice_idx]["std"]
+                    + "%.2f" % snr_b0_lv[slice_idx]["median"]
+                    + " ["
+                    + "%.2f" % snr_b0_lv[slice_idx]["iqr"][0]
+                    + ", "
+                    + "%.2f" % snr_b0_lv[slice_idx]["iqr"][1]
+                    + "]"
                 )
-                info["LV SNR b0"][str(slice_idx).zfill(2)] = (
-                    "%.2f" % snr_b0_lv[slice_idx]["mean"] + " +/- " + "%.2f" % snr_b0_lv[slice_idx]["std"]
-                )
-                mean_snr_b0.append(snr_b0_lv[slice_idx])
             else:
                 logger.debug(
                     "LV SNR for slice " + str(slice_idx).zfill(2) + " b0 images = " + "Not enough repetitions."
@@ -1676,6 +1690,8 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
     str_list = ["FA", "MD", "HA", "E2A", "TA", "|E2A|", "|TA|"]
     # global values
     table_global = []
+    table_global.append(["Global", np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+    table_global.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
     for idx, var in enumerate(var_list):
         table_global.append(
             [
@@ -1689,15 +1705,48 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
                 np.nanmax(dti[var]),
             ]
         )
+
+    # also calculate global values for SNR
+    # gather all keys found in all slices
+    keys = []
+    for slice_idx in slices:
+        keys.extend(dti["snr"][slice_idx].keys())
+    keys = list(set(keys))
+    # sort keys
+    keys.sort()
+    # loop over each key and collect all values from all slices
+    for key in keys:
+        values = []
+        for slice_idx in slices:
+            if key in dti["snr"][slice_idx]:
+                c_vals = dti["snr"][slice_idx][key]
+                c_vals = c_vals[~np.isnan(c_vals)]
+                c_vals = c_vals[np.isfinite(c_vals)]
+                values.extend(c_vals)
+        table_global.append(
+            [
+                "SNR_" + key,
+                np.nanmean(values),
+                np.nanstd(values),
+                np.nanmedian(values),
+                np.nanquantile(values, 0.25),
+                np.nanquantile(values, 0.75),
+                np.nanmin(values),
+                np.nanmax(values),
+            ]
+        )
+
     if len(slices) > 1:
         # per slice values
         table_per_slice = []
+        table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        table_per_slice.append(["Per slice", np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
         for idx, var in enumerate(var_list):
             table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
             for slice_idx in slices:
                 table_per_slice.append(
                     [
-                        str_list[idx] + "_" + str(slice_idx).zfill(2),
+                        str_list[idx] + "_slice_" + str(slice_idx).zfill(2),
                         np.nanmean(dti[var][slice_idx]),
                         np.nanstd(dti[var][slice_idx]),
                         np.nanmedian(dti[var][slice_idx]),
@@ -1707,8 +1756,29 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
                         np.nanmax(dti[var][slice_idx]),
                     ]
                 )
+        # do the same for SNR
+        table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        for slice_idx in slices:
+            for key in dti["snr"][slice_idx]:
+                c_vals = dti["snr"][slice_idx][key]
+                c_vals = c_vals[~np.isnan(c_vals)]
+                c_vals = c_vals[np.isfinite(c_vals)]
+                table_per_slice.append(
+                    [
+                        "SNR_" + key + "_slice_" + str(slice_idx).zfill(2),
+                        np.nanmean(c_vals),
+                        np.nanstd(c_vals),
+                        np.nanmedian(c_vals),
+                        np.nanquantile(c_vals, 0.25),
+                        np.nanquantile(c_vals, 0.75),
+                        np.nanmin(c_vals),
+                        np.nanmax(c_vals),
+                    ]
+                )
+
         # add to the global table
         table_global.extend(table_per_slice)
+
     # convert table to dataframe
     table_global = pd.DataFrame(
         table_global,

@@ -187,26 +187,13 @@ def get_tensor_orientation_maps(
 
     var_names = ["HA"]
     for var in var_names:
-        info["DTI_" + var] = {}
         for slice_idx in slices:
             vals = eval(var.lower())[slice_idx][mask_3c[slice_idx] == 1]
-            info["DTI_" + var][str(slice_idx).zfill(2)] = (
-                "%.2f" % np.nanmean(vals) + " +/- " + "%.2f" % np.nanstd(vals)
-            )
 
     var_names = ["E2A"]
     for var in var_names:
-        info["DTI_" + var] = {}
         for slice_idx in slices:
             vals = np.abs(eval(var.lower())[slice_idx][mask_3c[slice_idx] == 1])
-            info["DTI_" + var][str(slice_idx).zfill(2)] = (
-                "%.2f" % np.nanmedian(vals)
-                + " [ "
-                + "%.2f" % np.nanquantile(vals, 0.25)
-                + " "
-                + "%.2f" % np.nanquantile(vals, 0.75)
-                + " ]"
-            )
             logger.debug(
                 "Median "
                 + var
@@ -214,11 +201,11 @@ def get_tensor_orientation_maps(
                 + str(slice_idx).zfill(2)
                 + ": "
                 + "%.2f" % np.nanmedian(vals)
-                + " [ "
+                + " ["
                 + "%.2f" % np.nanquantile(vals, 0.25)
-                + " "
+                + ", "
                 + "%.2f" % np.nanquantile(vals, 0.75)
-                + " ]"
+                + "]"
             )
 
     return ha, ta, e2a, info
