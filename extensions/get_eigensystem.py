@@ -213,7 +213,7 @@ def get_eigensystem(
     settings: dict,
     mask_3c: NDArray,
     logger: logging.Logger,
-) -> [dict, dict]:
+) -> tuple[dict, dict]:
     """
 
     Calculate eigenvalues and eigenvectors of the DTI tensor

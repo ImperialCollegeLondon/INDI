@@ -19,7 +19,7 @@ def remove_outliers_ai(
     slices: NDArray,
     logger: logging.Logger,
     threshold: float = 0.3,
-) -> [pd.DataFrame, NDArray]:
+) -> tuple[pd.DataFrame, NDArray]:
     """Remove the bad frames from the dataframe using the AI classifier
 
     Parameters
@@ -72,7 +72,7 @@ def manual_image_removal(
     settings: dict,
     stage: str,
     info: dict,
-) -> [pd.DataFrame, pd.DataFrame, dict, NDArray]:
+) -> tuple[pd.DataFrame, pd.DataFrame, dict, NDArray]:
     """
     Manual removal of images. A matplotlib window will open, and we can select images to be removed.
 
@@ -303,7 +303,7 @@ def select_outliers(
     stage: str,
     segmentation: dict = {},
     mask: NDArray = np.array([]),
-) -> [pd.DataFrame, dict, NDArray]:
+) -> tuple[pd.DataFrame, dict, NDArray]:
     """
     Remove Outliers: remove outliers, and display all DWIs in a montage
 

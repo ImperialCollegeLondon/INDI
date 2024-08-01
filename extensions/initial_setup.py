@@ -66,7 +66,7 @@ def solve_conflicts(settings: dict, logger: logging.Logger) -> dict:
     return settings
 
 
-def initial_setup(script_path: str) -> [dict, dict, dict, logging, logging, list]:
+def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, logging.Formatter, list]:
     """
     initial setup for the pipeline
 

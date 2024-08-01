@@ -769,7 +769,7 @@ def get_nii_timings(
     n_images_per_file: int,
     n_slices_per_file: int,
     col_string: str,
-) -> int or str:
+) -> int | str:
     """
     Get the nominal interval or the acquisition time or date of the current image
 
@@ -1020,7 +1020,7 @@ def read_and_process_niis(
     return df, info
 
 
-def estimate_rr_interval(data: pd.DataFrame, settings) -> [pd.DataFrame, NDArray]:
+def estimate_rr_interval(data: pd.DataFrame, settings) -> tuple[pd.DataFrame, NDArray]:
     """
     This function will estimate the RR interval from the DICOM header
     and add it to the dataframe
@@ -1543,7 +1543,7 @@ def reorder_by_slice(data, settings, info, logger):
     return data, info, slices, n_slices
 
 
-def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dict, NDArray, dict]:
+def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame, dict, NDArray, dict]:
     """
 
     Read DTCMR data
@@ -1696,7 +1696,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     return data, info, slices
 
 
-def read_and_process_pandas(info: dict, logger: logging, settings: dict) -> [pd.DataFrame, pd.DataFrame, dict]:
+def read_and_process_pandas(info: dict, logger: logging, settings: dict) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
     Read pandas dataframe
 
@@ -1753,7 +1753,7 @@ def read_and_process_pandas(info: dict, logger: logging, settings: dict) -> [pd.
 
 def read_and_process_dicoms(
     info: dict, list_dicoms: list, list_dicoms_phase: list, logger: logging, settings: dict
-) -> [pd.DataFrame, pd.DataFrame, dict]:
+) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
     Read DICOM files into pandas
     Export the dataframe to a zip file

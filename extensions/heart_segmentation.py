@@ -29,7 +29,7 @@ def heart_segmentation(
     settings: dict,
     info: dict,
     logger: logging.Logger,
-) -> [dict, NDArray]:
+) -> tuple[dict, NDArray]:
     """
     Heart segmentation
 
