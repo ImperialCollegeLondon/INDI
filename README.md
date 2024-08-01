@@ -57,6 +57,13 @@ You also need ImageMagick installed. You can install it with [Homebrew](https://
 brew install imagemagick
 ```
 
+### Installation on Ubuntu 22.04 using conda (with cuda)
+
+```bash
+sudo apt install imagemagick
+conda env create -f environment.yml
+```
+
 #### Development
 
 For development, also install the git hook scripts:
