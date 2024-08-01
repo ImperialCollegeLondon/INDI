@@ -1,4 +1,3 @@
-import ast
 import logging
 import os
 import sys
@@ -244,7 +243,8 @@ def manual_image_removal(
 
                 axs[idx, idx2].set_xticks([])
                 axs[idx, idx2].set_yticks([])
-                axs[idx, idx2].name = str(key + (idx2,))
+                axs[idx, idx2].values = *key, idx2
+
         # Setting the values for all axes.
         plt.setp(axs, xticks=[], yticks=[])
         plt.tight_layout(pad=0.1)
@@ -254,9 +254,8 @@ def manual_image_removal(
         def onclick_select(event):
             """function to record the axes of the selected images in subplots"""
             if event.inaxes is not None:
-                print(event.inaxes.name)
-                if ast.literal_eval(event.inaxes.name) in store_selected_images:
-                    store_selected_images.remove(ast.literal_eval(event.inaxes.name))
+                if event.inaxes in store_selected_images:
+                    store_selected_images.remove(event.inaxes)
                     for spine in event.inaxes.spines.values():
                         spine.set_edgecolor("black")
                         spine.set_linewidth(1)
@@ -265,7 +264,7 @@ def manual_image_removal(
                     for spine in event.inaxes.spines.values():
                         spine.set_edgecolor("red")
                         spine.set_linewidth(1)
-                    store_selected_images.append(ast.literal_eval(event.inaxes.name))
+                    store_selected_images.append(event.inaxes)
             fig.canvas.draw_idle()
 
         fig.canvas.mpl_connect("button_press_event", onclick_select)
@@ -275,10 +274,10 @@ def manual_image_removal(
         # store the indices of the rejected images:
         # - indices for all slices together
         # - indices within each slice
-        for item in store_selected_images:
-            c_bval = item[0]
-            c_dir = item[1]
-            c_idx = item[2]
+        for ax in store_selected_images:
+            c_bval = ax.values[0]
+            c_dir = ax.values[1]
+            c_idx = ax.values[2]
 
             # locate item in dataframe containing all images for this slice
             c_table = c_df[(c_df["direction_original"] == c_dir)]
