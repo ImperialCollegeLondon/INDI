@@ -14,7 +14,7 @@ class PolygonSelectorBetter(PolygonSelector):
             self._active_handle_idx = -1
 
         # Add a new vertex
-        elif self._selection_completed:
+        elif self._selection_completed and event.inaxes is self.ax:
             nodes = np.asarray(self._xys)
             dist_2 = np.sum((nodes - self._get_data_coords(event)) ** 2, axis=1)
             index = np.argmin(dist_2)
