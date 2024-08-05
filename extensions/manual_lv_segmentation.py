@@ -3,9 +3,11 @@ import os
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.widgets import Button, PolygonSelector, Slider
+from matplotlib.widgets import Button, Slider
 from numpy.typing import NDArray
 from scipy.interpolate import splev, splprep
+
+from .polygon_selector import PolygonSelectorBetter
 
 
 def spline_interpolate_contour(contour, n_points, join_ends=False):
@@ -112,7 +114,7 @@ class define_roi_border(object):
             line.remove()
         # set the line style
         line_style = dict(color="tab:brown", linestyle="None", linewidth=0.01, alpha=0.8, markersize=3)
-        self.poly = PolygonSelector(ax, self.onselect, useblit=True, props=line_style)
+        self.poly = PolygonSelectorBetter(ax, self.onselect, useblit=True, props=line_style)
         self.title_message = title_message
         self.second_axis_lines = second_axis_lines
         if pre_contour.any():
