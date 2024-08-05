@@ -57,10 +57,11 @@ You also need ImageMagick installed. You can install it with [Homebrew](https://
 brew install imagemagick
 ```
 
-### Installation on Ubuntu 22.04 using conda (with cuda)
+### Installation with cuda (Cross plataform Win & Linux)
+
+Install [imagemagick](https://imagemagick.org/)
 
 ```bash
-sudo apt install imagemagick
 conda env create -f environment.yml
 ```
 

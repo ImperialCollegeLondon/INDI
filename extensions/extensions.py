@@ -1232,15 +1232,17 @@ def plot_results_maps(
         plt.title("E2A histogram")
 
         plt.tight_layout(pad=1.0)
-        plt.savefig(
-            os.path.join(
-                settings["results"],
-                "tensor_parameter_maps_" + folder_id + "_slice_" + str(slice_idx).zfill(2) + ".png",
-            ),
-            dpi=300,
-            pad_inches=0,
-            transparent=False,
+        fname = os.path.join(
+            settings["results"],
+            "tensor_parameter_maps_" + folder_id + "_slice_" + str(slice_idx).zfill(2) + ".png",
         )
+        # On windows there is a maximun path lenght of ~256 characters
+        if os.name == "nt" and len(os.path.abspath(fname)) > 250:
+            fname = os.path.join(
+                settings["results"],
+                "tensor_parameter_maps_" + "_slice_" + str(slice_idx).zfill(2) + ".png",
+            )
+        plt.savefig(fname, dpi=300, pad_inches=0, transparent=False)
         plt.close()
 
     # also plot maps individually
@@ -1655,16 +1657,29 @@ def export_results(
 
     # do final montage with image magick
     for slice_idx in slices:
-        run_command = (
-            "bash "
-            + os.path.join(settings["code_path"], "extensions", "montage_script.sh")
-            + " "
-            + settings["results"]
-            + " "
-            + str(slice_idx).zfill(2)
-            + " "
-            + folder_id
-        )
+        if os.name == "nt":
+            os.system('powershell.exe "Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process')
+            run_command = (
+                "powershell.exe "
+                + os.path.join(settings["code_path"], "extensions", "montage_script_windows.ps1")
+                + " "
+                + os.path.abspath(settings["results"])
+                + " "
+                + str(slice_idx).zfill(2)
+                + " "
+                + folder_id
+            )
+        else:
+            run_command = (
+                "bash "
+                + os.path.join(settings["code_path"], "extensions", "montage_script.sh")
+                + " "
+                + os.path.abspath(settings["results"])
+                + " "
+                + str(slice_idx).zfill(2)
+                + " "
+                + folder_id
+            )
         os.system(run_command)
 
 
