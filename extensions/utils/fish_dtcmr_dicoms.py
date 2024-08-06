@@ -15,7 +15,7 @@ import pydicom
 from tqdm.auto import tqdm
 
 # root folder that will contain a subfolder per subject
-root_folder = "/Users/pf/Desktop/HLH/DICOMS_from_circle/URANGA_NATALIE_CAROLINE_MISS_016Y"
+root_folder = "/Users/pf/Desktop/HLH/DICOMS_from_circle/FK29"
 
 
 def copy_dicom(folder, dicom_file):
