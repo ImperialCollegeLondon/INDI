@@ -20,7 +20,7 @@ def crop_images(
     info: dict,
     logger: logging.Logger,
     settings: dict,
-) -> [dict, pd.DataFrame, NDArray, dict, NDArray, dict, dict, NDArray]:
+) -> tuple[dict, pd.DataFrame, NDArray, dict, NDArray, dict, dict, NDArray]:
     """
     Crop images to the heart region as defined by the segmentation
 
@@ -362,7 +362,7 @@ def crop_fov(
     info: dict,
     logger: logging.Logger,
     settings: dict,
-) -> [dict, pd.DataFrame, NDArray, dict, NDArray, dict, NDArray]:
+) -> tuple[dict, pd.DataFrame, NDArray, dict, NDArray, dict, NDArray]:
     """
     Crop images to the heart region as defined by the segmentation
 

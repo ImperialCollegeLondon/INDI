@@ -57,6 +57,14 @@ You also need ImageMagick installed. You can install it with [Homebrew](https://
 brew install imagemagick
 ```
 
+### Installation with cuda (Cross plataform Win & Linux)
+
+Install [imagemagick](https://imagemagick.org/)
+
+```bash
+conda env create -f environment.yml
+```
+
 #### Development
 
 For development, also install the git hook scripts:

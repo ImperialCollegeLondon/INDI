@@ -624,7 +624,7 @@ def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, sett
                 plt.close()
 
 
-def get_registration_mask(info: dict, settings: dict) -> [NDArray, NDArray]:
+def get_registration_mask(info: dict, settings: dict) -> tuple[NDArray, NDArray]:
     """
     Define registration mask. A circular region from the centre of the FOV.
     Radius is scaled by settings["registration_mask_scale"]. A scale of 1 gives us

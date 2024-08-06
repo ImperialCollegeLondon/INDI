@@ -9,7 +9,7 @@ import yaml
 
 def folder_loop_initial_setup(
     current_folder: str, settings: dict, logger: logging.Logger, log_format: logging.Formatter
-) -> [dict, dict, logging.Logger]:
+) -> tuple[dict, dict, logging.Logger]:
     """
     Initial setup for the folder loop.
     Parameters

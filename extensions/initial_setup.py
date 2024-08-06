@@ -66,7 +66,7 @@ def solve_conflicts(settings: dict, logger: logging.Logger) -> dict:
     return settings
 
 
-def initial_setup(script_path: str) -> [dict, dict, dict, logging, logging, list]:
+def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, logging.Formatter, list]:
     """
     initial setup for the pipeline
 
@@ -118,7 +118,8 @@ def initial_setup(script_path: str) -> [dict, dict, dict, logging, logging, list
     settings = solve_conflicts(settings, logger)
 
     # move to the start folder
-    os.chdir(settings["start_folder"])
+    # os.chdir(settings["start_folder"])
+    # or you change directory or you add it to the start of the glob in the next line
 
     # find all subfolders called dicoms recursively
     all_to_be_analysed_folders = glob.glob(settings["start_folder"] + "/**/diffusion_images", recursive=True)

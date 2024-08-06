@@ -2,7 +2,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-def get_fa_md(eigv: NDArray, info, mask_3c, slices, logger) -> [NDArray, NDArray, dict]:
+def get_fa_md(eigv: NDArray, info, mask_3c, slices, logger) -> tuple[NDArray, NDArray, dict]:
     """
     Calculate FA and MD maps
 

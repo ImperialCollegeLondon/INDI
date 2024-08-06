@@ -8,7 +8,7 @@ def get_ha_e2a_maps(
     mask: NDArray,
     local_cardiac_coordinates: dict,
     eigenvectors: NDArray,
-) -> [NDArray, NDArray]:
+) -> tuple[NDArray, NDArray]:
     """
     Calculate HA and E2A maps
 
@@ -154,7 +154,7 @@ def get_tensor_orientation_maps(
     settings: dict,
     info: dict,
     logger: logging.Logger,
-) -> [NDArray, NDArray, dict]:
+) -> tuple[NDArray, NDArray, dict]:
     """_summary_
 
     Parameters
