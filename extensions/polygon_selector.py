@@ -18,6 +18,11 @@ def spline_interpolate_contour(contour, n_points, join_ends=False):
     return np.array([xi, yi]).T
 
 
+# TODO
+# - Ensure the spline appearers when the curve is close
+# - Check the index of the second closest point to put the new point into the correct position
+
+
 class PolygonSelectorSpline(_SelectorWidget):
     """
     Select a polygon region of an Axes.
@@ -139,6 +144,7 @@ class PolygonSelectorSpline(_SelectorWidget):
         curve_props = {**curve_props, "animated": self.useblit}
         (self.curve,) = self.ax.plot(np.zeros(num_points), np.zeros(num_points), **curve_props)
         # self.curve.set_visible(False)
+        self.curve_points = np.array([[np.nan, np.nan]])
 
         if handle_props is None:
             handle_props = dict(markeredgecolor="k", markerfacecolor=props.get("color", "k"))
@@ -159,10 +165,10 @@ class PolygonSelectorSpline(_SelectorWidget):
 
     def _draw_curve(self):
         if self._selection_completed:
-            curve_points = spline_interpolate_contour(self._xys[:-1], self.num_points, join_ends=True)
+            self.curve_points = spline_interpolate_contour(self._xys[:-1], self.num_points, join_ends=True)
             self.curve.set_visible(True)
-            self.curve.set_ydata(curve_points[:, 1])
-            self.curve.set_xdata(curve_points[:, 0])
+            self.curve.set_ydata(self.curve_points[:, 1])
+            self.curve.set_xdata(self.curve_points[:, 0])
 
     @property
     def artists(self):
