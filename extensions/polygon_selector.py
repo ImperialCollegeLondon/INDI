@@ -19,7 +19,6 @@ def spline_interpolate_contour(contour, n_points, join_ends=False):
 
 
 # TODO
-# - Ensure the spline appearers when the curve is close
 # - Check the index of the second closest point to put the new point into the correct position
 
 
@@ -297,6 +296,7 @@ class PolygonSelectorSpline(_SelectorWidget):
             self._selection_completed = True
             if self._draw_box and self._box is None:
                 self._add_box()
+            self._draw_polygon()
 
         # Place new vertex.
         elif not self._selection_completed and "move_all" not in self._state and "move_vertex" not in self._state:
