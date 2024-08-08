@@ -1,12 +1,17 @@
 import os
 
 import cv2 as cv
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Button, Slider
 from numpy.typing import NDArray
 
 from .polygon_selector import PolygonSelectorSpline
+
+# NOTE
+# Using blit those not work on the default matplotlib backend we need to use another
+matplotlib.use("tkagg")
 
 
 def get_sa_contours(lv_mask):
@@ -209,16 +214,28 @@ class Actions:
         self.ax_preview = ax_preview
         self.ax_slider = ax_slider
 
+        self.epi_selected = False
+
+        def select_epi(_):
+            self.draw_preview()
+            self.epi_selected = True
+
         self.epi_poly = PolygonSelectorSpline(
-            ax_seg, lambda _: _, useblit=True, num_points=num_points, curve_props=spline_props, props=line_props
+            ax_seg, select_epi, useblit=True, num_points=num_points, curve_props=spline_props, props=line_props
         )
         if initial_epi_poly is not None:
             self.epi_poly.verts = initial_epi_poly
         self.epi_poly.set_active(False)
         self.epi_poly.set_visible(False)
 
+        self.endo_selected = False
+
+        def select_endo(_):
+            self.draw_preview()
+            self.epi_selected = True
+
         self.endo_poly = PolygonSelectorSpline(
-            ax_seg, lambda _: _, useblit=True, num_points=num_points, curve_props=spline_props, props=line_props
+            ax_seg, select_endo, useblit=True, num_points=num_points, curve_props=spline_props, props=line_props
         )
         if initial_endo_poly is not None:
             self.endo_poly.verts = initial_endo_poly
@@ -232,6 +249,7 @@ class Actions:
         # define that the update function will run when the slider is moved
         self.slider.on_changed(self.update_slider)
 
+        self.ip_selected = False
         self.ip = {"inferior": np.full(2, np.nan), "superior": np.full(2, np.nan)}
         self.ip_current = "superior"  # 'inferior' | 'superior'
         (self.ip_plot,) = self.ax_seg.plot([], [], "^", color="tab:red", markersize=8, alpha=0.5)
@@ -240,6 +258,7 @@ class Actions:
         self.fig.canvas.mpl_disconnect(self.ip_event_id)
 
         self.redraw_event_id = self.fig.canvas.mpl_connect("button_release_event", lambda _: self.draw())
+        # self.redraw_event_id = self.fig.canvas.mpl_connect("draw_event", lambda _: self.draw_preview())
 
         self.mask = np.ones_like(cont_img)
         self.cont_img = cont_img
@@ -256,18 +275,35 @@ class Actions:
         (self.ip_preview,) = self.ax_preview.plot([], [], "X", color="tab:green", markersize=8, alpha=0.8)
 
     def draw(self):
+        self.draw_preview()
+        self.fig.canvas.draw_idle()
+
+    def draw_preview(self):
         self.endo_preview.set_data(self.endo_poly.curve_points[:, 0], self.endo_poly.curve_points[:, 1])
         self.epi_preview.set_data(self.epi_poly.curve_points[:, 0], self.epi_poly.curve_points[:, 1])
         self.ip_preview.set_data(
             [[self.ip["inferior"][0], self.ip["superior"][0]], [self.ip["inferior"][1], self.ip["superior"][1]]]
         )
 
-        self.fig.canvas.draw_idle()
+    def remove_border_btn(self):
+        btn_ax = filter(lambda ax: "btn" in ax.get_label(), self.fig.get_axes())
+        for ax in btn_ax:
+            ax.set_axis_off()
+
+    def set_border_btn(self, ax):
+        print(ax.get_label())
+        ax.set_axis_on()
+        ax.set_facecolor("#FFFFFF00")
+        for axis in ["top", "bottom", "left", "right"]:
+            ax.spines[axis].set_linewidth(2.5)  # change width
+            ax.spines[axis].set_color("red")  # change color
 
     def segment_epi(self, event):
         """Deactivate the endocardium contour and activate the epicardium contour"""
         self.fig.canvas.mpl_disconnect(self.ip_event_id)
         self.ip_plot.set_visible(False)
+        self.remove_border_btn()
+        self.set_border_btn(event.inaxes)
 
         self.epi_poly.set_active(True)
         self.epi_poly.set_visible(True)
@@ -282,6 +318,8 @@ class Actions:
         """Deactivate the epicardium contour and activate the endocardium contour"""
         self.fig.canvas.mpl_disconnect(self.ip_event_id)
         self.ip_plot.set_visible(False)
+        self.remove_border_btn()
+        self.set_border_btn(event.inaxes)
 
         self.epi_poly.set_active(False)
         self.epi_poly.set_visible(False)
@@ -292,7 +330,7 @@ class Actions:
         self.ax_seg.set_title("Click endocardial points")
         self.draw()
 
-    def swap_images(self, event):
+    def swap_images(self, _):
         """Swap between segmenting the contrast image and the map"""
         self.seg_on_map = not self.seg_on_map
         if self.seg_on_map:
@@ -301,9 +339,10 @@ class Actions:
         else:
             self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
             self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+
         self.draw()
 
-    def swap_maps(self, event):
+    def swap_maps(self, _):
         """Swap between the two maps"""
         self.map_use = (self.map_use + 1) % 2
         if self.seg_on_map:
@@ -312,6 +351,7 @@ class Actions:
         else:
             self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
             self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+
         self.draw()
 
     def on_scroll(self, event):
@@ -346,6 +386,9 @@ class Actions:
 
     def pick_ip(self, event):
         """Activate the intersection point code"""
+        self.remove_border_btn()
+        self.set_border_btn(event.inaxes)
+
         self.epi_poly.set_active(False)
         self.epi_poly.set_visible(False)
 
@@ -366,7 +409,11 @@ class Actions:
             self.ip_plot.set_data(
                 [self.ip["inferior"][0], self.ip["superior"][0]], [self.ip["inferior"][1], self.ip["superior"][1]]
             )
-            self.ip_current = "inferior" if self.ip_current == "superior" else "superior"
+            if self.ip_current == "superior":
+                self.ip_current = "inferior"
+                self.ip_selected = True
+            else:
+                self.ip_current = "superior"
             self.draw()
 
 
@@ -494,40 +541,38 @@ def manual_lv_segmentation(
 
     # epi button
     epi_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "epicardium.png"))
-    ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.10])
-    ax_epi.axis("off")
-    button_epi = Button(ax_epi, label="", image=epi_icon)
+    ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.10], label="epi_btn")
+    button_epi = Button(ax_epi, label="", image=epi_icon, hovercolor="#FFFFFF00")
     button_epi.on_clicked(actions.segment_epi)
 
     # endo button
     endo_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "endocardium.png"))
-    ax_endo = fig.add_axes([0.05, 0.60, 0.10, 0.10])
-    ax_endo.axis("off")
-    button_endo = Button(ax_endo, label="", image=endo_icon)
+    ax_endo = fig.add_axes([0.05, 0.60, 0.10, 0.10], label="endo_btn")
+    button_endo = Button(ax_endo, label="", image=endo_icon, hovercolor="#FFFFFF00")
     button_endo.on_clicked(actions.segment_endo)
 
     # insertion points button
     ip_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "insertion_points.png"))
-    ax_ip = fig.add_axes([0.05, 0.45, 0.10, 0.10])
-    ax_ip.axis("off")
-    button_ip = Button(ax_ip, label="", image=ip_icon)
+    ax_ip = fig.add_axes([0.05, 0.45, 0.10, 0.10], label="ip_btn")
+    button_ip = Button(ax_ip, label="", image=ip_icon, hovercolor="#FFFFFF00")
     button_ip.on_clicked(actions.pick_ip)
 
     # swap images button
     si_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "swap_images.png"))
-    ax_swap_images = fig.add_axes([0.05, 0.30, 0.10, 0.10])
+    ax_swap_images = fig.add_axes([0.05, 0.30, 0.10, 0.10], label="si_btn")
     ax_swap_images.axis("off")
-    button_si = Button(ax_swap_images, label="", image=si_icon)
+    button_si = Button(ax_swap_images, label="", image=si_icon, hovercolor="#FFFFFF00")
     button_si.on_clicked(actions.swap_images)
 
     # ha/md map button
     hm_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "ha_md.png"))
-    ax_ha_md = fig.add_axes([0.05, 0.15, 0.10, 0.10])
+    ax_ha_md = fig.add_axes([0.05, 0.15, 0.10, 0.10], label="hm_btn")
     ax_ha_md.axis("off")
-    button_hm = Button(ax_ha_md, label="", image=hm_icon)
+    button_hm = Button(ax_ha_md, label="", image=hm_icon, hovercolor="#FFFFFF00")
     button_hm.on_clicked(actions.swap_maps)
 
     fig.canvas.mpl_connect("scroll_event", actions.on_scroll)
+    actions.remove_border_btn()
 
     plt.show(block=True)
 
@@ -538,18 +583,18 @@ def manual_lv_segmentation(
     segmentation = {}
     # The epicardium needs to be defined. If not slice will be removed.
     # The endocardium and the two insertion points is optional.
-    if hasattr(actions, "epi_poly"):
+    if actions.epi_selected:
         segmentation["epicardium"] = np.array(actions.epi_poly.curve_points)
     else:
         segmentation["epicardium"] = np.array([])
 
-    if hasattr(actions, "endo_poly"):
+    if actions.endo_selected:
         segmentation["endocardium"] = np.array(actions.endo_poly.curve_points)
 
     else:
         segmentation["endocardium"] = np.array([])
 
-    if hasattr(actions, "ip"):
+    if actions.ip_selected:
         segmentation["anterior_ip"] = actions.ip["superior"]
         segmentation["inferior_ip"] = actions.ip["inferior"]
     else:
