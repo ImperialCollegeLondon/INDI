@@ -18,8 +18,19 @@ def spline_interpolate_contour(contour, n_points, join_ends=False):
     return np.array([xi, yi]).T
 
 
-# TODO
-# - Check the index of the second closest point to put the new point into the correct position
+def dist_to_line(p1, p2, p3):
+    """Calculates the distance of the line connecting the points p1 and p2 to point p3"""
+
+    def dist_sqr(p, q):
+        return (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2
+
+    dist = dist_sqr(p1, p2)
+    if dist == 0:
+        raise ValueError("p1 and p2 are coincidental, there is no line")
+    u = ((p3[0] - p1[0]) * (p2[0] - p1[0]) + (p3[1] - p1[1]) * (p2[1] - p1[1])) / dist
+    intersection = p1[0] + u * (p2[0] - p1[0]), p1[1] + u * (p2[1] - p1[1])
+
+    return dist_sqr(intersection, p3) ** 0.5, u
 
 
 class PolygonSelectorSpline(_SelectorWidget):
@@ -285,10 +296,16 @@ class PolygonSelectorSpline(_SelectorWidget):
 
         # Add a new vertex
         elif self._selection_completed and "move_all" not in self._state and "move_vertex" not in self._state:
-            nodes = np.asarray(self._xys)
-            dist_2 = np.sum((nodes - self._get_data_coords(event)) ** 2, axis=1)
-            index = np.argmin(dist_2)
-            self._xys.insert(index, self._get_data_coords(event))
+            p3 = self._get_data_coords(event)
+            min_dist = np.inf
+            index = None
+            for i, (p1, p2) in enumerate(zip(self._xys[:-1], self._xys[1:])):
+                dist, u = dist_to_line(p1, p2, p3)
+                if 1 > u > 0:
+                    if min_dist > dist:
+                        min_dist = dist
+                        index = i
+            self._xys.insert(index + 1, p3)
             self._draw_polygon()
 
         # Complete the polygon.
