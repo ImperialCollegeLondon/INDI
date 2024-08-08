@@ -489,11 +489,7 @@ def read_all_dicom_files(
 
                 c_dict = copy.deepcopy(c_dict_general)
 
-                # convert dict to dataframe
-                new_table = pd.DataFrame.from_dict(c_dict, orient="index")
-
-                # concatenate the new dataframe to the existing one
-                header_table = pd.concat([header_table, new_table.T], axis=0, ignore_index=True)
+                list_of_dictionaries.append(c_dict)
 
             # ====================================
             # enhanced dicom format
