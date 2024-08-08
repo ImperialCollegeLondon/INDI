@@ -527,6 +527,7 @@ def manual_lv_segmentation(
         average_map,
         ha_map,
         md_map,
+        num_points=n_points,
         initial_epi_poly=epi_contour,
         initial_endo_poly=endo_contour,
         slider_props=slider_props,
