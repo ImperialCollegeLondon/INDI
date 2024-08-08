@@ -1757,6 +1757,8 @@ def read_and_process_pandas(info: dict, logger: logging, settings: dict) -> tupl
     if settings["complex_data"]:
         save_path = os.path.join(settings["dicom_folder_phase"], "data.gz")
         data_phase = pd.read_pickle(save_path)
+    else:
+        data_phase = pd.DataFrame()
     # =========================================================
     # read the pixel arrays from the h5 file and add them to the dataframe
     # =========================================================
