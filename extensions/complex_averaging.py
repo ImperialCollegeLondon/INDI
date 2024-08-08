@@ -22,7 +22,7 @@ def complex_averaging(data: pd.DataFrame, logger: logging.Logger) -> pd.DataFram
     logger.debug("Complex averaging.")
 
     # Split the direction column into three columns X, Y, Z
-    data[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(data["direction"].tolist(), index=data.index)
+    data[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(data["diffusion_direction"].tolist(), index=data.index)
     unique_configs = data[["dir_x", "dir_y", "dir_z", "b_value", "slice_integer"]].drop_duplicates()
 
     # loop over the unique configurations of b-value, diff direction and slice position
