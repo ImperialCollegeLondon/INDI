@@ -8,8 +8,8 @@ and organise them in three folders:
 
 import glob
 import os
-import sys
 import shutil
+import sys
 
 import pydicom
 from tqdm.auto import tqdm
@@ -43,15 +43,15 @@ for subfolder in tqdm(subfolders, desc="Subfolders", position=0, leave=False):
     map_folder = os.path.join(subfolder, "diffusion_maps")
 
     if not os.path.exists(mag_folder):
-        os.makedirs(os.path.join(mag_folder, 'systole'))
-        os.makedirs(os.path.join(mag_folder, 'diastole'))
+        os.makedirs(os.path.join(mag_folder, "systole"))
+        os.makedirs(os.path.join(mag_folder, "diastole"))
     else:
         print(f"Folder already exists: {mag_folder}")
         sys.exit()
 
     if not os.path.exists(phase_folder):
-        os.makedirs(os.path.join(phase_folder, 'systole'))
-        os.makedirs(os.path.join(phase_folder, 'diastole'))
+        os.makedirs(os.path.join(phase_folder, "systole"))
+        os.makedirs(os.path.join(phase_folder, "diastole"))
     else:
         print(f"Folder already exists: {phase_folder}")
         sys.exit()
@@ -89,20 +89,16 @@ for subfolder in tqdm(subfolders, desc="Subfolders", position=0, leave=False):
                     pass
 
         else:
-
             if "ImageType" not in ds:
                 # if DICOM is not a diffusion image
                 pass
 
             else:
-
                 # old DICOMs
                 image_type = ds.ImageType = [x.upper() for x in ds.ImageType]
 
-
                 if image_type[2] == "DIFFUSION":
                     if image_type[0] == "ORIGINAL" and image_type[1] == "PRIMARY":
-
                         # determine cardiac phase
                         trig_time = ds.TriggerTime
                         delta_diastole = abs(trig_time - 0)
@@ -122,4 +118,3 @@ for subfolder in tqdm(subfolders, desc="Subfolders", position=0, leave=False):
                 else:
                     # if DICOM is not a diffusion image
                     pass
-
