@@ -258,7 +258,7 @@ def dipy_tensor_fit(
         current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
 
         bvals = current_entries["b_value"].values
-        bvecs = np.vstack(current_entries["direction"])
+        bvecs = np.vstack(current_entries["diffusion_direction"])
         gtab = gradient_table(bvals, bvecs, atol=0.5)
 
         image_data = np.stack(current_entries["image"])

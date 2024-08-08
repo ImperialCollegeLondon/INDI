@@ -1008,7 +1008,7 @@ def read_and_process_niis(
             "image",
             "b_value",
             "b_value_original",
-            "direction",
+            "diffusion_direction",
             "image_position",
             "nominal_interval",
             "acquisition_date_time",

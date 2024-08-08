@@ -447,6 +447,7 @@ def read_all_dicom_files(
 
     """
     # loop through all DICOM files
+    list_of_dictionaries = []
     for idx, file_name in enumerate(tqdm(dicom_files, desc="Reading DICOMs")):
         # read current DICOM
         c_dicom_header = pydicom.dcmread(open(file_name, "rb"))
@@ -525,11 +526,10 @@ def read_all_dicom_files(
                 # fields from the general one)
                 c_dict = {**c_dict_general, **c_dict}
 
-                # convert dict to dataframe
-                new_table = pd.DataFrame.from_dict(c_dict, orient="index")
+                list_of_dictionaries.append(c_dict)
 
-                # concatenate the new dataframe to the existing one
-                header_table = pd.concat([header_table, new_table.T], axis=0, ignore_index=True)
+    # create dataframe from list_of_dictionaries
+    header_table = pd.DataFrame(list_of_dictionaries)
 
     return header_table
 
