@@ -6,12 +6,10 @@ Python script to convert DICOM files to HDF5 (pixel array), and CSV files with m
 """
 
 import copy
-import glob
 import logging
 import os
 import sys
 
-import h5py
 import numpy as np
 import pandas as pd
 import pydicom
@@ -586,37 +584,3 @@ def simplify_per_frame_dictionary(c_dict: dict, frame_idx: int) -> dict:
     c_dict.pop("PerFrameFunctionalGroupsSequence_2__1_", None)
 
     return c_dict
-
-
-if __name__ == "__main__":
-    paths = {}
-
-    # python script path
-    abspath = os.path.abspath(sys.argv[0])
-    paths["code"] = os.path.dirname(abspath)
-
-    # data input and output paths
-    paths["data_folder_path"] = os.path.abspath(sys.argv[1])
-    paths["export_data_path"] = os.path.abspath(sys.argv[2])
-
-    # list all dicom files
-    dicom_files = glob.glob(os.path.join(paths["data_folder_path"], "*.dcm"))
-    dicom_files.sort()
-
-    info = {}
-
-    # get header_table and pixel_arrays from DICOMs
-    header_table, pixel_arrays = get_data_from_dicoms(dicom_files)
-
-    # create folder if it does not exist
-    if not os.path.exists(paths["export_data_path"]):
-        os.makedirs(paths["export_data_path"])
-
-    # export to csv header table
-    header_table.to_csv(os.path.join(paths["export_data_path"], "header_table.csv"))
-
-    # export pixel array to HDF5
-    with h5py.File(os.path.join(paths["export_data_path"], "pixel_array.h5"), "w") as hf:
-        hf.create_dataset("pixel_array", data=pixel_arrays)
-
-    print("Done.")

@@ -60,7 +60,7 @@ remove_slices: []
 # print series description
 print_series_description: False
 #registration mask scale for circle radius > 0, 1 for a circle diameter = image width
-registration_mask_scale: 1
+registration_mask_scale: 1.0
 
 # ========================================================================================
 # ex-vivo
