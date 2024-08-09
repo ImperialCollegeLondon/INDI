@@ -19,6 +19,7 @@ from dotenv import dotenv_values
 from numpy.typing import NDArray
 
 from extensions.read_data.dicom_to_h5_csv import (
+    add_missing_columns,
     check_global_info,
     get_data_from_dicoms,
     interpolate_dicom_pixel_values,
@@ -1118,7 +1119,8 @@ def plot_b_values_adjustment(data: pd.DataFrame, settings: dict):
 
     plt.figure(figsize=(5, 5))
     plt.subplot(1, 1, 1)
-    plt.plot(data["nominal_interval"], alpha=0.8)
+    if "nominal_interval" in data:
+        plt.plot(data["nominal_interval"], alpha=0.8)
     if settings["sequence_type"] == "steam":
         plt.plot(data["estimated_rr_interval"], alpha=0.8)
     plt.legend(["nominal", "adjusted RR"])
@@ -1818,6 +1820,8 @@ def read_and_process_dicoms(
 
     # replace the nan directions with (0.0, 0.0, 0.0)
     data = tweak_directions(data)
+    # add some columns if not in table
+    data = add_missing_columns(data)
 
     if settings["complex_data"]:
         # TODO check if phase data works OK
@@ -1826,7 +1830,7 @@ def read_and_process_dicoms(
         #     list_dicoms_phase, settings, info_phase, logger, image_type="phase"
         # )
 
-        data_phase = get_data_from_dicoms(list_dicoms, settings, logger, image_type="phase")
+        data_phase = get_data_from_dicoms(list_dicoms_phase, settings, logger, image_type="phase")
         # check some global info
         info_phase, data_phase = check_global_info(data_phase, info_phase, logger)
         # adjust pixel values to the correct scale, and interpolate if images small
@@ -1872,38 +1876,33 @@ def read_and_process_dicoms(
 
     # also save some diffusion info to a csv file
     save_path = os.path.join(settings["dicom_folder"], "diff_info_dataframe_h5.csv")
+    columns_list = [
+        "fiji_index",
+        "file_name",
+        "b_value",
+        "diffusion_direction",
+        "dir_in_image_plane",
+        "image_position",
+        "nominal_interval",
+        "series_description",
+        "series_number",
+        "acquisition_date_time",
+    ]
+
+    # remove elements that are not in the columns list
+    columns_list = [col for col in columns_list if col in data.columns]
+
     data.to_csv(
         save_path,
-        columns=[
-            "fiji_index",
-            "file_name",
-            "b_value",
-            "diffusion_direction",
-            "dir_in_image_plane",
-            "image_position",
-            "nominal_interval",
-            "series_description",
-            "series_number",
-            "acquisition_date_time",
-        ],
+        columns=columns_list,
         index=False,
     )
     if settings["complex_data"]:
         save_path = os.path.join(settings["dicom_folder_phase"], "diff_info_dataframe_h5.csv")
+        columns_list = [col for col in columns_list if col in data_phase.columns]
         data_phase.to_csv(
             save_path,
-            columns=[
-                "fiji_index",
-                "file_name",
-                "b_value",
-                "diffusion_direction",
-                "dir_in_image_plane",
-                "image_position",
-                "nominal_interval",
-                "series_description",
-                "series_number",
-                "acquisition_date_time",
-            ],
+            columns=columns_list,
             index=False,
         )
 

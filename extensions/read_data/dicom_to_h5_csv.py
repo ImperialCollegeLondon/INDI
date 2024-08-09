@@ -71,6 +71,8 @@ def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = ""):
     for key, value in input_dict.items():
         if key == "DiffusionGradientDirection":
             output_dict[key] = value
+        elif key == "DiffusionGradientOrientation":
+            output_dict[key] = value
         elif isinstance(value, dict) and value:
             deeper = flatten_dict(value, separator, prefix + key + separator)
             output_dict.update({key2: val2 for key2, val2 in deeper.items()})
@@ -213,6 +215,8 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> dict:
     header_info = {}
 
     field_list = ["image_comments", "image_orientation_patient", "pixel_spacing", "slice_thickness"]
+    # remove fields that are not present
+    field_list = [field for field in field_list if field in data.columns]
 
     for field in field_list:
         data["temp"] = data[field].astype(str)
@@ -294,6 +298,16 @@ def tweak_directions(data):
     data["diffusion_direction"] = data["diffusion_direction"].apply(
         lambda x: (0.0, 0.0, 0.0) if np.isnan(x).any() else tuple(x)
     )
+
+    return data
+
+
+def add_missing_columns(data: pd.DataFrame) -> pd.DataFrame:
+    list_of_fields = ["series_description"]
+
+    for field in list_of_fields:
+        if field not in data.columns:
+            data[field] = None
 
     return data
 
@@ -386,11 +400,14 @@ def rename_columns(dicom_type, table_frame):
         table_frame = table_frame.drop(columns=["b_vec_x", "b_vec_y", "b_vec_z"])
 
     elif dicom_type == "legacy":
+        # I am assuming that DiffusionGradientDirection and DiffusionGradientOrientation are never present
+        # at the same time, the first is Siemens, the second is Philips.
         table_frame = table_frame.rename(
             columns={
                 "FileName": "file_name",
                 "DiffusionBValue": "b_value",
                 "DiffusionGradientDirection": "diffusion_direction",
+                "DiffusionGradientOrientation": "diffusion_direction",
                 "ImagePositionPatient": "image_position",
                 "ImageOrientationPatient": "image_orientation_patient",
                 "NominalInterval": "nominal_interval",
@@ -420,6 +437,8 @@ def reorder_columns(table_frame):
         "image_orientation_patient",
     ]
 
+    # make sure the elements of the list above exist, otherwise remove them from the list
+    cols_to_move = [col for col in cols_to_move if col in table_frame.columns]
     table_frame = table_frame[cols_to_move + [col for col in table_frame.columns if col not in cols_to_move]]
     return table_frame
 
