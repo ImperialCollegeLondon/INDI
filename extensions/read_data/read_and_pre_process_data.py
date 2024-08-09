@@ -27,13 +27,13 @@ from extensions.read_data.dicom_to_h5_csv import (
 )
 
 
-def data_summary_plots(data: pd.DataFrame, info: dict, settings: dict):
+def data_summary_plots(data: pd.DataFrame, settings: dict):
     """
-    Summarise the data in histogram counts by b-value, direction, and slice
+    Summarises the data with a plot showing the b-value, direction, and slice
+
     Parameters
     ----------
     data: dataframe with all the dwi data
-    info: dictionary with useful info
     settings: dictionary with useful info
     """
 
@@ -118,7 +118,7 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_nii_pixel_array(nii_px_array, c_slice_idx, c_frame_idx):
+def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: int) -> NDArray:
     """
     Get the pixel array from a nii file
 
@@ -374,7 +374,7 @@ def read_and_process_niis(
     return df, info
 
 
-def estimate_rr_interval(data: pd.DataFrame, settings) -> tuple[pd.DataFrame, NDArray]:
+def estimate_rr_interval(data: pd.DataFrame, settings: dict) -> pd.DataFrame:
     """
     This function will estimate the RR interval from the DICOM header
     and add it to the dataframe
@@ -389,8 +389,9 @@ def estimate_rr_interval(data: pd.DataFrame, settings) -> tuple[pd.DataFrame, ND
     settings: dict
 
     Returns:
+    -------
     dataframe with added estimated RR interval column
-    estimated_rr_intervals_original (before adjustment, only for debug)
+
     """
 
     # check if we have acquisition date and time values
@@ -678,6 +679,8 @@ def create_2d_montage_from_database(
     b_value_column_name : str
         string of the column to use as the b-value
     direction_column_name: str with direction
+    settings : dict
+        settings from YAML file
     info : dict
         useful info
     slices : list
@@ -870,13 +873,34 @@ def create_2d_montage_from_database(
         plt.close()
 
 
-def reorder_by_slice(data, settings, info, logger):
+def reorder_by_slice(
+    data: pd.DataFrame, settings: dict, info: dict, logger: logging
+) -> [pd.DataFrame, dict, list, int]:
     """
     Reorder data by slice and remove slices if needed
 
     Parameters
     ----------
-    data
+    data : pd.DataFrame
+        dataframe with diffusion info
+    settings : dict
+        settings from YAML file
+    info : dict
+        useful info
+    logger : logging
+        logger for console
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe with reordered data
+    dict
+        info about the data
+    list
+        list of slices
+    int
+        number of slices
+
     """
     # determine if we can use z, or y or x to sort the slices
     data["image_position"] = data["image_position"].apply(lambda x: tuple(x))
@@ -931,7 +955,7 @@ def reorder_by_slice(data, settings, info, logger):
     return data, info, slices, n_slices
 
 
-def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame, dict, NDArray, dict]:
+def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame, dict, NDArray]:
     """
 
     Read DTCMR data
@@ -947,12 +971,12 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
 
     Returns
     -------
-    dict
-        info about the data
     pd.DataFrame
         dataframe with all the data
-    dict
-        settings from YAML file
+    info
+        useful info
+    slices
+        array with slices
 
     """
 
@@ -1011,7 +1035,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     # image size
     info["img_size"] = (info["Rows"], info["Columns"])
 
-    data_summary_plots(data, info, settings)
+    data_summary_plots(data, settings)
 
     logger.debug("Number of images: " + str(info["n_images"]))
     logger.debug("Number of slices: " + str(len(slices)))
@@ -1069,18 +1093,20 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     return data, info, slices
 
 
-def read_and_process_pandas(info: dict, logger: logging, settings: dict) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
     Read pandas dataframe
 
     Parameters
     ----------
-    info
     logger
     settings
 
     Returns
     -------
+    dataframe with diffusion info
+    dataframe with phase diffusion info (if any)
+    info dict
 
     """
     logger.debug("No DICOM or Nii files found. Reading diffusion database files previously created.")
@@ -1123,6 +1149,7 @@ def read_and_process_pandas(info: dict, logger: logging, settings: dict) -> tupl
             len(pixel_values_phase) == data_phase.shape[0]
         ), "Number of pixel slices does not match the number of entries in the dataframe."
         data_phase["image"] = pd.Series([x for x in pixel_values_phase])
+
     return data, data_phase, info
 
 
@@ -1146,6 +1173,9 @@ def read_and_process_dicoms(
 
     Returns
     -------
+    dataframe with diffusion info
+    dataframe with phase diffusion info (if any)
+    info dict
 
     """
 
@@ -1166,7 +1196,6 @@ def read_and_process_dicoms(
     data = add_missing_columns(data)
 
     if settings["complex_data"]:
-        # TODO check if phase data works OK
         info_phase = {}
         data_phase = get_data_from_dicoms(list_dicoms_phase, settings, logger, image_type="phase")
         # check some global info
@@ -1322,7 +1351,25 @@ def read_and_process_dicoms(
     return data, data_phase, info
 
 
-def list_files(data_type, logger, settings):
+def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, list, list]:
+    """
+    List possible magnitude DICOMs, phase DICOMs, and NII files
+
+    Parameters
+    ----------
+    data_type: type of data (dicoms, nii or none)
+    logger
+    settings
+
+    Returns
+    -------
+    data_type: (dicoms, nii or none)
+    list of dicoms
+    list of phase dicoms
+    list of nii files
+
+    """
+
     list_dicoms = []
     list_dicoms_phase = []
     list_nii = []
@@ -1368,4 +1415,5 @@ def list_files(data_type, logger, settings):
         ]
         if len(list_nii) > 0:
             data_type = "nii"
+
     return data_type, list_dicoms, list_dicoms_phase, list_nii

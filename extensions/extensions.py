@@ -604,6 +604,42 @@ def fix_angle_wrap(lp: NDArray, angle_jump=90) -> NDArray:
     return lp_new
 
 
+def rad_to_mag(img: NDArray, max_value: int = 4096) -> NDArray:
+    """
+    Convert image array from radians to magnitude
+
+    Parameters
+    ----------
+    img
+    max_value
+
+    Returns
+    -------
+    img
+
+    """
+    img = max_value * img / np.pi
+    return img
+
+
+def mag_to_rad(img: NDArray, max_value: int = 4096) -> NDArray:
+    """
+    Convert image array from magnitude to radians
+
+    Parameters
+    ----------
+    img
+    max_value
+
+    Returns
+    -------
+    img
+
+    """
+    img = np.pi * img / max_value
+    return img
+
+
 def get_ha_line_profiles(
     HA: NDArray, lv_centres: dict, slices: NDArray, mask_3c: NDArray, segmentation: dict, settings: dict, info: dict
 ) -> [dict, dict]:

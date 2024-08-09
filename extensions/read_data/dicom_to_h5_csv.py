@@ -17,6 +17,8 @@ import scipy
 import yaml
 from tqdm import tqdm
 
+from extensions.extensions import mag_to_rad, rad_to_mag
+
 
 # get DICOM header fields
 def dictify(ds: pydicom.dataset.Dataset) -> dict:
@@ -127,7 +129,7 @@ def simplify_global_dict(c_dicom_header: dict, dicom_type: str) -> dict:
 
 def get_data_from_dicoms(
     dicom_files: list, settings: dict, logger: logging.Logger, image_type: str = "mag"
-) -> [pd.DataFrame, dict]:
+) -> pd.DataFrame:
     """
     From a list of DICOM files get:
     - header information in a dataframe
@@ -137,6 +139,17 @@ def get_data_from_dicoms(
     ----------
     dicom_files : list
         List of DICOM files
+    settings : dict
+        Settings dictionary
+    logger : logging.Logger
+        Logger
+    image_type : str
+        Image type, either "mag" or "phase"
+
+    Returns
+    -------
+    header_table : pd.DataFrame
+        Table with header information
     """
 
     # get full paths of the DICOM files
@@ -175,10 +188,7 @@ def get_data_from_dicoms(
     # ===================================================================
     # FRAME HEADER INFO
     # ===================================================================
-    # create empty dataframe to store the frame info.
-    header_table = pd.DataFrame()
-
-    header_table = read_all_dicom_files(dicom_files, dicom_type, n_images_per_file, header_field_list, header_table)
+    header_table = read_all_dicom_files(dicom_files, dicom_type, n_images_per_file, header_field_list)
 
     # sort the columns alphabetically
     header_table = header_table.reindex(sorted(header_table.columns), axis=1)
@@ -205,7 +215,22 @@ def get_data_from_dicoms(
     return header_table
 
 
-def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> dict:
+def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict, pd.DataFrame]:
+    """
+    Check that some columns are unique in the table and merge them into the info dictionary.
+
+    Parameters
+    ----------
+    data
+    info
+    logger
+
+    Returns
+    -------
+    info dict
+
+    """
+
     def is_unique(s):
         a = s.to_numpy()  # s.values (pandas<0.24)
         return (a[0] == a).all()
@@ -234,6 +259,17 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> dict:
 
 
 def scale_dicom_pixel_values(data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Scale pixel values using RescaleSlope and RescaleIntercept columns if they exist in the header.
+
+    Parameters
+    ----------
+    dataframe
+
+    Returns
+    -------
+    dataframe with scaled pixel values
+    """
     # check that RescaleSlope and RescaleIntercept columns exist
     if "RescaleSlope" in data.columns and "RescaleIntercept" in data.columns:
         # scale pixel values
@@ -246,7 +282,24 @@ def scale_dicom_pixel_values(data: pd.DataFrame) -> pd.DataFrame:
 
 def interpolate_dicom_pixel_values(
     data: pd.DataFrame, info: dict, logger: logging, image_type: str = "mag"
-) -> pd.DataFrame:
+) -> [pd.DataFrame, dict]:
+    """
+    Interpolate pixel values if the largest dimension is smaller than 192.
+
+    Parameters
+    ----------
+    data
+    info
+    logger
+    image_type
+
+    Returns
+    -------
+    dataframe with interpolated pixel values
+    info dictionary
+
+    """
+
     def is_unique(s):
         a = s.to_numpy()  # s.values (pandas<0.24)
         return (a[0] == a).all()
@@ -267,16 +320,14 @@ def interpolate_dicom_pixel_values(
             img[img < 0] = 0
         elif image_type == "phase":
             # convert phase to real and imaginary before interpolating
-            # TODO this needs to be a function
-            img = np.pi * img / 4096
+            img = mag_to_rad(img)
             img_real = np.cos(img)
             img_real = scipy.ndimage.zoom(img_real, 2, order=0)
             img_imag = np.sin(img)
             img_imag = scipy.ndimage.zoom(img_imag, 2, order=0)
             # revert back to the original phase values
             img = np.arctan2(img_imag, img_real)
-            # TODO this needs to be a function
-            img = 4096 * img / np.pi
+            img = rad_to_mag(img)
         return img
 
     # if largest dimension < 192, then interpolate by a factor of 2
@@ -288,7 +339,20 @@ def interpolate_dicom_pixel_values(
     return data, info
 
 
-def tweak_directions(data):
+def tweak_directions(data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Tweak the directions in the table. If a direction is a list of NaNs, then
+    change to a null vector (0,0,0).
+
+    Parameters
+    ----------
+    data
+
+    Returns
+    -------
+    data
+    """
+
     # add new column to table to indicate if the directions are in the image plane
     data["dir_in_image_plane"] = False
 
@@ -301,6 +365,18 @@ def tweak_directions(data):
 
 
 def add_missing_columns(data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add missing required columns to the table.
+    More columns can be added here if needed.
+
+    Parameters
+    ----------
+    data
+
+    Returns
+    -------
+
+    """
     list_of_fields = ["series_description"]
 
     for field in list_of_fields:
@@ -337,20 +413,21 @@ def get_dicom_version(global_dicom_header: pydicom.dataset.Dataset, logger: logg
         logger.debug("DICOM type: Legacy")
         n_images_per_file = 1
         logger.debug("Number of images per DICOM: " + str(n_images_per_file))
+
     return dicom_type, n_images_per_file
 
 
-def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging) -> str:
+def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
     """
     Get manufacturer from the DICOM header.
 
     Parameters
     ----------
     header
+    logger
 
     Returns
     -------
-    manufacturer
 
     """
     if "Manufacturer" in header:
@@ -369,7 +446,22 @@ def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging) -> str:
     # return manufacturer
 
 
-def rename_columns(dicom_type, table_frame):
+def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
+    """
+    Rename important columns in the table.
+    This will also have the effect of naming some columns the same string for both
+    legacy and enhanced DICOMs.
+
+    Parameters
+    ----------
+    dicom_type
+    table_frame
+
+    Returns
+    -------
+    table_frame
+
+    """
     if dicom_type == "enhanced":
         table_frame = table_frame.rename(
             columns={
@@ -417,10 +509,24 @@ def rename_columns(dicom_type, table_frame):
                 "SliceThickness": "slice_thickness",
             }
         )
+
     return table_frame
 
 
-def reorder_columns(table_frame):
+def reorder_columns(table_frame: pd.DataFrame) -> pd.DataFrame:
+    """
+    Move some columns to the start of the table for easier access to the most important columns.
+
+    Parameters
+    ----------
+    table_frame
+
+    Returns
+    -------
+    table_frame
+
+    """
+
     cols_to_move = [
         "fiji_index",
         "file_name",
@@ -438,6 +544,7 @@ def reorder_columns(table_frame):
     # make sure the elements of the list above exist, otherwise remove them from the list
     cols_to_move = [col for col in cols_to_move if col in table_frame.columns]
     table_frame = table_frame[cols_to_move + [col for col in table_frame.columns if col not in cols_to_move]]
+
     return table_frame
 
 
@@ -446,7 +553,6 @@ def read_all_dicom_files(
     dicom_type: str,
     n_images_per_file: int,
     header_field_list: list,
-    header_table: pd.DataFrame,
 ) -> pd.DataFrame:
     """
     Read all DICOM files and extract header information to a dataframe
@@ -457,7 +563,6 @@ def read_all_dicom_files(
     dicom_type
     n_images_per_file
     header_field_list
-    header_table
 
     Returns
     -------
@@ -549,7 +654,7 @@ def read_all_dicom_files(
 
 def simplify_per_frame_dictionary(c_dict: dict, frame_idx: int) -> dict:
     """
-    Simplify the dictionary keys by removing some common strings
+    Simplify the dictionary keys by removing some recurrent strings
 
     Parameters
     ----------
