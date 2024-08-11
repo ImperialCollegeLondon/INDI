@@ -1,6 +1,9 @@
 import os
 
 import cv2 as cv
+import matplotlib
+import matplotlib.axes
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Button, Slider
@@ -190,13 +193,13 @@ def plot_manual_lv_segmentation(
 class Actions:
     def __init__(
         self,
-        fig,
-        ax_seg,
-        ax_preview,
-        ax_slider,
-        cont_img,
-        map1,
-        map2,
+        fig: matplotlib.figure.Figure,
+        ax_seg: matplotlib.axes.Axes,
+        ax_preview: matplotlib.axes.Axes,
+        ax_slider: matplotlib.axes.Axes,
+        cont_img: NDArray,
+        map1: NDArray,
+        map2: NDArray,
         *,
         initial_endo_poly=None,
         initial_epi_poly=None,
@@ -269,13 +272,27 @@ class Actions:
         self.cont_img_props = cont_img_props
         self.seg_on_map = False
 
+        self.seg_img = self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
+        self.preview_img = self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+
+        self.fig.canvas.draw_idle()
+        self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
+        self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
+
         (self.endo_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
         (self.epi_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
         (self.ip_preview,) = self.ax_preview.plot([], [], "X", color="tab:green", markersize=8, alpha=0.8)
 
     def draw(self):
-        self.draw_preview()
-        self.fig.canvas.draw_idle()
+        """Nothing"""
+
+        # self.fig.canvas.draw_idle()
+
+        # self.fig.canvas.restore_region(self.bg_preview)
+        # self.fig.canvas.restore_region(self.bg_seg)
+        # # self.draw_preview()
+        # self.fig.canvas.blit(self.ax_preview.get_tightbbox())
+        # self.fig.canvas.blit(self.ax_seg.get_tightbbox())
 
     def draw_preview(self):
         self.endo_preview.set_data(self.endo_poly.curve_points[:, 0], self.endo_poly.curve_points[:, 1])
@@ -283,6 +300,7 @@ class Actions:
         self.ip_preview.set_data(
             [[self.ip["inferior"][0], self.ip["superior"][0]], [self.ip["inferior"][1], self.ip["superior"][1]]]
         )
+        self.fig.canvas.draw_idle()
 
     def remove_border_btn(self):
         btn_ax = filter(lambda ax: "btn" in ax.get_label(), self.fig.get_axes())
@@ -290,7 +308,6 @@ class Actions:
             ax.set_axis_off()
 
     def set_border_btn(self, ax):
-        print(ax.get_label())
         ax.set_axis_on()
         ax.set_facecolor("#FFFFFF00")
         for axis in ["top", "bottom", "left", "right"]:
@@ -311,7 +328,8 @@ class Actions:
         self.endo_poly.set_visible(False)
 
         self.ax_seg.set_title("Click epicardial points")
-        self.draw()
+        self.fig.canvas.draw_idle()
+        # self.draw()
 
     def segment_endo(self, event):
         """Deactivate the epicardium contour and activate the endocardium contour"""
@@ -327,7 +345,8 @@ class Actions:
         self.endo_poly.set_visible(True)
 
         self.ax_seg.set_title("Click endocardial points")
-        self.draw()
+        self.fig.canvas.draw_idle()
+        # self.draw()
 
     def swap_images(self, _):
         """Swap between segmenting the contrast image and the map"""
@@ -339,7 +358,10 @@ class Actions:
             self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
             self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
 
-        self.draw()
+        self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
+        self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
+        # self.draw()
+        self.fig.canvas.draw_idle()
 
     def swap_maps(self, _):
         """Swap between the two maps"""
@@ -351,7 +373,10 @@ class Actions:
             self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
             self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
 
-        self.draw()
+        self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
+        self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
+        self.fig.canvas.draw_idle()
+        # self.draw()
 
     def on_scroll(self, event):
         """Use the scroll wheel to update the threshold"""
@@ -381,7 +406,12 @@ class Actions:
         else:
             self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
             self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
-        self.draw()
+
+        self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
+        self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
+        self.fig.canvas.draw_idle()
+
+        # self.draw()
 
     def pick_ip(self, event):
         """Activate the intersection point code"""
@@ -413,7 +443,10 @@ class Actions:
                 self.ip_selected = True
             else:
                 self.ip_current = "superior"
-            self.draw()
+
+        self.draw_preview()
+        self.fig.canvas.draw_idle()
+        # self.draw()
 
 
 def manual_lv_segmentation(
@@ -481,6 +514,7 @@ def manual_lv_segmentation(
 
     # plot the magnitude image to be ROI'd
     # retina screen resolution
+    # It should be detected automatically otherwise when using a non retina display the app will look too large
     my_dpi = 100
     if mask_3c.shape[0] > mask_3c.shape[1]:
         fig, ax = plt.subplots(
