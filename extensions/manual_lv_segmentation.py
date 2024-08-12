@@ -272,8 +272,10 @@ class Actions:
         self.cont_img_props = cont_img_props
         self.seg_on_map = False
 
-        self.seg_img = self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
-        self.preview_img = self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+        self.cont_artist = self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
+        self.map2_artist = self.ax_preview.imshow(self.maps[1], **self.maps_props[1])
+        self.map1_artist = self.ax_preview.imshow(self.maps[0], **self.maps_props[0])
+        self.map_artists = [self.map1_artist, self.map2_artist]
 
         self.fig.canvas.draw_idle()
         self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
