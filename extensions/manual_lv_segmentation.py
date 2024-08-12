@@ -1,7 +1,6 @@
 import os
 
 import cv2 as cv
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Button, Slider
@@ -11,7 +10,7 @@ from .polygon_selector import PolygonSelectorSpline
 
 # NOTE
 # Using blit those not work on the default matplotlib backend we need to use another
-matplotlib.use("tkagg")
+# matplotlib.use("tkagg")
 
 
 def get_sa_contours(lv_mask):
