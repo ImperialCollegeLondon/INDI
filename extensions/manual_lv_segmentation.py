@@ -272,11 +272,6 @@ class Actions:
         self.cont_img_props = cont_img_props
         self.seg_on_map = False
 
-        self.cont_artist = self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
-        self.map2_artist = self.ax_preview.imshow(self.maps[1], **self.maps_props[1])
-        self.map1_artist = self.ax_preview.imshow(self.maps[0], **self.maps_props[0])
-        self.map_artists = [self.map1_artist, self.map2_artist]
-
         self.fig.canvas.draw_idle()
         self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
         self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
@@ -285,16 +280,13 @@ class Actions:
         (self.epi_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
         (self.ip_preview,) = self.ax_preview.plot([], [], "X", color="tab:green", markersize=8, alpha=0.8)
 
-    def draw(self):
-        """Nothing"""
-
-        # self.fig.canvas.draw_idle()
-
-        # self.fig.canvas.restore_region(self.bg_preview)
-        # self.fig.canvas.restore_region(self.bg_seg)
-        # # self.draw_preview()
-        # self.fig.canvas.blit(self.ax_preview.get_tightbbox())
-        # self.fig.canvas.blit(self.ax_seg.get_tightbbox())
+    def draw_images(self):
+        if self.seg_on_map:
+            self.ax_seg.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+            self.ax_preview.imshow(self.cont_img, **self.cont_img_props)
+        else:
+            self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
+            self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
 
     def draw_preview(self):
         self.endo_preview.set_data(self.endo_poly.curve_points[:, 0], self.endo_poly.curve_points[:, 1])
@@ -353,13 +345,7 @@ class Actions:
     def swap_images(self, _):
         """Swap between segmenting the contrast image and the map"""
         self.seg_on_map = not self.seg_on_map
-        if self.seg_on_map:
-            self.ax_seg.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
-            self.ax_preview.imshow(self.cont_img, **self.cont_img_props)
-        else:
-            self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
-            self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
-
+        self.draw_images()
         self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
         self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
         # self.draw()
@@ -368,13 +354,7 @@ class Actions:
     def swap_maps(self, _):
         """Swap between the two maps"""
         self.map_use = (self.map_use + 1) % 2
-        if self.seg_on_map:
-            self.ax_seg.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
-            self.ax_preview.imshow(self.cont_img, **self.cont_img_props)
-        else:
-            self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
-            self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
-
+        self.draw_images()
         self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
         self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
         self.fig.canvas.draw_idle()
@@ -402,12 +382,7 @@ class Actions:
         self.maps[0] = self.maps_org[0] * self.mask
         self.maps[1] = self.maps_org[1] * self.mask
 
-        if self.seg_on_map:
-            self.ax_seg.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
-            self.ax_preview.imshow(self.cont_img, **self.cont_img_props)
-        else:
-            self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
-            self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+        self.draw_images()
 
         self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
         self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
