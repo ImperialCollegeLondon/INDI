@@ -154,7 +154,7 @@ def heart_segmentation(
                 average_images[slice_idx],
                 prelim_ha[slice_idx],
                 prelim_md[slice_idx],
-                10,
+                100,
                 settings,
                 colormaps,
                 slice_idx,
