@@ -116,7 +116,7 @@ def manual_image_removal(
         c_df = c_df.loc[c_df["to_be_removed"] == False]
 
         # convert list of directions to a tuple
-        c_df["direction_original"] = c_df["direction_original"].apply(tuple)
+        c_df["diffusion_direction_original"] = c_df["diffusion_direction_original"].apply(tuple)
 
         # get unique b-values
         b_vals = c_df.b_value_original.unique()
@@ -133,13 +133,13 @@ def manual_image_removal(
             c_df_b = c_df.loc[c_df["b_value_original"] == b_val].copy()
 
             # unique directions
-            dirs = c_df_b["direction_original"].unique()
+            dirs = c_df_b["diffusion_direction_original"].unique()
             dirs.sort()
 
             # loop over directions
             for dir_idx, dir in enumerate(dirs):
                 # dataframe with current slice, current b-value, and current direction images
-                c_df_b_d = c_df_b.loc[c_df_b["direction_original"] == dir].copy()
+                c_df_b_d = c_df_b.loc[c_df_b["diffusion_direction_original"] == dir].copy()
 
                 # for each b_val and each dir collect all images
                 c_img_stack[b_val, dir] = np.stack(c_df_b_d.image.values, axis=0)
@@ -280,7 +280,7 @@ def manual_image_removal(
             c_idx = ax.values[2]
 
             # locate item in dataframe containing all images for this slice
-            c_table = c_df[(c_df["direction_original"] == c_dir)]
+            c_table = c_df[(c_df["diffusion_direction_original"] == c_dir)]
             c_table = c_table[(c_table["b_value_original"] == c_bval)]
             c_filename = c_table.iloc[c_idx]["file_name"]
 
@@ -418,7 +418,7 @@ def select_outliers(
             create_2d_montage_from_database(
                 data,
                 "b_value_original",
-                "direction_original",
+                "diffusion_direction_original",
                 settings,
                 info,
                 slices,
@@ -432,7 +432,7 @@ def select_outliers(
                 create_2d_montage_from_database(
                     data,
                     "b_value_original",
-                    "direction_original",
+                    "diffusion_direction_original",
                     settings,
                     info,
                     slices,
