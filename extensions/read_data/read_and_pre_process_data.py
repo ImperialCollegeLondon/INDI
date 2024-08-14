@@ -1001,7 +1001,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     else:
         # read pandas
         data_type = "pandas"
-        data, data_phase, info = read_and_process_pandas(info, logger, settings)
+        data, data_phase, info = read_and_process_pandas(logger, settings)
 
     # now that we loaded the images and headers we need to organise it as
     # we cannot assume that the files are in any particular order
