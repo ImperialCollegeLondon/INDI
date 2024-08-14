@@ -259,9 +259,6 @@ class Actions:
         self.ip_event_id = self.fig.canvas.mpl_connect("button_press_event", self.update_ip)
         self.fig.canvas.mpl_disconnect(self.ip_event_id)
 
-        self.redraw_event_id = self.fig.canvas.mpl_connect("button_release_event", lambda _: self.draw())
-        # self.redraw_event_id = self.fig.canvas.mpl_connect("draw_event", lambda _: self.draw_preview())
-
         self.mask = np.ones_like(cont_img)
         self.cont_img = cont_img
         self.cont_img_org = cont_img.copy()
