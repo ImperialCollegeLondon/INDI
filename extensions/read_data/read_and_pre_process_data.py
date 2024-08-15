@@ -645,20 +645,20 @@ def get_data_old_or_modern_dicoms(
                     file_name,
                     # array of pixel values
                     get_pixel_array(ds, dicom_type, frame_idx, image_type),
-                    # b-value or zero if not a field
-                    get_b_value(c_dicom_header, dicom_type, dicom_manufacturer, frame_idx),
-                    # diffusion directions
-                    get_diffusion_directions(c_dicom_header, dicom_type, dicom_manufacturer, frame_idx, settings),
+                    ## b-value or zero if not a field
+                    # get_b_value(c_dicom_header, dicom_type, dicom_manufacturer, frame_idx),
+                    ## diffusion directions
+                    # get_diffusion_directions(c_dicom_header, dicom_type, dicom_manufacturer, frame_idx, settings),
                     # image position
                     get_image_position(c_dicom_header, dicom_type, frame_idx),
-                    # nominal interval
-                    get_nominal_interval(c_dicom_header, dicom_type, frame_idx),
+                    ## nominal interval
+                    # get_nominal_interval(c_dicom_header, dicom_type, frame_idx),
                     # acquisition time
                     get_acquisition_time(c_dicom_header, dicom_type, frame_idx),
                     # acquisition date
                     get_acquisition_date(c_dicom_header, dicom_type, frame_idx),
-                    # False if diffusion direction is a field
-                    get_diffusion_direction_in_plane_bool(c_dicom_header, dicom_type, dicom_manufacturer, frame_idx),
+                    ## False if diffusion direction is a field
+                    # get_diffusion_direction_in_plane_bool(c_dicom_header, dicom_type, dicom_manufacturer, frame_idx),
                     # series description
                     get_series_description(c_dicom_header, dicom_type, frame_idx),
                     # get_series_number
@@ -672,13 +672,13 @@ def get_data_old_or_modern_dicoms(
         columns=[
             "file_name",
             "image",
-            "b_value",
-            "direction",
+            #"b_value",
+            #"direction",
             "image_position",
-            "nominal_interval",
+            #"nominal_interval",
             "acquisition_time",
             "acquisition_date",
-            "dir_in_image_plane",
+            #"dir_in_image_plane",
             "series_description",
             "series_number",
             "header",
@@ -1613,7 +1613,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     # =========================================================
     # adjust b-values and diffusion directions to image
     # =========================================================
-    data = adjust_b_val_and_dir(data, settings, info, logger, data_type)
+    # data = adjust_b_val_and_dir(data, settings, info, logger, data_type)
 
     # =========================================================
     # re-order data again, this time by slice first, then by date-time
@@ -1626,7 +1626,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     # image size
     info["img_size"] = list(data.loc[0, "image"].shape)
 
-    data_summary_plots(data, info, settings)
+    # data_summary_plots(data, info, settings)
 
     logger.debug("Number of images: " + str(info["n_images"]))
     logger.debug("Number of slices: " + str(len(slices)))
@@ -1635,53 +1635,55 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     # =========================================================
     # display all DWIs in a montage
     # =========================================================
-    if settings["debug"]:
-        create_2d_montage_from_database(
-            data,
-            "b_value_original",
-            "direction_original",
-            settings,
-            info,
-            slices,
-            "dwis_original_dicoms",
-            settings["debug_folder"],
-            [],
-            {},
-            True,
-            "image",
-        )
-        if settings["complex_data"]:
-            create_2d_montage_from_database(
-                data,
-                "b_value_original",
-                "direction_original",
-                settings,
-                info,
-                slices,
-                "dwis_original_dicoms_phase",
-                settings["debug_folder"],
-                [],
-                {},
-                True,
-                "image_phase",
-            )
+# =============================================================================
+#     if settings["debug"]:
+#         create_2d_montage_from_database(
+#             data,
+#             "b_value_original",
+#             "direction_original",
+#             settings,
+#             info,
+#             slices,
+#             "dwis_original_dicoms",
+#             settings["debug_folder"],
+#             [],
+#             {},
+#             True,
+#             "image",
+#         )
+#         if settings["complex_data"]:
+#             create_2d_montage_from_database(
+#                 data,
+#                 "b_value_original",
+#                 "direction_original",
+#                 settings,
+#                 info,
+#                 slices,
+#                 "dwis_original_dicoms_phase",
+#                 settings["debug_folder"],
+#                 [],
+#                 {},
+#                 True,
+#                 "image_phase",
+#             )
+# =============================================================================
 
     # also save some diffusion info to a csv file
-    save_path = os.path.join(settings["dicom_folder"], "diff_info_sorted.csv")
+    save_path = os.path.join(settings["dicom_folder"], "image_info_sorted.csv")
     data.to_csv(
         save_path,
         columns=[
             "file_name",
-            "b_value",
-            "b_value_original",
-            "direction",
-            "direction_original",
-            "dir_in_image_plane",
+            #"b_value",
+            #"b_value_original",
+            #"direction",
+            #"direction_original",
+            #"dir_in_image_plane",
             "image_position",
             "image_position_label",
             "slice_integer",
-            "nominal_interval",
-            "estimated_rr_interval",
+            #"nominal_interval",
+            #"estimated_rr_interval",
             "acquisition_date_time",
             "series_description",
             "series_number",
@@ -1690,8 +1692,8 @@ def read_data(settings: dict, info: dict, logger: logging) -> [pd.DataFrame, dic
     )
 
     # plot the b-values (before and after adjustment)
-    if settings["debug"] and settings["sequence_type"] == "steam":
-        plot_b_values_adjustment(data, settings)
+    # if settings["debug"] and settings["sequence_type"] == "steam":
+    #    plot_b_values_adjustment(data, settings)
 
     return data, info, slices
 
@@ -1813,11 +1815,11 @@ def read_and_process_dicoms(
         save_path,
         columns=[
             "file_name",
-            "b_value",
-            "direction",
-            "dir_in_image_plane",
+         #   "b_value",
+         #   "direction",
+         #   "dir_in_image_plane",
             "image_position",
-            "nominal_interval",
+         #   "nominal_interval",
             "series_description",
             "series_number",
         ],
@@ -1829,11 +1831,11 @@ def read_and_process_dicoms(
             save_path,
             columns=[
                 "file_name",
-                "b_value",
-                "direction",
-                "dir_in_image_plane",
+          #      "b_value",
+          #      "direction",
+          #      "dir_in_image_plane",
                 "image_position",
-                "nominal_interval",
+          #      "nominal_interval",
                 "series_description",
                 "series_number",
             ],

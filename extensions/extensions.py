@@ -18,6 +18,7 @@ import skimage.filters
 import skimage.measure
 import xarray as xr
 import yaml
+import scipy.io as spio
 from numpy.typing import NDArray
 from scipy import ndimage
 from skimage import morphology
@@ -177,7 +178,7 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     maps["MD"] = dti["md"]
     maps["FA"] = dti["fa"]
     maps["mask"] = mask_3c
-    maps["s0"] = dti["s0"]
+    # maps["s0"] = dti["s0"]
     maps["mag_image"] = average_images
 
     save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
@@ -1403,44 +1404,46 @@ def plot_results_maps(
         )
         plt.close()
 
-        # plot S0 map with segmentation
-        plt.figure(figsize=(5, 5))
-        plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
-        vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
-        plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
-        if segmentation[slice_idx]["anterior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["anterior_ip"][0],
-                segmentation[slice_idx]["anterior_ip"][1],
-                "2",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
-            )
-        if segmentation[slice_idx]["inferior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["inferior_ip"][0],
-                segmentation[slice_idx]["inferior_ip"][1],
-                "1",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
-            )
-        plt.colorbar(fraction=0.046, pad=0.04)
-        plt.tight_layout(pad=1.0)
-        plt.axis("off")
-        plt.title("S0")
-        plt.savefig(
-            os.path.join(
-                settings["results"],
-                "results_b",
-                "maps_s0_slice_" + str(slice_idx).zfill(2) + ".png",
-            ),
-            dpi=200,
-            pad_inches=0,
-            transparent=False,
-        )
-        plt.close()
+# =============================================================================
+#         # plot S0 map with segmentation
+#         plt.figure(figsize=(5, 5))
+#         plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
+#         vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
+#         plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
+#         if segmentation[slice_idx]["anterior_ip"].size != 0:
+#             plt.plot(
+#                 segmentation[slice_idx]["anterior_ip"][0],
+#                 segmentation[slice_idx]["anterior_ip"][1],
+#                 "2",
+#                 color="tab:orange",
+#                 markersize=20,
+#                 alpha=1.0,
+#             )
+#         if segmentation[slice_idx]["inferior_ip"].size != 0:
+#             plt.plot(
+#                 segmentation[slice_idx]["inferior_ip"][0],
+#                 segmentation[slice_idx]["inferior_ip"][1],
+#                 "1",
+#                 color="tab:orange",
+#                 markersize=20,
+#                 alpha=1.0,
+#             )
+#         plt.colorbar(fraction=0.046, pad=0.04)
+#         plt.tight_layout(pad=1.0)
+#         plt.axis("off")
+#         plt.title("S0")
+#         plt.savefig(
+#             os.path.join(
+#                 settings["results"],
+#                 "results_b",
+#                 "maps_s0_slice_" + str(slice_idx).zfill(2) + ".png",
+#             ),
+#             dpi=200,
+#             pad_inches=0,
+#             transparent=False,
+#         )
+#         plt.close()
+# =============================================================================
 
 
 def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
@@ -1974,3 +1977,68 @@ def remove_outliers(data: pd.DataFrame, info: dict) -> [pd.DataFrame, dict]:
     info["n_images"] = len(data)
 
     return data, info
+
+def loadmat(filename):
+    '''
+    this function should be called instead of direct spio.loadmat
+    as it cures the problem of not properly recovering python dictionaries
+    from mat files. It calls the function check keys to cure all entries
+    which are still mat-objects
+    '''
+    data = spio.loadmat(filename, struct_as_record=False, squeeze_me=True)
+    return _check_keys(data)
+
+def _check_keys(dict):
+    '''
+    checks if entries in dictionary are mat-objects. If yes
+    todict is called to change them to nested dictionaries
+    '''
+    for key in dict:
+        if isinstance(dict[key], spio.matlab.mio5_params.mat_struct):
+            dict[key] = _todict(dict[key])
+    return dict        
+
+def _todict(matobj):
+    '''
+    A recursive function which constructs from matobjects nested dictionaries
+    '''
+    dict = {}
+    for strg in matobj._fieldnames:
+        elem = matobj.__dict__[strg]
+        if isinstance(elem, spio.matlab.mio5_params.mat_struct):
+            dict[strg] = _todict(elem)
+        else:
+            dict[strg] = elem
+    return dict
+
+def average3D(image: NDArray, certaintyImage: NDArray) -> NDArray:
+    sz = 7
+    sigma = 1
+    krn = _gauss_fourier(sz, sigma)  
+    
+    image = image * certaintyImage
+    certaintyImage = ndimage.convolve(certaintyImage, np.reshape(krn,(sz, 1, 1)), mode='nearest')
+    certaintyImage = ndimage.convolve(certaintyImage, np.reshape(np.transpose(krn),(1, sz, 1)), mode='nearest')
+    certaintyImage = ndimage.convolve(certaintyImage, np.reshape(krn, (1, 1, sz)), mode='nearest')
+    certaintyImage = certaintyImage + 1e-16
+    
+    outImage = ndimage.convolve(image, np.reshape(krn,(sz, 1, 1)), mode='nearest')
+    outImage = ndimage.convolve(outImage, np.reshape(np.transpose(krn),(1, sz, 1)), mode='nearest')
+    outImage = ndimage.convolve(outImage, np.reshape(krn, (1, 1, sz)), mode='nearest')
+    outImage = outImage/certaintyImage
+    
+    return outImage
+
+def _gauss_fourier(sz, sigma):
+    halfSize = (sz - 1) / 2
+    sigma2 = 2 * sigma * sigma
+    krn = np.zeros([sz, 1])
+    
+    for k in range(0, sz, 1):
+        u = k - halfSize
+        u = u / (halfSize + 0.5)
+        u = u * np.pi
+        krn[k] = np.exp(-u*u / sigma2)
+        
+    krn = krn/np.sum(krn)
+    return krn

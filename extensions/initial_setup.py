@@ -121,7 +121,7 @@ def initial_setup(script_path: str) -> [dict, dict, dict, logging, logging, list
     os.chdir(settings["start_folder"])
 
     # find all subfolders called dicoms recursively
-    all_to_be_analysed_folders = glob.glob(settings["start_folder"] + "/**/diffusion_images", recursive=True)
+    all_to_be_analysed_folders = glob.glob(settings["start_folder"] + "/**/anatomical_images", recursive=True)
     all_to_be_analysed_folders.sort()
 
     return dti, settings, logger, log_format, all_to_be_analysed_folders

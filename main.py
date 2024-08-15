@@ -1,7 +1,7 @@
 """
 Main python script
 
-This script will calculate diffusion tensor maps
+This script will calculate structure tensor maps
 from a set of dicom files.
 
 """
@@ -35,7 +35,7 @@ from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.select_outliers import select_outliers
-from extensions.tensor_fittings import dipy_tensor_fit
+from extensions.tensor_fittings import dipy_tensor_fit, structure_tensor_fit
 from extensions.u_net_segmentation import get_average_images
 
 # # for debugging numpy warnings
@@ -98,7 +98,7 @@ for current_folder in all_to_be_analysed_folders:
         continue
 
     # =========================================================
-    # DWIs registration
+    # Image registration
     # =========================================================
     data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
 
@@ -205,7 +205,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Get SNR maps
     # =========================================================
-    [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
+    # [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
 
     # =========================================================
     # complex averaging
@@ -216,7 +216,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Calculate tensor
     # =========================================================
-    dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], info = dipy_tensor_fit(
+    dti["tensor"] = structure_tensor_fit(
         slices,
         data,
         info,
@@ -224,7 +224,6 @@ for current_folder in all_to_be_analysed_folders:
         mask_3c,
         average_images,
         logger,
-        method=settings["tensor_fit_method"],
         quick_mode=False,
     )
 
@@ -303,13 +302,13 @@ for current_folder in all_to_be_analysed_folders:
         local_cardiac_coordinates,
         lv_centres,
         mask_3c,
-        noise,
+        # noise,
         phi_matrix,
         ref_images,
         registration_image_data,
         segmentation,
         slices,
-        snr_b0_lv,
+        # snr_b0_lv,
     )
     dti = {}
 

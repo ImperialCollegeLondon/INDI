@@ -392,11 +392,11 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
     ref_images = {}
     if settings["registration"] != "elastix_groupwise":
         # get unique b-values
-        b_values = current_entries["b_value_original"].unique()
+        # b_values = current_entries["b_value_original"].unique()
         # sort b-values
-        b_values = np.sort(b_values)
+        # b_values = np.sort(b_values)
         # get indices for the lowest b-value
-        index_pos = current_entries.index[current_entries["b_value_original"] == b_values[0]].tolist()
+        index_pos = [slice_idx] # current_entries.index[current_entries["b_value_original"] == b_values[0]].tolist()
         n_images = len(index_pos)
 
         if n_images < 2 or settings["registration_reference_method"] == "best":
@@ -404,7 +404,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
                 logger.info(
                     "Slice "
                     + str(slice_idx).zfill(2)
-                    + ": only one image found for the lowest b-value, using that image as reference"
+                    + ": using first image as reference"
                 )
             else:
                 logger.info(
@@ -464,15 +464,15 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
                 image_stack[i] = denoise_img_nlm(image_stack[i])
 
             # create mask stack of the FOV central region
-            mask = np.zeros([image_stack.shape[1], image_stack.shape[2]])
-            if image_stack.shape[1] > image_stack.shape[2]:
-                short_dim = image_stack.shape[2]
-                large_dim = image_stack.shape[1]
-                mask[int((large_dim - short_dim * 1.2) / 2) : int((large_dim + short_dim * 1.2) / 2), :] = 1
-            else:
-                short_dim = image_stack.shape[1]
-                large_dim = image_stack.shape[2]
-                mask[:, int((large_dim - short_dim * 1.2) / 2) : int((large_dim + short_dim * 1.2) / 2)] = 1
+            mask = np.ones([image_stack.shape[1], image_stack.shape[2]])
+            # if image_stack.shape[1] > image_stack.shape[2]:
+            #     short_dim = image_stack.shape[2]
+            #     large_dim = image_stack.shape[1]
+            #     mask[int((large_dim - short_dim * 1.2) / 2) : int((large_dim + short_dim * 1.2) / 2), :] = 1
+            # else:
+            #     short_dim = image_stack.shape[1]
+            #     large_dim = image_stack.shape[2]
+            #     mask[:, int((large_dim - short_dim * 1.2) / 2) : int((large_dim + short_dim * 1.2) / 2)] = 1
             mask_arr = np.asarray(mask, dtype=np.ubyte)
             mask_arr = np.repeat(mask_arr[np.newaxis, :, :], n_images, axis=0)
             mask = itk.GetImageFromArray(mask_arr)
@@ -637,7 +637,7 @@ def get_registration_mask(info: dict, settings: dict) -> [NDArray, NDArray]:
 
     Returns
     -------
-    registratio mask and its contour points for debug plotting
+    registration mask and its contour points for debug plotting
 
     """
 

@@ -17,6 +17,7 @@ from extensions.manual_lv_segmentation import (
     spline_interpolate_contour,
 )
 from extensions.tensor_fittings import dipy_tensor_fit
+from extensions.tensor_fittings import structure_tensor_fit
 from extensions.u_net_segmentation import plot_segmentation_unet, u_net_segment_heart
 
 
@@ -61,27 +62,27 @@ def heart_segmentation(
     prelim_md = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
     # mask is all ones here for now.
     thr_mask = np.ones((n_slices, info["img_size"][0], info["img_size"][1]))
-    # loop over the slices
-    for slice_idx in slices:
-        if not os.path.exists(
-            os.path.join(settings["session"], "manual_lv_segmentation_slice_" + str(slice_idx).zfill(3) + ".npz")
-        ):
+
+    if not os.path.exists(
+        os.path.join(settings["session"], "manual_lv_segmentation_slice_" + str(0).zfill(3) + ".npz")
+    ):
+        # get basic structural tensor
+        tensor = structure_tensor_fit(
+            slices,
+            data,
+            info,
+            settings,
+            thr_mask,
+            average_images,
+            logger,
+            quick_mode=True,
+        )
+    
+        # loop over the slices
+        for slice_idx in slices:
             # get cylindrical coordinates
             local_cylindrical_coordinates = get_cylindrical_coordinates_short_axis(
                 thr_mask[[slice_idx], ...],
-            )
-
-            # get basic tensor
-            tensor, _, _, _, info = dipy_tensor_fit(
-                [slice_idx],
-                data,
-                info,
-                settings,
-                thr_mask,
-                average_images,
-                logger,
-                "LS",
-                quick_mode=True,
             )
             # get basic HA and MD maps
             prelim_eigenvalues, prelim_eigenvectors = np.linalg.eigh(tensor[[slice_idx], ...])
@@ -91,7 +92,7 @@ def heart_segmentation(
                 prelim_eigenvectors,
             )
             prelim_md[slice_idx] = np.mean(prelim_eigenvalues, axis=-1)
-
+    
             # threshold preliminary MD and HA maps
             prelim_ha[slice_idx] = prelim_ha[slice_idx] * thr_mask[slice_idx]
             prelim_md[slice_idx] = 1e3 * prelim_md[slice_idx] * thr_mask[slice_idx]

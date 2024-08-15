@@ -6,7 +6,7 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder:
+start_folder: /Users/cmunozes/Documents/DATA/ExampleData
 # anon, reg, main
 workflow_mode: main
 # se, steam
@@ -41,9 +41,9 @@ tensor_fit_method: NLLS
 # IMAGE REMOVAL
 # ========================================================================================
 # True, False
-remove_outliers_manually: True
+remove_outliers_manually: False
 # True, False
-remove_outliers_manually_pre: True
+remove_outliers_manually_pre: False
 # True, False
 # NOT WORKING WELL AT THE MOMENT
 remove_outliers_with_ai: False

@@ -8,7 +8,6 @@ from numpy import ndarray
 from numpy.typing import NDArray
 from scipy import stats
 
-
 def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, prefix: str = ""):
     """
     Plot the tensor residuals averaged per image
@@ -321,3 +320,104 @@ def dipy_tensor_fit(
             plot_tensor_components(tensor, average_images, mask_3c, slices, settings)
 
     return tensor, s0, residuals_img, residuals_map, info
+
+
+def structure_tensor_fit(
+    slices: NDArray,
+    data: pd.DataFrame,
+    info: dict,
+    settings: dict,
+    mask_3c: NDArray,
+    average_images: NDArray,
+    logger: logging.Logger,
+    quick_mode=False,
+):
+    """
+
+    Fit structure tensor to data in dataframe. 
+
+    Parameters
+    ----------
+    slices: array of strings with slice positions
+    data: dataframe with all the imaging information
+    info: dictionary with general information
+    settings: dictionary with general options
+    mask_3c: segmentation mask
+    logger: logger messages
+    quick_mode: boolean to speed up the function
+
+    Returns
+    -------
+
+    Tensor array 
+
+    """
+    import scipy.io
+    from extensions.extensions import loadmat, average3D
+
+    logger.info("Starting structural tensor fitting")
+    
+    t11 = np.zeros([slices.shape[0], info["img_size"][0], info["img_size"][1]])
+    t12 = np.zeros([slices.shape[0], info["img_size"][0], info["img_size"][1]])
+    t13 = np.zeros([slices.shape[0], info["img_size"][0], info["img_size"][1]])
+    t22 = np.zeros([slices.shape[0], info["img_size"][0], info["img_size"][1]])
+    t23 = np.zeros([slices.shape[0], info["img_size"][0], info["img_size"][1]])
+    t33 = np.zeros([slices.shape[0], info["img_size"][0], info["img_size"][1]])
+
+    myo_mask = np.copy(mask_3c.reshape(mask_3c.shape[0], mask_3c.shape[1] * mask_3c.shape[2]))
+    myo_mask[myo_mask > 1] = 0
+    
+    quadflt = loadmat(os.path.join(settings['code_path'],'extensions/quadratureFiltersForStructureTensor3D.mat'))
+    scale = 'intermediate'
+    
+    # Check this for reading the data
+    current_entries = data.loc[data["slice_integer"] == slices]
+
+    image_data = np.stack(current_entries["image"])
+    # image_data = image_data[..., np.newaxis]
+    # image_data = image_data.transpose(1, 2, 3, 0)
+    
+    ## Apply quadrature filters 
+    for ff in range(0, 5, 1):
+        
+        f   = quadflt[scale]['f'][ff]
+        m11 = quadflt[scale]['m11'][ff]
+        m12 = quadflt[scale]['m12'][ff]
+        m13 = quadflt[scale]['m13'][ff]
+        m22 = quadflt[scale]['m22'][ff]
+        m23 = quadflt[scale]['m23'][ff]
+        m33 = quadflt[scale]['m33'][ff]
+        
+        q = np.abs(scipy.ndimage.convolve(image_data, f, mode='nearest'))
+        
+        t11 = t11 + q*m11
+        t12 = t12 + q*m12
+        t13 = t13 + q*m13
+        t22 = t22 + q*m22
+        t23 = t23 + q*m23
+        t33 = t33 + q*m33
+
+    Tcert = np.sqrt(np.square(t11) + 2*np.square(t12) + 2*np.square(t13) 
+                    + np.square(t22) + 2*np.square(t23) + np.square(t33))
+    
+    t11 = average3D(t11, Tcert)
+    t12 = average3D(t12, Tcert)
+    t13 = average3D(t13, Tcert)
+    t22 = average3D(t22, Tcert)
+    t23 = average3D(t23, Tcert)
+    t33 = average3D(t33, Tcert) 
+    
+    # create tensor: [slice, lines, cols, 3x3 tensor]
+    tensor = np.zeros([mask_3c.shape[0], info["img_size"][0], info["img_size"][1], 3, 3])
+    tensor[slices, :, :, 0, 0] = t11
+    tensor[slices, :, :, 0, 1] = t12
+    tensor[slices, :, :, 0, 2] = t13
+    tensor[slices, :, :, 1, 0] = t12
+    tensor[slices, :, :, 1, 1] = t22
+    tensor[slices, :, :, 1, 2] = t23
+    tensor[slices, :, :, 2, 0] = t13
+    tensor[slices, :, :, 2, 1] = t23
+    tensor[slices, :, :, 2, 2] = t33
+    
+    return tensor
+
