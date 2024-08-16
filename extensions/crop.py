@@ -68,6 +68,8 @@ def crop_data(data: pd.DataFrame, slices: List[int], settings: Dict, info: Dict,
     roi = ThreeDSelector(nx, ny, nz)
     fig, axs = plt.subplots(1, 3, figsize=(10, 5))
 
+    rect_props = dict(fill=False, linestyle="-", edgecolor="yellow")
+
     axs[0].imshow(image[nx // 2, :, :], cmap="gray")
     axs[0].set_title("Front view")
     axs[0].axis("off")
@@ -76,7 +78,10 @@ def crop_data(data: pd.DataFrame, slices: List[int], settings: Dict, info: Dict,
         roi.select_front,
         interactive=True,
         drag_from_anywhere=True,
+        props=rect_props,
     )
+    axs[0].axhline(ny // 2, color="r", linestyle="--")
+    axs[0].axvline(nz // 2, color="r", linestyle="--")
 
     axs[1].imshow(image[:, ny // 2, :], cmap="gray")
     axs[1].set_title("Side view")
@@ -86,7 +91,10 @@ def crop_data(data: pd.DataFrame, slices: List[int], settings: Dict, info: Dict,
         roi.select_side,
         interactive=True,
         drag_from_anywhere=True,
+        props=rect_props,
     )
+    axs[1].axhline(nx // 2, color="r", linestyle="--")
+    axs[1].axvline(nz // 2, color="r", linestyle="--")
 
     axs[2].imshow(image[:, :, nz // 2], cmap="gray")
     axs[2].set_title("Top view")
@@ -96,7 +104,10 @@ def crop_data(data: pd.DataFrame, slices: List[int], settings: Dict, info: Dict,
         roi.select_top,
         interactive=True,
         drag_from_anywhere=True,
+        props=rect_props,
     )
+    axs[2].axhline(nx // 2, color="r", linestyle="--")
+    axs[2].axvline(ny // 2, color="r", linestyle="--")
 
     roi.set_selectors(front_rect, side_rect, top_rect)
     roi.update()
