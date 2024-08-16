@@ -467,9 +467,6 @@ def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
             columns={
                 "FileName": "file_name",
                 "MRDiffusionSequence_DiffusionBValue": "b_value",
-                "MRDiffusionSequence_DiffusionGradientDirectionSequence_DiffusionGradientOrientation_1": "b_vec_x",
-                "MRDiffusionSequence_DiffusionGradientDirectionSequence_DiffusionGradientOrientation_2": "b_vec_y",
-                "MRDiffusionSequence_DiffusionGradientDirectionSequence_DiffusionGradientOrientation_3": "b_vec_z",
                 "PlanePositionSequence_ImagePositionPatient": "image_position",
                 "PlaneOrientationSequence_ImageOrientationPatient": "image_orientation_patient",
                 "CardiacSynchronizationSequence_RRIntervalTimeNominal": "nominal_interval",
@@ -482,12 +479,10 @@ def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
                 "PixelValueTransformationSequence_RescaleSlope": "RescaleSlope",
                 "PixelValueTransformationSequence_RescaleIntercept": "RescaleIntercept",
                 "PixelValueTransformationSequence_RescaleType": "RescaleType",
+                "DiffusionGradientDirection": "diffusion_direction",
+                "DiffusionGradientOrientation": "diffusion_direction",
             }
         )
-
-        # combine the xyz of the diffusion directions in one list
-        table_frame["diffusion_direction"] = table_frame[["b_vec_x", "b_vec_y", "b_vec_z"]].values.tolist()
-        table_frame = table_frame.drop(columns=["b_vec_x", "b_vec_y", "b_vec_z"])
 
     elif dicom_type == "legacy":
         # I am assuming that DiffusionGradientDirection and DiffusionGradientOrientation are never present

@@ -93,6 +93,9 @@ fields_to_keep_enhanced:
   - AcquisitionNumber
   - InstanceNumber
   - ImageComments
+  - DiffusionBValue
+  - DiffusionGradientDirection
+  - DiffusionGradientOrientation
 
 fields_to_keep_legacy:
   - AcquisitionDate
