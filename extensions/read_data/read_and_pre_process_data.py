@@ -1392,7 +1392,7 @@ def read_and_process_bruker(
     data, attr = load_bruker(list_bruker, phase)
     # separate the phase and magnitude data
     if phase:
-        data_phase = data[not "image"].copy()
+        data_phase = data.drop("image", axis=1)
         data_phase["image"] = data["phase_image"].copy()
 
     info = {**attr, **info}
@@ -1469,6 +1469,12 @@ def list_files(data_type: str, logger: logging, settings: dict) -> Tuple[str, Li
     if data_type is None:
         # Checking for Bruker data
         if os.path.exists(os.path.join(settings["dicom_folder"], "pdata")):
+            if (
+                os.path.exists(os.path.join(settings["dicom_folder"], "pdata/2"))
+                or os.path.exists(os.path.join(settings["dicom_folder"], "pdata/3"))
+                or os.path.exists(os.path.join(settings["dicom_folder"], "pdata/phase"))
+            ):
+                settings["complex_data"] = True
             data_type = "bruker"
             list_bruker = [settings["dicom_folder"]]
 

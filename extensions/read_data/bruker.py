@@ -365,6 +365,13 @@ def read_bruker_file(folder_path: Path, data_type: str) -> Tuple[dict, list, lis
     # images
     pdata_filepath = folder_path / "pdata"
     twodseq_filepath = pdata_filepath / data_type / "2dseq"
+    if not twodseq_filepath.exists():
+        if data_type == "magnitude":
+            twodseq_filepath = pdata_filepath / "1" / "2dseq"
+        elif data_type == "phase":
+            twodseq_filepath = pdata_filepath / "2" / "2dseq"
+            if not twodseq_filepath.exists():
+                twodseq_filepath = pdata_filepath / "3" / "2dseq"
     if pdata_filepath.exists() and twodseq_filepath.exists():
         dataset = Dataset(twodseq_filepath)
     else:
@@ -431,6 +438,14 @@ def read_bruker_file(folder_path: Path, data_type: str) -> Tuple[dict, list, lis
 
     # now finally read the reco file
     reco_file_path = pdata_filepath / data_type / "reco"
+    if not reco_file_path.exists():
+        if data_type == "magnitude":
+            reco_file_path = pdata_filepath / "1" / "reco"
+        elif data_type == "phase":
+            reco_file_path = pdata_filepath / "2" / "reco"
+            if not reco_file_path.exists():
+                reco_file_path = pdata_filepath / "3" / "reco"
+
     with open(reco_file_path) as file:
         file_contents = file.read()
         file_contents = remove_endline_characters(file_contents)
