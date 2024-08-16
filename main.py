@@ -13,6 +13,7 @@ import matplotlib
 import pyautogui
 
 from extensions.complex_averaging import complex_averaging
+from extensions.crop import crop_data
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
@@ -96,6 +97,14 @@ for current_folder in all_to_be_analysed_folders:
     if settings["workflow_mode"] == "anon":
         logger.info("Anonymisation of data only mode is True. Stopping here.")
         continue
+
+    # =========================================================
+    # Crop data
+    # =========================================================
+    if settings["ex_vivo"]:
+        logger.info("Ex-vivo settings enabled!")
+        logger.info("Cropping data to the region of interest")
+        data, slices = crop_data(data, slices, settings, info, logger)
 
     # =========================================================
     # DWIs registration
