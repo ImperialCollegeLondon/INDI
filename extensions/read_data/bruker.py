@@ -603,6 +603,27 @@ def load_bruker(paths: List[Path], phase_data_present: bool) -> Tuple[pd.DataFra
         ],
     )
 
+    # make this table more complete to match siemens data
+    # rename slice_position to image_position
+    df.rename(columns={"slice_position": "image_position"}, inplace=True)
+    # make the image_position a list with x y z
+    df["image_position"] = df["image_position"].apply(lambda x: [0, 0, x])
+    # add missing columns
+    df["series_number"] = 0
+    df["series_description"] = "None"
+    df["acquisition_date_time"] = "None"
+    df["nominal_interval"] = "None"
+    df["image_comments"] = "None"
+    iop_list = [
+        attrs["image_orientation_patient"][0][0],
+        attrs["image_orientation_patient"][0][1],
+        attrs["image_orientation_patient"][0][2],
+        attrs["image_orientation_patient"][1][0],
+        attrs["image_orientation_patient"][1][1],
+        attrs["image_orientation_patient"][1][2],
+    ]
+    df["image_orientation_patient"] = [iop_list for i in df.index]
+
     if phase_data_present:
         df["phase_image"] = images_phase
 

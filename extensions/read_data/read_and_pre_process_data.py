@@ -97,8 +97,9 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     # create a new column with date and time, drop the previous two columns
     # if this column doesn't exist already
     if "acquisition_date_time" in df.columns:
-        df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S.%f")
-        df = df.sort_values(["acquisition_date_time"], ascending=True)
+        if not (df["acquisition_date_time"] == "None").all():
+            df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S.%f")
+            df = df.sort_values(["acquisition_date_time"], ascending=True)
     else:
         df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
 
@@ -1040,7 +1041,10 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     # number of dicom files
     info["n_images"] = data.shape[0]
     # image size
-    info["img_size"] = (info["Rows"], info["Columns"])
+    if "Rows" in info and "Columns" in info:
+        info["img_size"] = (info["Rows"], info["Columns"])
+    else:
+        info["img_size"] = data.image[0].shape
 
     data_summary_plots(data, settings)
 
@@ -1386,13 +1390,12 @@ def read_and_process_bruker(
     phase = settings["complex_data"]
     list_bruker = list(map(Path, list_bruker))
     data, attr = load_bruker(list_bruker, phase)
-    data["acquisition_date_time"] = None
     # separate the phase and magnitude data
-
     if phase:
         data_phase = data[not "image"].copy()
         data_phase["image"] = data["phase_image"].copy()
-        data_phase["acquisition_date_time"] = None
+
+    info = {**attr, **info}
 
     return data, data_phase, info
 
