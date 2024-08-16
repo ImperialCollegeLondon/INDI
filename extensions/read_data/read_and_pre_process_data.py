@@ -651,7 +651,6 @@ def adjust_b_val_and_dir(
     if data_type == "dicom" or data_type == "pandas":
         data["diffusion_direction"] = data["diffusion_direction"].apply(lambda x: np.multiply(x, [1, -1, 1]))
 
-    print(data.keys())
     if settings["debug"]:
         plot_b_values_adjustment(data, settings)
 
@@ -1385,7 +1384,7 @@ def read_and_process_bruker(
     data_phase = pd.DataFrame()
 
     phase = settings["complex_data"]
-    list_bruker = map(Path, list_bruker)
+    list_bruker = list(map(Path, list_bruker))
     data, attr = load_bruker(list_bruker, phase)
     data["acquisition_date_time"] = None
     # separate the phase and magnitude data

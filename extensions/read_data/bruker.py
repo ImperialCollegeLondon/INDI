@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 from brukerapi.dataset import Dataset
+from tqdm import tqdm
 
 BRUKER_NAMES_CORRESPONDENCE_DICT = {
     "FG_DIFFUSION": "diffusion_direction",
@@ -518,7 +519,7 @@ def load_bruker(paths: List[Path], phase_data_present: bool) -> Tuple[pd.DataFra
     repetition_factors: Dict[Tuple, int] = {}
     images_phase = []
 
-    for idx, path in enumerate(paths):
+    for idx, path in enumerate(tqdm(paths)):
         print(path)
         (
             order,
