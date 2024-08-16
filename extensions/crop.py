@@ -1,9 +1,11 @@
 import logging
-from typing import Dict, List
+import os
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import yaml
 from matplotlib.widgets import RectangleSelector
 
 
@@ -39,30 +41,8 @@ class ThreeDSelector:
         self.update()
 
 
-def crop_data(data: pd.DataFrame, slices: List[int], settings: Dict, info: Dict, logger: logging.Logger):
-    """
-    Crop data to the desired ROI
-
-    Parameters
-    ----------
-    data : dict
-        dictionary to hold data
-    slices : list
-        list of slices index
-    settings : dict
-    info : dict
-    logger : logging
-        logger for console
-
-    Returns
-    -------
-    data : dict
-        dictionary to hold data
-    slices : list
-        dictionary to hold slices
-    """
-
-    image = np.asarray([np.asarray(data["image"][i], dtype=int) for i in slices])
+def manual_crop(image):
+    """Use the mouse to select the ROI for cropping"""
     nx, ny, nz = image.shape
 
     roi = ThreeDSelector(nx, ny, nz)
@@ -113,9 +93,61 @@ def crop_data(data: pd.DataFrame, slices: List[int], settings: Dict, info: Dict,
     roi.update()
     plt.show()
 
-    logger.info(f"ROI: {roi.slice}, {roi.row}, {roi.col}")
+    return roi.slice, roi.row, roi.col
+
+
+def crop_data(data: pd.DataFrame, slices: List[int], settings: Dict, info: Dict, logger: logging.Logger):
+    """
+    Crop data to the desired ROI
+
+    Parameters
+    ----------
+    data : dict
+        dictionary to hold data
+    slices : list
+        list of slices index
+    settings : dict
+    info : dict
+    logger : logging
+        logger for console
+
+    Returns
+    -------
+    data : dict
+        dictionary to hold data
+    slices : list
+        dictionary to hold slices
+    """
+
+    image = np.asarray([np.asarray(data["image"][i], dtype=int) for i in slices])
+
+    if os.path.exists(os.path.join(settings["session"], "crop.yaml")):
+        with open(os.path.join(settings["session"], "crop.yaml"), "r") as handle:
+            crop = yaml.safe_load(handle)
+            slice = crop["slice"]
+            row = crop["row"]
+            col = crop["col"]
+        logger.debug("ROI loaded from crop.yaml")
+
+    else:
+        logger.info("Select the ROI for cropping")
+        slice, row, col = manual_crop(image)
+        slice = [int(slice[0]), int(slice[1])]
+        row = [int(row[0]), int(row[1])]
+        col = [int(col[0]), int(col[1])]
+
+    logger.info(f"ROI: {slice}, {row}, {col}")
 
     # crop the data
-    data["image"].apply(lambda x: x[int(roi.row[0]) : int(roi.row[1]), int(roi.col[0]) : int(roi.col[1])])
-    slices = slices[int(roi.slice[0]) : int(roi.slice[1])]
+    data["image"].apply(lambda x: x[row[0] : row[1], col[0] : col[1]])
+    slices = slices[slice[0] : slice[1]]
+    save_crop(slice, row, col, settings)
     return data, slices
+
+
+def save_crop(slice: Tuple[int], row: Tuple[int], col: Tuple[int], settings: Dict):
+    """Saves the crop values"""
+
+    crop = dict(slice=slice, row=row, col=col)
+    with open(os.path.join(settings["session"], "crop.yaml"), "w") as handle:
+        yaml.dump(crop, handle)
