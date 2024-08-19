@@ -13,7 +13,7 @@ from .polygon_selector import PolygonSelectorSpline
 
 # NOTE
 # Using blit those not work on the default matplotlib backend we need to use another
-matplotlib.use("qtcagg")
+matplotlib.use("qtagg")
 
 
 def get_sa_contours(lv_mask):
