@@ -1,6 +1,9 @@
 import logging
-from typing import Dict, List, Number
+import os
+from numbers import Number
+from typing import Dict, List, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
@@ -17,7 +20,36 @@ def rotate_vector(vector: NDArray, angle: Number, axis: str):
     return np.dot(matrix, vector)
 
 
-def rotate_data(data: pd.DataFrame, slices: List[int], settings: Dict, logger: logging.Logger) -> pd.DataFrame:
+def plot_rotation(image: NDArray, image_rotated: NDArray, angle: int, axis: str, settings: Dict):
+    nx, ny, nz = image.shape
+
+    fig, ax = plt.subplots(3, 2)
+    ax[0][0].imshow(image[nx // 2, :, :], cmap="gray")
+    ax[0][0].axis("off")
+    ax[1][0].imshow(image[:, ny // 2, :], cmap="gray")
+    ax[1][0].axis("off")
+    ax[2][0].imshow(image[:, :, nz // 2], cmap="gray")
+    ax[2][0].axis("off")
+
+    nx, ny, nz = image_rotated.shape
+    ax[0][1].imshow(image_rotated[nx // 2, :, :], cmap="gray")
+    ax[0][1].axis("off")
+    ax[1][1].imshow(image_rotated[:, ny // 2, :], cmap="gray")
+    ax[1][1].axis("off")
+    ax[2][1].imshow(image_rotated[:, :, nz // 2], cmap="gray")
+    ax[2][1].axis("off")
+
+    ax[0][0].set_title("Original image")
+    ax[0][1].set_title("Rotated image")
+
+    fig.suptitle(f"Rotated image by {angle} degrees around the {axis} axis")
+    fig.savefig(os.path.join(settings["debug_folder"], f"rotation_{angle}_{axis}.png"))
+    plt.show()
+
+
+def rotate_data(
+    data: pd.DataFrame, slices: List[int], settings: Dict, logger: logging.Logger
+) -> Tuple[pd.DataFrame, List[int]]:
     # get the rotation angle
     angle = settings["rotation_angle"]
     if angle == 90:
@@ -49,6 +81,12 @@ def rotate_data(data: pd.DataFrame, slices: List[int], settings: Dict, logger: l
         for i in slices:
             data["diffusion_direction"][i] = rotate_vector(data["diffusion_direction"][i], angle, axis)
         logger.info(f"Rotated the vectors by {angle} degrees around the {axis} axis.")
+
+    # plot the rotation
+    if settings["debug"]:
+        plot_rotation(image, image_rotated, angle, axis, settings)
+
+    # Re build the data frame for the rotated image
 
     # update the data
     data["image_rotation"] = image_rotated
