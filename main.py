@@ -50,8 +50,8 @@ matplotlib.rcParams["font.size"] = 5
 # matplotlib.rcParams["font.size"] = 15
 # to run efficiently
 matplotlib.rcParams["toolbar"] = "None"
-# # for debugging
-# matplotlib.use("TkAgg")
+# Faster interactive matplotlib
+matplotlib.use("qtagg")
 
 # script path
 abspath = os.path.abspath(sys.argv[0])
