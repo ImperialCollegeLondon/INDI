@@ -122,6 +122,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Rotation if ex-vivo
     # =========================================================
+    print(data)
     if settings["ex_vivo"] and settings["rotate"]:
         logger.info("Ex-vivo rotation is True")
         data, slices = rotate_data(data, slices, settings, logger)

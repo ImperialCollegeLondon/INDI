@@ -20,7 +20,7 @@ def rotate_vector(vector: NDArray, angle: Number, axis: str):
     return np.dot(matrix, vector)
 
 
-def plot_rotation(image: NDArray, image_rotated: NDArray, angle: int, axis: str, settings: Dict):
+def plot_rotation(image: NDArray, image_rotated: NDArray, index, angle: int, axis: str, settings: Dict):
     nx, ny, nz = image.shape
 
     fig, ax = plt.subplots(3, 2)
@@ -42,8 +42,8 @@ def plot_rotation(image: NDArray, image_rotated: NDArray, angle: int, axis: str,
     ax[0][0].set_title("Original image")
     ax[0][1].set_title("Rotated image")
 
-    fig.suptitle(f"Rotated image by {angle} degrees around the {axis} axis")
-    fig.savefig(os.path.join(settings["debug_folder"], f"rotation_{angle}_{axis}.png"))
+    fig.suptitle(f"Rotated image {index} by {angle} degrees around the {axis} axis")
+    fig.savefig(os.path.join(settings["debug_folder"], f"rotation_{index}_{angle}_{axis}.png"))
     plt.show()
 
 
@@ -63,28 +63,40 @@ def rotate_data(
     # get the axis
     axis = settings["rotation_axis"]
 
+    print(data["index"])
+    plt.plot(data["index"])
+    plt.show()
     # rotate the data
-    image = np.asarray([np.asarray(data["image"][i], dtype=int) for i in slices])
+    for index in data["index"]:
+        print(data[(index == data["index"]) & (0 == data["slice_integer"])]["image"])
+        image = np.asarray(
+            [
+                np.asarray(data[(index == data["index"]) & (i == data["slice_integer"])]["image"], dtype=int)
+                for i in slices
+            ]
+        )
 
-    # rotate the image
-    if axis == "z":
-        image_rotated = np.rot90(image, k=k, axes=(0, 1))
-    elif axis == "y":
-        image_rotated = np.rot90(image, k=k, axes=(0, 2))
-    elif axis == "x":
-        image_rotated = np.rot90(image, k=k, axes=(1, 2))
+        # rotate the image
+        if axis == "z":
+            image_rotated = np.rot90(image, k=k, axes=(0, 1))
+        elif axis == "y":
+            image_rotated = np.rot90(image, k=k, axes=(0, 2))
+        elif axis == "x":
+            image_rotated = np.rot90(image, k=k, axes=(1, 2))
 
-    logger.info(f"Rotated the image by {angle} degrees around the {axis} axis.")
+        logger.info(f"Rotated the image by {angle} degrees around the {axis} axis.")
 
-    # rotate the vectors
-    if "diffusion_direction" in data.columns:
-        for i in slices:
-            data["diffusion_direction"][i] = rotate_vector(data["diffusion_direction"][i], angle, axis)
-        logger.info(f"Rotated the vectors by {angle} degrees around the {axis} axis.")
+        # rotate the vectors
+        if "diffusion_direction" in data.columns:
+            for i in slices:
+                data[(index == data["index"]) & (i == data["slice_integer"])]["diffusion_direction"] = rotate_vector(
+                    data["diffusion_direction"][i], angle, axis
+                )
+            logger.info(f"Rotated the vectors by {angle} degrees around the {axis} axis.")
 
-    # plot the rotation
-    if settings["debug"]:
-        plot_rotation(image, image_rotated, angle, axis, settings)
+        # plot the rotation
+        if settings["debug"]:
+            plot_rotation(image, image_rotated, index, angle, axis, settings)
 
     # Re build the data frame for the rotated image
 
