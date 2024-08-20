@@ -11,10 +11,6 @@ from numpy.typing import NDArray
 
 from .polygon_selector import PolygonSelectorSpline
 
-# NOTE
-# Using blit those not work on the default matplotlib backend we need to use another
-matplotlib.use("qtagg")
-
 
 def get_sa_contours(lv_mask):
     # get the contours of the epicardium
@@ -100,6 +96,55 @@ def get_mask_from_poly(poly, dims):
     # fill the polygon with ones
     mask = cv.fillPoly(mask, np.array([poly]).astype(np.int32), color=1)
     return mask
+
+
+def reduce_polygon(polygon_coords: NDArray, angle_th: float = 0, distance_th: float = 0):
+    """
+    Reduce the number of points in a polygon by removing points that are close to each other
+    and have a small angle between them.
+
+    Code from here: https://stackoverflow.com/questions/48562739/reducing-number-of-nodes-in-polygons-using-python
+
+    Parameters
+    ----------
+    polygon_coords
+    angle_th
+    distance_th
+
+    Returns
+    -------
+
+    reduced polygon
+
+    """
+    angle_th_rad = np.deg2rad(angle_th)
+    points_removed = [0]
+
+    # convert the polygon coordinates into a NumPy array
+    polygon = np.array(polygon_coords)
+
+    while len(points_removed):
+        points_removed = list()
+        for i in range(0, len(polygon) - 2, 2):
+            v01 = polygon[i - 1] - polygon[i]
+            v12 = polygon[i] - polygon[i + 1]
+            d01 = np.linalg.norm(v01)
+            d12 = np.linalg.norm(v12)
+            if d01 < distance_th and d12 < distance_th:
+                points_removed.append(i)
+                continue
+            if d01 * d12 != 0:
+                x = np.sum(v01 * v12) / (d01 * d12)
+                if np.abs(x) <= 1:
+                    angle = np.arccos(x)
+                    if angle < angle_th_rad:
+                        points_removed.append(i)
+        polygon = np.delete(polygon, points_removed, axis=0)
+
+    # Convert the reduced polygon back to a list
+    reduced_polygon = polygon.tolist()
+
+    return reduced_polygon
 
 
 def plot_manual_lv_segmentation(
@@ -227,6 +272,8 @@ class Actions:
         )
         if initial_epi_poly is not None:
             self.epi_poly.verts = initial_epi_poly
+            self.epi_selected = True
+
         self.epi_poly.set_active(False)
         self.epi_poly.set_visible(False)
 
@@ -234,13 +281,14 @@ class Actions:
 
         def select_endo(_):
             self.draw_preview()
-            self.epi_selected = True
+            self.endo_selected = True
 
         self.endo_poly = PolygonSelectorSpline(
             ax_seg, select_endo, useblit=True, num_points=num_points, curve_props=spline_props, props=line_props
         )
         if initial_endo_poly is not None:
             self.endo_poly.verts = initial_endo_poly
+            self.endo_selected = True
         self.endo_poly.set_active(False)
         self.endo_poly.set_visible(False)
 
@@ -252,10 +300,12 @@ class Actions:
         self.slider.on_changed(self.update_slider)
 
         self.ip_selected = False
-        self.ip = {"inferior": np.full(2, np.nan), "superior": np.full(2, np.nan)}
-        self.ip_current = "superior"  # 'inferior' | 'superior'
-        (self.ip_plot,) = self.ax_seg.plot([], [], "^", color="tab:red", markersize=8, alpha=0.5)
-        self.ip_plot.set_visible(False)
+        self.ip = {"inferior": np.full(2, np.nan), "anterior": np.full(2, np.nan)}
+        self.ip_current = "anterior"  # 'inferior' | 'anterior'
+        (self.ip_plot_aip,) = self.ax_seg.plot([], [], "^", color="tab:red", markersize=8, alpha=0.5)
+        (self.ip_plot_iip,) = self.ax_seg.plot([], [], "v", color="tab:red", markersize=8, alpha=0.5)
+        self.ip_plot_aip.set_visible(False)
+        self.ip_plot_iip.set_visible(False)
         self.ip_event_id = self.fig.canvas.mpl_connect("button_press_event", self.update_ip)
         self.fig.canvas.mpl_disconnect(self.ip_event_id)
 
@@ -279,17 +329,21 @@ class Actions:
 
     def draw_images(self):
         if self.seg_on_map:
+            self.ax_seg.images[0].remove()
             self.ax_seg.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+            self.ax_preview.images[0].remove()
             self.ax_preview.imshow(self.cont_img, **self.cont_img_props)
         else:
+            self.ax_seg.images[0].remove()
             self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
+            self.ax_preview.images[0].remove()
             self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
 
     def draw_preview(self):
         self.endo_preview.set_data(self.endo_poly.curve_points[:, 0], self.endo_poly.curve_points[:, 1])
         self.epi_preview.set_data(self.epi_poly.curve_points[:, 0], self.epi_poly.curve_points[:, 1])
         self.ip_preview.set_data(
-            [[self.ip["inferior"][0], self.ip["superior"][0]], [self.ip["inferior"][1], self.ip["superior"][1]]]
+            [[self.ip["inferior"][0], self.ip["anterior"][0]], [self.ip["inferior"][1], self.ip["anterior"][1]]]
         )
         self.fig.canvas.draw_idle()
 
@@ -303,12 +357,13 @@ class Actions:
         ax.set_facecolor("#FFFFFF00")
         for axis in ["top", "bottom", "left", "right"]:
             ax.spines[axis].set_linewidth(2.5)  # change width
-            ax.spines[axis].set_color("red")  # change color
+            ax.spines[axis].set_color("#ED4700")  # change color
 
     def segment_epi(self, event):
         """Deactivate the endocardium contour and activate the epicardium contour"""
         self.fig.canvas.mpl_disconnect(self.ip_event_id)
-        self.ip_plot.set_visible(False)
+        self.ip_plot_aip.set_visible(False)
+        self.ip_plot_iip.set_visible(False)
         self.remove_border_btn()
         self.set_border_btn(event.inaxes)
 
@@ -325,7 +380,8 @@ class Actions:
     def segment_endo(self, event):
         """Deactivate the epicardium contour and activate the endocardium contour"""
         self.fig.canvas.mpl_disconnect(self.ip_event_id)
-        self.ip_plot.set_visible(False)
+        self.ip_plot_aip.set_visible(False)
+        self.ip_plot_iip.set_visible(False)
         self.remove_border_btn()
         self.set_border_btn(event.inaxes)
 
@@ -401,7 +457,8 @@ class Actions:
         self.fig.canvas.draw_idle()
 
         self.ax_seg.set_title("Click on the anterior and then inferior insertion points")
-        self.ip_plot.set_visible(True)
+        self.ip_plot_aip.set_visible(True)
+        self.ip_plot_iip.set_visible(True)
         self.ip_event_id = self.fig.canvas.mpl_connect("button_press_event", self.update_ip)
 
     def update_ip(self, event):
@@ -409,14 +466,13 @@ class Actions:
         if event.inaxes is self.ax_seg:
             self.ip[self.ip_current][0] = event.xdata
             self.ip[self.ip_current][1] = event.ydata
-            self.ip_plot.set_data(
-                [self.ip["inferior"][0], self.ip["superior"][0]], [self.ip["inferior"][1], self.ip["superior"][1]]
-            )
-            if self.ip_current == "superior":
+            self.ip_plot_aip.set_data([self.ip["anterior"][0]], [self.ip["anterior"][1]])
+            self.ip_plot_iip.set_data([self.ip["inferior"][0]], [self.ip["inferior"][1]])
+            if self.ip_current == "anterior":
                 self.ip_current = "inferior"
                 self.ip_selected = True
             else:
-                self.ip_current = "superior"
+                self.ip_current = "anterior"
 
         self.draw_preview()
         self.fig.canvas.draw_idle()
@@ -480,6 +536,19 @@ def manual_lv_segmentation(
             epi_contour, endo_contour = get_sa_contours(lv_masks)
             epi_contour = np.delete(epi_contour, -1, 0)
             endo_contour = np.delete(endo_contour, -1, 0)
+
+            # reduce the number of points in the contours in order to be easily editable
+            # epi_contour = reduce_polygon(epi_contour, angle_th=10, distance_th=10)
+            # endo_contour = reduce_polygon(endo_contour, angle_th=10, distance_th=10)
+
+            n_poly_points = 14
+            if len(epi_contour) > n_poly_points:
+                steps = np.linspace(0, len(epi_contour) - 1, n_poly_points, dtype=int)
+                epi_contour = epi_contour[steps, :]
+            if len(endo_contour) > n_poly_points:
+                steps = np.linspace(0, len(endo_contour) - 1, n_poly_points, dtype=int)
+                endo_contour = endo_contour[steps, :]
+
         except:
             # if something goes wrong in finding the endo and epi lines. Most likely the U-Net
             # mask does not have the right shape. So we need to manually draw the contours from scratch.
@@ -509,12 +578,16 @@ def manual_lv_segmentation(
 
     # leave some space for the buttons
     fig.subplots_adjust(left=0.2, bottom=0.2)
+    map1_props = dict(cmap=colormaps["HA"], vmin=-90, vmax=90, alpha=0.5, interpolation="none")
+    map2_props = dict(cmap=colormaps["MD"], vmin=0.0, vmax=2.5, alpha=0.5, interpolation="none")
+    cont_img_props = dict(cmap="Greys_r", vmin=0, vmax=0.85, alpha=0.8, interpolation="none")
+
     # axis where the magnitude image will be shown initially
-    ax[0].imshow(average_map, cmap="Greys_r", vmin=0, vmax=0.85)
+    ax[0].imshow(average_map, **cont_img_props)
     ax[0].axis("off")
     ax[0].label = "mag"
     # axis where the HA map will be shown initially
-    ax[1].imshow(ha_map, colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
+    ax[1].imshow(ha_map, **map1_props)
     ax[1].axis("off")
     ax[1].label = "ha"
 
@@ -523,9 +596,6 @@ def manual_lv_segmentation(
     slider_props = dict(label="Threshold: ", valmin=0, valmax=1, valinit=0.01, valstep=0.01, orientation="horizontal")
     line_style = dict(color="tab:brown", linestyle="None", linewidth=0.01, alpha=0.8, markersize=3)
     curve_style = dict(color="tab:brown", lw=1, alpha=0.9, label="ROI")
-    map1_props = dict(cmap=colormaps["HA"], vmin=-90, vmax=90, alpha=1.0)
-    map2_props = dict(cmap=colormaps["MD"], vmin=0.0, vmax=2.5, alpha=1.0)
-    cont_img_props = dict(cmap="Greys_r", vmin=0, vmax=0.85)
     actions = Actions(
         fig,
         ax[0],
@@ -603,7 +673,7 @@ def manual_lv_segmentation(
         segmentation["endocardium"] = np.array([])
 
     if actions.ip_selected:
-        segmentation["anterior_ip"] = actions.ip["superior"]
+        segmentation["anterior_ip"] = actions.ip["anterior"]
         segmentation["inferior_ip"] = actions.ip["inferior"]
     else:
         segmentation["anterior_ip"] = np.array([])
