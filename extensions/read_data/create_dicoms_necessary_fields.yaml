@@ -1,0 +1,215 @@
+#- AcquisitionContrast
+- AcquisitionDate
+#- AcquisitionDuration
+#- AcquisitionMatrix_1
+#- AcquisitionMatrix_2
+#- AcquisitionMatrix_3
+#- AcquisitionMatrix_4
+#- AngioFlag
+#- BeatRejectionFlag
+- BitsAllocated
+- BitsStored
+#- BodyPartExamined
+#- BurnedInAnnotation
+#- CardiacBeatRejectionTechnique
+#- CardiacRRIntervalSpecified
+#- CardiacSignalSource
+#- CardiacSynchronizationTechnique
+- Columns
+#- DeviceSerialNumber
+#- EchoPlanarPulseSequence
+#- EchoTime
+#- EchoTrainLength
+#- FlipAngle
+#- GeometryOfKSpaceTraversal
+- HighBit
+- ImageComments
+- ImagedNucleus
+- ImageType
+#- ImagingFrequency
+#- KSpaceFiltering
+- LossyImageCompression
+- MagneticFieldStrength
+- Manufacturer
+- ManufacturerModelName
+- Modality
+- MRAcquisitionType
+#- MultiPlanarExcitation
+#- NumberOfAverages
+#- NumberOfFrames
+#- NumberOfKSpaceTrajectories
+- NumberOfPhaseEncodingSteps
+#- NumberOfTemporalPositions
+#- OversamplingPhase
+- PatientAge
+#- PatientID
+- PatientPosition
+- PatientSex
+- PatientSize
+- PatientWeight
+#- PercentPhaseFieldOfView
+#- PercentSampling
+- PerformedProcedureStepDescription
+#- PhaseContrast
+- PhotometricInterpretation
+#- PixelBandwidth
+- PixelPresentation
+- PixelRepresentation
+- PixelSpacing
+- PresentationLUTShape
+- ProtocolName
+- PulseSequenceName
+#- RectilinearPhaseEncodeReordering
+- RepetitionTime
+- ResonantNucleus
+- Rows
+- SamplesPerPixel
+#- SAR
+#- SaturationRecovery
+- ScanningSequence
+#- ScanOptions
+#- SegmentedKSpaceTraversal
+#- SequenceVariant
+#- SoftwareVersions
+- SpacingBetweenSlices
+#- SpectrallySelectedSuppression
+- StationName
+#- SteadyStatePulseSequence
+- StudyComments
+- StudyDate
+- StudyDescription
+- StudyID
+- StudyTime
+#- TimeOfFlightContrast
+#- TransmitCoilName
+#- VariableFlipAngleFlag
+- RescaleIntercept
+- RescaleSlope
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

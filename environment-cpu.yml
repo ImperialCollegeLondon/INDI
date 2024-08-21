@@ -1,7 +1,6 @@
 name: indi
 channels:
   - conda-forge
-  - nvidia
   - pytorch
 dependencies:
   - matplotlib
@@ -28,15 +27,15 @@ dependencies:
   - py7zr
   - python-dotenv
   - pyarrow
-  - pyautogui
   - pytorch
   - torchvision
   - torchaudio
-  - pytorch-cuda=11.8
+  - pytorch
   - opencv
   - pip
   - pip:
-    - tensorflow[and-cuda]
+    - tensorflow
     - itk-elastix
+    - pyautogui
     - brukerapi
 

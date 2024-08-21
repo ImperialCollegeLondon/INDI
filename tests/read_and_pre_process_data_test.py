@@ -21,12 +21,12 @@ def test_get_data():
 
     # we need to separate the dir list into 3 columns
     table_true[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(table_true.direction.tolist(), index=table_true.index)
-    table_true = table_true.drop("direction", axis=1)
+    table_true = table_true.drop("diffusion_direction", axis=1)
 
     table_calculated[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(
         table_calculated.direction.tolist(), index=table_calculated.index
     )
-    table_calculated = table_calculated.drop("direction", axis=1)
+    table_calculated = table_calculated.drop("diffusion_direction", axis=1)
 
     # we also need to convert the image column to a numpy array
     table_images_true = table_true["image"].to_numpy()

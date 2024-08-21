@@ -1,4 +1,5 @@
 import copy
+import csv
 import logging
 import math
 import os
@@ -8,8 +9,6 @@ import sys
 from typing import Tuple
 
 import h5py
-
-# import cv2 as cv
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +16,6 @@ import pandas as pd
 import skimage.filters
 import skimage.measure
 import xarray as xr
-import yaml
 from numpy.typing import NDArray
 from scipy import ndimage
 from skimage import morphology
@@ -606,6 +604,42 @@ def fix_angle_wrap(lp: NDArray, angle_jump=90) -> NDArray:
     return lp_new
 
 
+def rad_to_mag(img: NDArray, max_value: int = 4096) -> NDArray:
+    """
+    Convert image array from radians to magnitude
+
+    Parameters
+    ----------
+    img
+    max_value
+
+    Returns
+    -------
+    img
+
+    """
+    img = max_value * img / np.pi
+    return img
+
+
+def mag_to_rad(img: NDArray, max_value: int = 4096) -> NDArray:
+    """
+    Convert image array from magnitude to radians
+
+    Parameters
+    ----------
+    img
+    max_value
+
+    Returns
+    -------
+    img
+
+    """
+    img = np.pi * img / max_value
+    return img
+
+
 def get_ha_line_profiles(
     HA: NDArray, lv_centres: dict, slices: NDArray, mask_3c: NDArray, segmentation: dict, settings: dict, info: dict
 ) -> [dict, dict]:
@@ -821,9 +855,9 @@ def get_snr_maps(
         # dataframe for each slice
         current_entries = data.loc[data["slice_integer"] == slice_idx].copy()
         # how many diffusion configs do we have for this slice?
-        current_entries["direction"] = [tuple(lst_in) for lst_in in current_entries["direction"]]
+        current_entries["diffusion_direction"] = [tuple(lst_in) for lst_in in current_entries["diffusion_direction"]]
         diffusion_configs_table = (
-            current_entries.groupby(["b_value_original", "direction"]).size().reset_index(name="Freq")
+            current_entries.groupby(["b_value_original", "diffusion_direction"]).size().reset_index(name="Freq")
         )
         # loop over each config, if 5 or more repetitions,
         # then calculate SNR map
@@ -831,7 +865,7 @@ def get_snr_maps(
             if row["Freq"] > 4:
                 temp = current_entries[
                     (current_entries["b_value_original"] == row["b_value_original"])
-                    & (current_entries["direction"] == row["direction"])
+                    & (current_entries["diffusion_direction"] == row["diffusion_direction"])
                 ]
                 temp = temp.reset_index(drop=True)
                 # loop over all images and stack them
@@ -843,9 +877,9 @@ def get_snr_maps(
                 # the b-value and direction
                 key_tuple = (
                     round(row["b_value_original"]),
-                    round(row["direction"][0], 2),
-                    round(row["direction"][1], 2),
-                    round(row["direction"][2], 2),
+                    round(row["diffusion_direction"][0], 2),
+                    round(row["diffusion_direction"][1], 2),
+                    round(row["diffusion_direction"][2], 2),
                 )
                 delimiter = "_"
                 key_string = delimiter.join([str(value) for value in key_tuple])
@@ -1646,14 +1680,10 @@ def export_results(
 
     info["git_hash"] = get_git_revision_hash()
 
-    # save to disk basic info in a yaml format
-    info_redux = copy.deepcopy(info)
-    del info_redux["image_positions_to_integer"]
-    del info_redux["integer_to_image_positions"]
-    d = {str(k): [float(i) for i in v] for k, v in info["integer_to_image_positions"].items()}
-    info_redux["integer_to_image_positions"] = d
-    with open(os.path.join(settings["results"], "data", "DTI_data.yml"), "w") as handle1:
-        yaml.safe_dump(info_redux, handle1, default_flow_style=False, sort_keys=False)
+    # save to disk basic info in a csv file
+    with open(os.path.join(settings["results"], "data", "DTI_data.csv"), "w", newline="") as handle1:
+        w = csv.writer(handle1)
+        w.writerows(info.items())
 
     # do final montage with image magick
     for slice_idx in slices:
