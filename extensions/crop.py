@@ -139,7 +139,7 @@ def crop_data(data: pd.DataFrame, slices: List[int], settings: Dict, info: Dict,
     logger.info(f"ROI: {slice}, {row}, {col}")
 
     # crop the data
-    data["image"].apply(lambda x: x[row[0] : row[1], col[0] : col[1]])
+    data["image"] = data["image"].apply(lambda x: x[row[0] : row[1], col[0] : col[1]])
     slices = slices[slice[0] : slice[1]]
     save_crop(slice, row, col, settings)
     return data, slices
