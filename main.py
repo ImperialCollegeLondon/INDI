@@ -35,6 +35,7 @@ from extensions.heart_segmentation import heart_segmentation
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
 from extensions.read_data.read_and_pre_process_data import read_data
+from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.select_outliers import select_outliers
 from extensions.tensor_fittings import dipy_tensor_fit
 from extensions.u_net_segmentation import get_average_images
@@ -109,7 +110,12 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # DWIs registration
     # =========================================================
-    data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
+    if settings["ex_vivo"]:
+        logger.info("Ex-vivo mode is True. Using ex-vivo registration.")
+        RegistrationExVivo({"data": data}, settings, logger).run()
+
+    else:
+        data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
 
     # =========================================================
     # Option to perform only registration
