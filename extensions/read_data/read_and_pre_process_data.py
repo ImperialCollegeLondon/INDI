@@ -1030,6 +1030,13 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     # =========================================================
     data, info, slices, n_slices = reorder_by_slice(data, settings, info, logger)
 
+    # =========================================================
+    # Make a unique index for each unique b-value and direction
+    # =========================================================
+    data["diffusion_direction"] = data["diffusion_direction"].apply(tuple)
+    data_grouped = data.groupby(["b_value", "diffusion_direction"])
+    data["index"] = data_grouped.ngroup()
+
     # number of dicom files
     info["n_images"] = data.shape[0]
     # image size
