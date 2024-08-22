@@ -14,8 +14,8 @@ from extensions.manual_lv_segmentation import (
     get_sa_contours,
     manual_lv_segmentation,
     plot_manual_lv_segmentation,
-    spline_interpolate_contour,
 )
+from extensions.polygon_selector import spline_interpolate_contour
 from extensions.tensor_fittings import dipy_tensor_fit
 from extensions.u_net_segmentation import plot_segmentation_unet, u_net_segment_heart
 
@@ -154,7 +154,7 @@ def heart_segmentation(
                 average_images[slice_idx],
                 prelim_ha[slice_idx],
                 prelim_md[slice_idx],
-                10,
+                100,
                 settings,
                 colormaps,
                 slice_idx,
