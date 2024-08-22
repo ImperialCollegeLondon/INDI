@@ -1,24 +1,15 @@
 import os
 
 import cv2 as cv
+import matplotlib
+import matplotlib.axes
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.widgets import Button, PolygonSelector, Slider
+from matplotlib.widgets import Button, Slider
 from numpy.typing import NDArray
-from scipy.interpolate import splev, splprep
 
-
-def spline_interpolate_contour(contour, n_points, join_ends=False):
-    """
-    Interpolate a contour to a spline curve with n_points
-    """
-    if join_ends:
-        contour = np.append(contour, [contour[0]], axis=0)
-    x = contour[:, 0]
-    y = contour[:, 1]
-    tck, _ = splprep([x, y], s=0, per=True)
-    xi, yi = splev(np.linspace(0, 1, n_points), tck, der=0)
-    return np.array([xi, yi]).T
+from .polygon_selector import PolygonSelectorSpline
 
 
 def get_sa_contours(lv_mask):
@@ -88,355 +79,72 @@ def get_epi_contour(lv_mask):
     return epi_contour
 
 
-class define_roi_border(object):
-    """
-    Define the ROI border with a polygon which will then be interpolated to a spline.
-    If there is a pre-countour, this would be used to define the initial polygon.
-    """
-
-    def __init__(self, ax, title_message, pre_contour, second_axis_lines, seg_mask, img_shape):
-        # print("Select points in the figure by enclosing them within a polygon.")
-        # print("Press the 'esc' key to start a new polygon.")
-        # print("Try holding the 'shift' key to move all of the vertices.")
-        # print("Try holding the 'ctrl' key to move a single vertex.")
-        # initiate the class
-        self.canvas = ax.figure.canvas
-        # store image shape
-        self.img_shape = img_shape
-        # initiate segmentation mask
-        self.mask = seg_mask
-        # set the title message
-        ax.set_title(title_message)
-        # if there were previously defined lines or points, remove them
-        for line in self.canvas.figure.axes[0].lines:
-            line.remove()
-        # set the line style
-        line_style = dict(color="tab:brown", linestyle="None", linewidth=0.01, alpha=0.8, markersize=3)
-        self.poly = PolygonSelector(ax, self.onselect, useblit=True, props=line_style)
-        self.title_message = title_message
-        self.second_axis_lines = second_axis_lines
-        if pre_contour.any():
-            # interpolate the points to a spline curve
-            array = spline_interpolate_contour(pre_contour, 100, join_ends=True)
-            self.spline_points = array
-            # plot the spline interpolation
-            self.canvas.figure.axes[0].plot(
-                array[:, 0],
-                array[:, 1],
-                color="tab:brown",
-                lw=1,
-                alpha=0.9,
-                label="ROI",
-            )
-            # add the contour points to the polygon
-            self.poly.verts = pre_contour
-
-            # secondary axis
-            for line in self.canvas.figure.axes[1].lines:
-                line.remove()
-            if self.title_message == "Click epicardial points":
-                self.second_axis_lines["epi"] = array
-            elif self.title_message == "Click endocardial points":
-                self.second_axis_lines["endo"] = array
-
-            # draw mask in secondary axis
-            # remove any previous drawn mask
-            if len(self.canvas.figure.axes[1].images) > 1:
-                self.canvas.figure.axes[1].images[-1].remove()
-            # get mask from polygon
-            mask = get_mask_from_poly(
-                array.astype(np.int32),
-                self.img_shape,
-            )
-
-            if self.title_message == "Click endocardial points":
-                # erode endo mask in order to keep the endo line inside the myocardial ROI
-                kernel = np.ones((2, 2), np.uint8)
-                mask = cv.erode(mask, kernel, iterations=1)
-
-            # store mask in dictionary and also subtract previous mask if exists
-            if self.title_message == "Click epicardial points":
-                if self.mask["endo"] is not None:
-                    mask = mask - self.mask["endo"]
-                self.mask["epi"] = mask
-            elif self.title_message == "Click endocardial points":
-                if self.mask["epi"] is not None:
-                    mask = self.mask["epi"] - mask
-                self.mask["endo"] = mask
-            self.canvas.figure.axes[1].imshow(mask, alpha=0.5 * mask, cmap="Oranges")
-
-            for idx, name in enumerate(self.second_axis_lines):
-                if self.second_axis_lines[name] is not None:
-                    c_array = self.second_axis_lines[name]
-                    if len(c_array) > 2:
-                        # self.canvas.figure.axes[1].plot(
-                        #     np.array(c_array[:, 0]).astype(np.int32),
-                        #     np.array(c_array[:, 1]).astype(np.int32),
-                        #     color="tab:orange",
-                        #     lw=2,
-                        #     alpha=0.5,
-                        # )
-                        pass
-                    else:
-                        self.canvas.figure.axes[1].plot(
-                            c_array[:, 0],
-                            c_array[:, 1],
-                            "o",
-                            color="tab:orange",
-                            markersize=5,
-                        )
-            # update canvas
-            self.canvas.draw_idle()
-
-    def onselect(self, verts):
-        # function to run when the polygon closes
-        # interpolate the polygon points to a spline curve with no end points
-        # remove the previous spline if there is one.
-        if len(self.canvas.figure.axes[0].lines) > 2:
-            self.canvas.figure.axes[0].lines[-1].remove()
-
-        # get the points from the polygon
-        array = np.array([*verts])
-
-        # interpolate the points to a spline curve
-        array = spline_interpolate_contour(array, 100, join_ends=True)
-        self.spline_points = array
-        # plot the spline interpolation
-        self.canvas.figure.axes[0].plot(array[:, 0], array[:, 1], color="tab:brown", lw=1, alpha=0.9, label="ROI")
-        # secondary axis
-        for line in self.canvas.figure.axes[1].lines:
-            line.remove()
-        if self.title_message == "Click epicardial points":
-            self.second_axis_lines["epi"] = array
-        elif self.title_message == "Click endocardial points":
-            self.second_axis_lines["endo"] = array
-
-        # draw mask
-        # remove any previous drawn mask
-        if len(self.canvas.figure.axes[1].images) > 1:
-            self.canvas.figure.axes[1].images[-1].remove()
-        # get mask from polygon
-        mask = get_mask_from_poly(
-            array.astype(np.int32),
-            self.img_shape,
-        )
-
-        if self.title_message == "Click endocardial points":
-            # erode endo mask in order to keep the endo line inside the myocardial ROI
-            kernel = np.ones((2, 2), np.uint8)
-            mask = cv.erode(mask, kernel, iterations=1)
-
-        # store mask in dictionary and also subtract previous mask if exists
-        if self.title_message == "Click epicardial points":
-            if self.mask["endo"] is not None:
-                mask = mask - self.mask["endo"]
-            self.mask["epi"] = mask
-        elif self.title_message == "Click endocardial points":
-            if self.mask["epi"] is not None:
-                mask = self.mask["epi"] - mask
-            self.mask["endo"] = mask
-        self.canvas.figure.axes[1].imshow(mask, alpha=0.5 * mask, cmap="Oranges")
-
-        # draw all lines
-        for idx, name in enumerate(self.second_axis_lines):
-            if self.second_axis_lines[name] is not None:
-                c_array = self.second_axis_lines[name]
-                if len(c_array) > 2:
-                    # self.canvas.figure.axes[1].plot(
-                    #     c_array[:, 0],
-                    #     c_array[:, 1],
-                    #     color="tab:orange",
-                    #     lw=2,
-                    #     alpha=0.5,
-                    # )
-                    pass
-                else:
-                    self.canvas.figure.axes[1].plot(
-                        c_array[:, 0],
-                        c_array[:, 1],
-                        "o",
-                        color="tab:orange",
-                        markersize=5,
-                    )
-        # update canvas
-        self.canvas.draw_idle()
-
-    def disconnect(self):
-        self.poly.disconnect_events()
-        self.canvas.draw_idle()
-
-
 def clean_image(img, factor):
     clean_img = np.copy(img)
     clean_img[img < factor] = 0
     mask = np.ones(img.shape)
     mask[img < factor] = 0
-
     return clean_img, mask
 
 
-class scrool_slider:
+def get_mask_from_poly(poly, dims):
     """
-    Display image and a slider. When the slider is moved, the image is updated.
-    slider can be moved with the mouse wheel or by clicking on the slider.
+    Get a mask from a polygon
     """
-
-    def __init__(self, fig, img_mag, img_ha, img_md):
-        self.img_mag = img_mag
-        self.img_ha = img_ha
-        self.img_md = img_md
-        self.fig = fig
-
-        # Make a vertically oriented slider to control the amplitude
-        axamp = fig.add_axes([0.25, 0.1, 0.65, 0.03])
-        self.amp_slider = Slider(
-            ax=axamp,
-            label="Threshold: ",
-            valmin=0,
-            valmax=1,
-            valinit=0.01,
-            valstep=0.01,
-            orientation="horizontal",
-        )
-        # define that the update function will run when the slider is moved
-        self.amp_slider.on_changed(self.update)
-        # update the image when the slider is moved
-        self.update(self.amp_slider.val)
-
-    def on_scroll(self, event):
-        # scroll event will move the slider up to its limits, after that it won't move anymore
-        # scroll up event
-        if event.button == "up" and (self.amp_slider.val + self.amp_slider.valstep) < (
-            self.amp_slider.valmax + self.amp_slider.valstep
-        ):
-            self.amp_slider.set_val(self.amp_slider.val + self.amp_slider.valstep)
-        # scroll down event
-        if event.button == "down" and (self.amp_slider.val - self.amp_slider.valstep) > (
-            self.amp_slider.valmin - self.amp_slider.valstep
-        ):
-            self.amp_slider.set_val(self.amp_slider.val - self.amp_slider.valstep)
-        # update the image when the slider is moved
-        self.update(self.amp_slider.val)
-
-    def update(self, val):
-        # when slider moves, this function is called
-        #  we need to apply the clean image on the magnitude image only
-        # then apply the same mask on the other map
-        updated_img_mag, self.mask = clean_image(self.img_mag, val)
-        updated_img_ha = self.img_ha * self.mask
-        updated_img_md = self.img_md * self.mask
-
-        # find out where the mag map is
-        c_label = self.fig.axes[0].label
-        if c_label == "mag":
-            idx_mag = 0
-            idx_other = 1
-        else:
-            idx_mag = 1
-            idx_other = 0
-
-        # update image mag
-        self.fig.axes[idx_mag].images[0].set_array(updated_img_mag)
-        # update the other map (HA or MD)
-        c_label_other = self.fig.axes[idx_other].label
-        if c_label_other == "ha":
-            self.fig.axes[idx_other].images[0].set_array(updated_img_ha)
-        elif c_label_other == "md":
-            self.fig.axes[idx_other].images[0].set_array(updated_img_md)
-
-        self.fig.canvas.draw_idle()
-
-    def get_img_and_mask(self):
-        # function to retrieve the current image and mask
-        return self.updated_img, self.mask
+    # create a mask with zeros
+    mask = np.zeros(dims)
+    # fill the polygon with ones
+    mask = cv.fillPoly(mask, np.array([poly]).astype(np.int32), color=1)
+    return mask
 
 
-class click_insertion_points(object):
+def reduce_polygon(polygon_coords: NDArray, angle_th: float = 0, distance_th: float = 0):
     """
-    Click on the insertion points.
-    They can be moved after both are defined by clicking close to them
+    Reduce the number of points in a polygon by removing points that are close to each other
+    and have a small angle between them.
+
+    Code from here: https://stackoverflow.com/questions/48562739/reducing-number-of-nodes-in-polygons-using-python
+
+    Parameters
+    ----------
+    polygon_coords
+    angle_th
+    distance_th
+
+    Returns
+    -------
+
+    reduced polygon
+
     """
+    angle_th_rad = np.deg2rad(angle_th)
+    points_removed = [0]
 
-    def __init__(self, ax, second_axis_lines):
-        self.canvas = ax.figure.canvas
-        self.binding_id = self.canvas.mpl_connect("button_press_event", self.on_click)
-        self.ip_x = []
-        self.ip_y = []
-        self.ip_dict = {}
-        self.second_axis_lines = second_axis_lines
-        # if there were previously defined lines or points, remove them
-        for line in self.canvas.figure.axes[0].lines:
-            line.remove()
+    # convert the polygon coordinates into a NumPy array
+    polygon = np.array(polygon_coords)
 
-    def on_click(self, event):
-        # limit to just the main axis
-        if event.inaxes == self.canvas.figure.axes[0]:
-            if len(self.ip_x) == 0:
-                # first point is the superior insertion point
-                self.ip_x.append(event.xdata)
-                self.ip_y.append(event.ydata)
-                self.ip_dict["superior"] = self.canvas.figure.axes[0].plot(
-                    event.xdata, event.ydata, "^", color="tab:red", markersize=8, alpha=0.5
-                )
-                self.canvas.draw_idle()
-            elif len(self.ip_x) == 1:
-                # second point is the inferior insertion point
-                self.ip_x.append(event.xdata)
-                self.ip_y.append(event.ydata)
-                self.ip_dict["inferior"] = self.canvas.figure.axes[0].plot(
-                    event.xdata, event.ydata, "v", color="tab:red", markersize=8, alpha=0.5
-                )
-                self.canvas.draw_idle()
-            else:
-                # if two points have already been defined, move the closest one
-                # to the position clicked
-                c_sip = [self.ip_x[0], self.ip_y[0]]
-                c_iip = [self.ip_x[1], self.ip_y[1]]
-                dist_sip = np.sqrt((event.xdata - c_sip[0]) ** 2 + (event.ydata - c_sip[1]) ** 2)
-                dist_iip = np.sqrt((event.xdata - c_iip[0]) ** 2 + (event.ydata - c_iip[1]) ** 2)
-                if dist_sip < dist_iip:
-                    self.ip_x[0] = event.xdata
-                    self.ip_y[0] = event.ydata
-                    self.ip_dict["superior"][0].remove()
-                    self.ip_dict["superior"] = self.canvas.figure.axes[0].plot(
-                        event.xdata, event.ydata, "^", color="tab:red", markersize=8, alpha=0.5
-                    )
-                    self.canvas.draw_idle()
-                else:
-                    self.ip_x[1] = event.xdata
-                    self.ip_y[1] = event.ydata
-                    self.ip_dict["inferior"][0].remove()
-                    self.ip_dict["inferior"] = self.canvas.figure.axes[0].plot(
-                        event.xdata, event.ydata, "v", color="tab:red", markersize=8, alpha=0.5
-                    )
-                    self.canvas.draw_idle()
-            # secondary axis
-            for line in self.canvas.figure.axes[1].lines:
-                line.remove()
-            if self.ip_x:
-                self.second_axis_lines["ip"] = np.column_stack([self.ip_x, self.ip_y])
-            for idx, name in enumerate(self.second_axis_lines):
-                if self.second_axis_lines[name] is not None:
-                    c_array = self.second_axis_lines[name]
-                    if len(c_array) > 2:
-                        self.canvas.figure.axes[1].plot(
-                            c_array[:, 0],
-                            c_array[:, 1],
-                            color="tab:orange",
-                            lw=2,
-                            alpha=0.5,
-                        )
-                    else:
-                        self.canvas.figure.axes[1].plot(
-                            c_array[:, 0],
-                            c_array[:, 1],
-                            "X",
-                            color="tab:green",
-                            markersize=8,
-                            alpha=0.8,
-                        )
-            # update canvas
-            self.canvas.draw_idle()
+    while len(points_removed):
+        points_removed = list()
+        for i in range(0, len(polygon) - 2, 2):
+            v01 = polygon[i - 1] - polygon[i]
+            v12 = polygon[i] - polygon[i + 1]
+            d01 = np.linalg.norm(v01)
+            d12 = np.linalg.norm(v12)
+            if d01 < distance_th and d12 < distance_th:
+                points_removed.append(i)
+                continue
+            if d01 * d12 != 0:
+                x = np.sum(v01 * v12) / (d01 * d12)
+                if np.abs(x) <= 1:
+                    angle = np.arccos(x)
+                    if angle < angle_th_rad:
+                        points_removed.append(i)
+        polygon = np.delete(polygon, points_removed, axis=0)
+
+    # Convert the reduced polygon back to a list
+    reduced_polygon = polygon.tolist()
+
+    return reduced_polygon
 
 
 def plot_manual_lv_segmentation(
@@ -459,7 +167,7 @@ def plot_manual_lv_segmentation(
     segmentation : dict
         segmentation information
     average_images : NDArray
-        average denoised and normalised images for each slice
+        average denoised and normalized images for each slice
     mask_3c : NDArray
         mask with  segmentation
     settings : dict
@@ -527,15 +235,274 @@ def plot_manual_lv_segmentation(
         plt.close()
 
 
-def get_mask_from_poly(poly, dims):
-    """
-    Get a mask from a polygon
-    """
-    # create a mask with zeros
-    mask = np.zeros(dims)
-    # fill the polygon with ones
-    mask = cv.fillPoly(mask, np.array([poly]).astype(np.int32), color=1)
-    return mask
+class Actions:
+    def __init__(
+        self,
+        fig: matplotlib.figure.Figure,
+        ax_seg: matplotlib.axes.Axes,
+        ax_preview: matplotlib.axes.Axes,
+        ax_slider: matplotlib.axes.Axes,
+        cont_img: NDArray,
+        map1: NDArray,
+        map2: NDArray,
+        *,
+        initial_endo_poly=None,
+        initial_epi_poly=None,
+        cont_img_props={},
+        map1_props={},
+        map2_props={},
+        slider_props={},
+        num_points=100,
+        spline_props=None,
+        line_props=None,
+    ) -> None:
+        self.fig = fig
+        self.ax_seg = ax_seg
+        self.ax_preview = ax_preview
+        self.ax_slider = ax_slider
+
+        self.epi_selected = False
+
+        def select_epi(_):
+            self.draw_preview()
+            self.epi_selected = True
+
+        self.epi_poly = PolygonSelectorSpline(
+            ax_seg, select_epi, useblit=True, num_points=num_points, curve_props=spline_props, props=line_props
+        )
+
+        (self.endo_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
+        (self.epi_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
+        (self.ip_preview,) = self.ax_preview.plot([], [], "X", color="tab:green", markersize=8, alpha=0.8)
+
+        if initial_epi_poly is not None:
+            self.epi_poly.verts = initial_epi_poly
+            self.epi_selected = True
+        self.epi_poly.set_active(False)
+        self.epi_poly.set_visible(False)
+
+        self.endo_selected = False
+
+        def select_endo(_):
+            self.draw_preview()
+            self.endo_selected = True
+
+        self.endo_poly = PolygonSelectorSpline(
+            ax_seg, select_endo, useblit=True, num_points=num_points, curve_props=spline_props, props=line_props
+        )
+        if initial_endo_poly is not None:
+            self.endo_poly.verts = initial_endo_poly
+            self.endo_selected = True
+        self.endo_poly.set_active(False)
+        self.endo_poly.set_visible(False)
+
+        slider_props.setdefault("label", "Threshold")
+        slider_props.setdefault("valmin", 0.0)
+        slider_props.setdefault("valmax", 1.0)
+        self.slider = Slider(ax_slider, **slider_props)
+        # define that the update function will run when the slider is moved
+        self.slider.on_changed(self.update_slider)
+
+        self.ip_selected = False
+        self.ip = {"inferior": np.full(2, np.nan), "anterior": np.full(2, np.nan)}
+        self.ip_current = "anterior"  # 'inferior' | 'anterior'
+        (self.ip_plot_aip,) = self.ax_seg.plot([], [], "^", color="tab:red", markersize=8, alpha=0.5)
+        (self.ip_plot_iip,) = self.ax_seg.plot([], [], "v", color="tab:red", markersize=8, alpha=0.5)
+        self.ip_plot_aip.set_visible(False)
+        self.ip_plot_iip.set_visible(False)
+        self.ip_event_id = self.fig.canvas.mpl_connect("button_press_event", self.update_ip)
+        self.fig.canvas.mpl_disconnect(self.ip_event_id)
+
+        if initial_epi_poly is not None and initial_endo_poly is not None:
+            # If we are here is because we have the contours already, likely from an AI model.
+            # Set them both to visible, and if no editing needs to be done, we just need to
+            # define the insertion points, otherwise we can press the buttons to edit the contours.
+            self.draw_preview()
+            self.epi_poly.set_visible(True)
+            self.endo_poly.set_visible(True)
+
+        self.mask = np.ones_like(cont_img)
+        self.cont_img = cont_img
+        self.cont_img_org = cont_img.copy()
+        self.maps_org = [map1.copy(), map2.copy()]
+        self.maps = [map1, map2]
+        self.maps_props = [map1_props, map2_props]
+        self.map_use = 0
+        self.cont_img_props = cont_img_props
+        self.seg_on_map = False
+
+        self.fig.canvas.draw_idle()
+        self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
+        self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
+
+    def draw_images(self):
+        if self.seg_on_map:
+            imgs = self.ax_seg.images
+            if len(imgs) > 0:
+                imgs[0].set_data(self.maps[self.map_use])
+                imgs[0].set(**self.maps_props[self.map_use])
+            else:
+                self.ax_seg.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+
+            imgs = self.ax_preview.images
+            if len(imgs) > 0:
+                imgs[0].set_data(self.cont_img)
+                imgs[0].set(**self.cont_img_props)
+            else:
+                self.ax_preview.imshow(self.cont_img, **self.cont_img_props)
+        else:
+            imgs = self.ax_seg.images
+            if len(imgs) > 0:
+                imgs[0].set_data(self.cont_img)
+                imgs[0].set(**self.cont_img_props)
+            else:
+                self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
+
+            imgs = self.ax_preview.images
+            if len(imgs) > 0:
+                imgs[0].set_data(self.maps[self.map_use])
+                imgs[0].set(**self.maps_props[self.map_use])
+            else:
+                self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+
+    def draw_preview(self):
+        self.endo_preview.set_data(self.endo_poly.curve_points[:, 0], self.endo_poly.curve_points[:, 1])
+        self.epi_preview.set_data(self.epi_poly.curve_points[:, 0], self.epi_poly.curve_points[:, 1])
+        self.ip_preview.set_data(
+            [[self.ip["inferior"][0], self.ip["anterior"][0]], [self.ip["inferior"][1], self.ip["anterior"][1]]]
+        )
+        self.fig.canvas.draw_idle()
+
+    def remove_border_btn(self):
+        btn_ax = filter(lambda ax: "btn" in ax.get_label(), self.fig.get_axes())
+        for ax in btn_ax:
+            ax.set_axis_off()
+
+    def set_border_btn(self, ax):
+        ax.set_axis_on()
+        ax.set_facecolor("#FFFFFF00")
+        for axis in ["top", "bottom", "left", "right"]:
+            ax.spines[axis].set_linewidth(2.5)  # change width
+            ax.spines[axis].set_color("#ED4700")  # change color
+
+    def segment_epi(self, event):
+        """Deactivate the endocardium contour and activate the epicardium contour"""
+        self.fig.canvas.mpl_disconnect(self.ip_event_id)
+        self.ip_plot_aip.set_visible(False)
+        self.ip_plot_iip.set_visible(False)
+        self.remove_border_btn()
+        self.set_border_btn(event.inaxes)
+
+        self.epi_poly.set_active(True)
+        self.epi_poly.set_visible(True)
+
+        self.endo_poly.set_active(False)
+        self.endo_poly.set_visible(False)
+
+        self.ax_seg.set_title("Click epicardial points")
+        self.fig.canvas.draw_idle()
+        # self.draw()
+
+    def segment_endo(self, event):
+        """Deactivate the epicardium contour and activate the endocardium contour"""
+        self.fig.canvas.mpl_disconnect(self.ip_event_id)
+        self.ip_plot_aip.set_visible(False)
+        self.ip_plot_iip.set_visible(False)
+        self.remove_border_btn()
+        self.set_border_btn(event.inaxes)
+
+        self.epi_poly.set_active(False)
+        self.epi_poly.set_visible(False)
+
+        self.endo_poly.set_active(True)
+        self.endo_poly.set_visible(True)
+
+        self.ax_seg.set_title("Click endocardial points")
+        self.fig.canvas.draw_idle()
+        # self.draw()
+
+    def swap_images(self, _):
+        """Swap between segmenting the contrast image and the map"""
+        self.seg_on_map = not self.seg_on_map
+        self.draw_images()
+        self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
+        self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
+        # self.draw()
+        self.fig.canvas.draw_idle()
+
+    def swap_maps(self, _):
+        """Swap between the two maps"""
+        self.map_use = (self.map_use + 1) % 2
+        self.draw_images()
+        self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
+        self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
+        self.fig.canvas.draw_idle()
+        # self.draw()
+
+    def on_scroll(self, event):
+        """Use the scroll wheel to update the threshold"""
+        # scroll event will move the slider up to its limits, after that it won't move anymore
+        # scroll up event
+        if event.button == "up" and (self.slider.val + self.slider.valstep) < (
+            self.slider.valmax + self.slider.valstep
+        ):
+            self.slider.set_val(self.slider.val + self.slider.valstep)
+        # scroll down event
+        if event.button == "down" and (self.slider.val - self.slider.valstep) > (
+            self.slider.valmin - self.slider.valstep
+        ):
+            self.slider.set_val(self.slider.val - self.slider.valstep)
+        self.update_slider(None)
+
+    def update_slider(self, _):
+        """Apply the mask"""
+        self.cont_img, self.mask = clean_image(self.cont_img_org, self.slider.val)
+
+        self.maps[0] = self.maps_org[0] * self.mask
+        self.maps[1] = self.maps_org[1] * self.mask
+
+        self.draw_images()
+
+        self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
+        self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
+        self.fig.canvas.draw_idle()
+
+        # self.draw()
+
+    def pick_ip(self, event):
+        """Activate the intersection point code"""
+        self.remove_border_btn()
+        self.set_border_btn(event.inaxes)
+
+        self.epi_poly.set_active(False)
+        self.epi_poly.set_visible(False)
+
+        self.endo_poly.set_active(False)
+        self.endo_poly.set_visible(False)
+
+        self.fig.canvas.draw_idle()
+
+        self.ax_seg.set_title("Click on the anterior and then inferior insertion points")
+        self.ip_plot_aip.set_visible(True)
+        self.ip_plot_iip.set_visible(True)
+        self.ip_event_id = self.fig.canvas.mpl_connect("button_press_event", self.update_ip)
+
+    def update_ip(self, event):
+        """Click on the figure to register the intersection points"""
+        if event.inaxes is self.ax_seg:
+            self.ip[self.ip_current][0] = event.xdata
+            self.ip[self.ip_current][1] = event.ydata
+            self.ip_plot_aip.set_data([self.ip["anterior"][0]], [self.ip["anterior"][1]])
+            self.ip_plot_iip.set_data([self.ip["inferior"][0]], [self.ip["inferior"][1]])
+            if self.ip_current == "anterior":
+                self.ip_current = "inferior"
+                self.ip_selected = True
+            else:
+                self.ip_current = "anterior"
+
+        self.draw_preview()
+        self.fig.canvas.draw_idle()
+        # self.draw()
 
 
 def manual_lv_segmentation(
@@ -564,7 +531,7 @@ def manual_lv_segmentation(
     mask_3c : NDArray
         initial mask
     average_map : NDArray
-        average denoised and normalised images for each slice
+        average denoised and normalized images for each slice
     ha_map : NDArray
         HA maps for each slice
     md_map : NDArray
@@ -584,10 +551,8 @@ def manual_lv_segmentation(
     # get the contours of the epicardium and endocardium if not all zeros
     all_zeros = not np.any(lv_masks)
     if all_zeros:
-        epi_contour = np.array([])
-        endo_contour = np.array([])
-        second_axis_lines = {"epi": None, "endo": None, "ip": None}
-        seg_mask = {"epi": None, "endo": None}
+        epi_contour = None
+        endo_contour = None
     else:
         try:
             # get endo and epi contours from mask
@@ -595,134 +560,30 @@ def manual_lv_segmentation(
             # delete the last point, which is equal to the first one
             # use the points for the initial polygon
             epi_contour, endo_contour = get_sa_contours(lv_masks)
-            epi_contour = spline_interpolate_contour(epi_contour, n_points=n_points, join_ends=False)
             epi_contour = np.delete(epi_contour, -1, 0)
-            endo_contour = spline_interpolate_contour(endo_contour, n_points=n_points, join_ends=False)
             endo_contour = np.delete(endo_contour, -1, 0)
-            second_axis_lines = {"epi": None, "endo": None, "ip": None}
-            seg_mask = {"epi": None, "endo": None}
+
+            # reduce the number of points in the contours in order to be easily editable
+            # epi_contour = reduce_polygon(epi_contour, angle_th=10, distance_th=10)
+            # endo_contour = reduce_polygon(endo_contour, angle_th=10, distance_th=10)
+
+            n_poly_points = 14
+            if len(epi_contour) > n_poly_points:
+                steps = np.linspace(0, len(epi_contour) - 1, n_poly_points, dtype=int)
+                epi_contour = epi_contour[steps, :]
+            if len(endo_contour) > n_poly_points:
+                steps = np.linspace(0, len(endo_contour) - 1, n_poly_points, dtype=int)
+                endo_contour = endo_contour[steps, :]
+
         except:
             # if something goes wrong in finding the endo and epi lines. Most likely the U-Net
             # mask does not have the right shape. So we need to manually draw the contours from scratch.
-            epi_contour = np.array([])
-            endo_contour = np.array([])
-            second_axis_lines = {"epi": None, "endo": None, "ip": None}
-            seg_mask = {"epi": None, "endo": None}
-
-    class buttons:
-        """matplotlib figure buttons"""
-
-        def epi(self, event):
-            # draw epicardial contour
-            # disconnect previous polygons or on_click events if they exist
-            if hasattr(self, "epi_spline"):
-                self.epi_spline.disconnect()
-            if hasattr(self, "endo_spline"):
-                self.endo_spline.disconnect()
-            if hasattr(self, "ip"):
-                plt.disconnect(self.ip.binding_id)
-
-            """draw the epicardial border"""
-            self.epi_spline = define_roi_border(
-                event.canvas.figure.axes[0],
-                "Click epicardial points",
-                epi_contour,
-                second_axis_lines,
-                seg_mask,
-                lv_masks.shape,
-            )
-
-        def endo(self, event):
-            # draw endocardial contour
-            # disconnect previous polygons or on_click events if they exist
-            if hasattr(self, "epi_spline"):
-                self.epi_spline.disconnect()
-            if hasattr(self, "endo_spline"):
-                self.endo_spline.disconnect()
-            if hasattr(self, "ip"):
-                plt.disconnect(self.ip.binding_id)
-
-            """draw the endocardial border"""
-            self.endo_spline = define_roi_border(
-                event.canvas.figure.axes[0],
-                "Click endocardial points",
-                endo_contour,
-                second_axis_lines,
-                seg_mask,
-                lv_masks.shape,
-            )
-
-        def click(self, event, second_axis_lines):
-            # click on the two insertion points
-            # first anterior, then inferior
-            # disconnect previous polygons if they exist
-            event.canvas.figure.axes[0].set_title("Click on the anterior and then inferior insertion points.")
-            if hasattr(self, "epi_spline"):
-                self.epi_spline.disconnect()
-            if hasattr(self, "endo_spline"):
-                self.endo_spline.disconnect()
-            self.ip = click_insertion_points(event.canvas.figure.axes[0], second_axis_lines)
-
-        def swap_images(self, event):
-            # swap the images in the figure
-
-            # get current axes properties
-            axes_props = {}
-            for ax_idx in range(2):
-                axes_props[ax_idx] = {}
-                axes_props[ax_idx]["clim"] = event.canvas.figure.axes[ax_idx].images[0].get_clim()
-                axes_props[ax_idx]["alpha"] = event.canvas.figure.axes[ax_idx].images[0].get_alpha()
-                axes_props[ax_idx]["cmap"] = event.canvas.figure.axes[ax_idx].images[0].get_cmap()
-                axes_props[ax_idx]["label"] = event.canvas.figure.axes[ax_idx].label
-                axes_props[ax_idx]["array"] = event.canvas.figure.axes[ax_idx].images[0].get_array()
-
-            # swap figures
-            for ax_idx in range(2):
-                other_idx = 0 if ax_idx == 1 else 1
-                event.canvas.figure.axes[ax_idx].images[0].set_array(axes_props[other_idx]["array"])
-                event.canvas.figure.axes[ax_idx].images[0].set_clim(axes_props[other_idx]["clim"])
-                event.canvas.figure.axes[ax_idx].images[0].set_alpha(axes_props[other_idx]["alpha"])
-                event.canvas.figure.axes[ax_idx].images[0].set_cmap(axes_props[other_idx]["cmap"])
-                event.canvas.figure.axes[ax_idx].label = axes_props[other_idx]["label"]
-
-            event.canvas.draw_idle()
-
-        def swap_ha_md(self, event):
-            # toggle HA/MD on the axis that has one of these maps
-
-            c_mask = threshold_slider_and_scroll.mask
-
-            # find out which axis contains the mag
-            label_ax_0 = event.canvas.figure.axes[0].label
-            label_ax_1 = event.canvas.figure.axes[1].label
-
-            if label_ax_0 == "mag":
-                ax_idx = 1
-            elif label_ax_1 == "mag":
-                ax_idx = 0
-
-            # find out if we are showing the HA or MD map on the other axis
-            c_label = event.canvas.figure.axes[ax_idx].label
-
-            if c_label == "ha":
-                # we are currently showing the HA map, switch to MD map
-                event.canvas.figure.axes[ax_idx].images[0].set_array(md_map * c_mask)
-                event.canvas.figure.axes[ax_idx].images[0].set_clim((0.0, 2.5))
-                event.canvas.figure.axes[ax_idx].images[0].set_alpha(0.5)
-                event.canvas.figure.axes[ax_idx].images[0].set_cmap(colormaps["MD"])
-                event.canvas.figure.axes[ax_idx].label = "md"
-            elif c_label == "md":
-                # we are currently showing the MD map, switch to HA map
-                event.canvas.figure.axes[ax_idx].images[0].set_array(ha_map * c_mask)
-                event.canvas.figure.axes[ax_idx].images[0].set_clim((-90, 90))
-                event.canvas.figure.axes[ax_idx].images[0].set_alpha(0.5)
-                event.canvas.figure.axes[ax_idx].images[0].set_cmap(colormaps["HA"])
-                event.canvas.figure.axes[ax_idx].label = "ha"
-
-            event.canvas.draw_idle()
+            epi_contour = None
+            endo_contour = None
 
     # plot the magnitude image to be ROI'd
     # retina screen resolution
+    # It should be detected automatically otherwise when using a non retina display the app will look too large
     my_dpi = 100
     if mask_3c.shape[0] > mask_3c.shape[1]:
         fig, ax = plt.subplots(
@@ -740,90 +601,106 @@ def manual_lv_segmentation(
             figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
             num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
         )
+
     # leave some space for the buttons
     fig.subplots_adjust(left=0.2, bottom=0.2)
+    map1_props = dict(cmap=colormaps["HA"], clim=[-90, 90], alpha=0.5, interpolation="none")
+    map2_props = dict(cmap=colormaps["MD"], clim=[0.0, 2.5], alpha=0.5, interpolation="none")
+    cont_img_props = dict(cmap="Greys_r", clim=[0.0, 0.85], alpha=0.8, interpolation="none")
+
     # axis where the magnitude image will be shown initially
-    ax[0].imshow(average_map, cmap="Greys_r", vmin=0, vmax=0.85)
+    ax[0].imshow(average_map, **cont_img_props)
     ax[0].axis("off")
     ax[0].label = "mag"
     # axis where the HA map will be shown initially
-    ax[1].imshow(ha_map, colormaps["HA"], vmin=-90, vmax=90, alpha=0.5)
+    ax[1].imshow(ha_map, **map1_props)
     ax[1].axis("off")
     ax[1].label = "ha"
 
-    # add the buttons to the figure
-    callback = buttons()
-    # epi button
-    epi_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "epicardium.png"))
-    ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.10])
-    ax_epi.axis("off")
-    button_epi = Button(ax_epi, label="", image=epi_icon)
-    button_epi.on_clicked(callback.epi)
-    # endo button
-    endo_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "endocardium.png"))
-    ax_endo = fig.add_axes([0.05, 0.60, 0.10, 0.10])
-    ax_endo.axis("off")
-    button_endo = Button(ax_endo, label="", image=endo_icon)
-    button_endo.on_clicked(callback.endo)
-    # insertion points button
-    ip_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "insertion_points.png"))
-    ax_ip = fig.add_axes([0.05, 0.45, 0.10, 0.10])
-    ax_ip.axis("off")
-    button_ip = Button(ax_ip, label="", image=ip_icon)
-    button_ip.on_clicked(lambda x: callback.click(x, second_axis_lines))
-    # swap images button
-    si_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "swap_images.png"))
-    ax_swap_images = fig.add_axes([0.05, 0.30, 0.10, 0.10])
-    ax_swap_images.axis("off")
-    button_si = Button(ax_swap_images, label="", image=si_icon)
-    button_si.on_clicked(callback.swap_images)
-    # ha/md map button
-    hm_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "ha_md.png"))
-    ax_ha_md = fig.add_axes([0.05, 0.15, 0.10, 0.10])
-    ax_ha_md.axis("off")
-    button_hm = Button(ax_ha_md, label="", image=hm_icon)
-    button_hm.on_clicked(callback.swap_ha_md)
-    # slider stuff
-    threshold_slider_and_scroll = scrool_slider(
+    ax_slider = fig.add_axes([0.25, 0.1, 0.65, 0.03])
+
+    slider_props = dict(label="Threshold: ", valmin=0, valmax=1, valinit=0.01, valstep=0.01, orientation="horizontal")
+    line_style = dict(color="tab:brown", linestyle="None", linewidth=0.01, alpha=0.8, markersize=3)
+    curve_style = dict(color="tab:brown", lw=1, alpha=0.9, label="ROI")
+    actions = Actions(
         fig,
+        ax[0],
+        ax[1],
+        ax_slider,
         average_map,
         ha_map,
         md_map,
+        num_points=n_points,
+        initial_epi_poly=epi_contour,
+        initial_endo_poly=endo_contour,
+        slider_props=slider_props,
+        line_props=line_style,
+        spline_props=curve_style,
+        map1_props=map1_props,
+        map2_props=map2_props,
+        cont_img_props=cont_img_props,
     )
-    fig.canvas.mpl_connect("scroll_event", threshold_slider_and_scroll.on_scroll)
+
+    # add the buttons to the figure
+
+    # epi button
+    epi_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "epicardium.png"))
+    ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.10], label="epi_btn")
+    button_epi = Button(ax_epi, label="", image=epi_icon, hovercolor="#FFFFFF00")
+    button_epi.on_clicked(actions.segment_epi)
+
+    # endo button
+    endo_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "endocardium.png"))
+    ax_endo = fig.add_axes([0.05, 0.60, 0.10, 0.10], label="endo_btn")
+    button_endo = Button(ax_endo, label="", image=endo_icon, hovercolor="#FFFFFF00")
+    button_endo.on_clicked(actions.segment_endo)
+
+    # insertion points button
+    ip_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "insertion_points.png"))
+    ax_ip = fig.add_axes([0.05, 0.45, 0.10, 0.10], label="ip_btn")
+    button_ip = Button(ax_ip, label="", image=ip_icon, hovercolor="#FFFFFF00")
+    button_ip.on_clicked(actions.pick_ip)
+
+    # swap images button
+    si_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "swap_images.png"))
+    ax_swap_images = fig.add_axes([0.05, 0.30, 0.10, 0.10], label="si_btn")
+    ax_swap_images.axis("off")
+    button_si = Button(ax_swap_images, label="", image=si_icon, hovercolor="#FFFFFF00")
+    button_si.on_clicked(actions.swap_images)
+
+    # ha/md map button
+    hm_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "ha_md.png"))
+    ax_ha_md = fig.add_axes([0.05, 0.15, 0.10, 0.10], label="hm_btn")
+    ax_ha_md.axis("off")
+    button_hm = Button(ax_ha_md, label="", image=hm_icon, hovercolor="#FFFFFF00")
+    button_hm.on_clicked(actions.swap_maps)
+
+    fig.canvas.mpl_connect("scroll_event", actions.on_scroll)
+    actions.remove_border_btn()
 
     plt.show(block=True)
 
     # retrieve the threshold mask
-    thr_mask = threshold_slider_and_scroll.mask
+    thr_mask = actions.mask
 
     # store segmentation information from the buttons' callbacks
     segmentation = {}
     # The epicardium needs to be defined. If not slice will be removed.
     # The endocardium and the two insertion points is optional.
-    if hasattr(callback, "epi_spline"):
-        segmentation["epicardium"] = callback.epi_spline.spline_points
+    if actions.epi_selected:
+        segmentation["epicardium"] = np.array(actions.epi_poly.curve_points)
     else:
         segmentation["epicardium"] = np.array([])
 
-    if hasattr(callback, "endo_spline"):
-        segmentation["endocardium"] = callback.endo_spline.spline_points
+    if actions.endo_selected:
+        segmentation["endocardium"] = np.array(actions.endo_poly.curve_points)
+
     else:
         segmentation["endocardium"] = np.array([])
 
-    if hasattr(callback, "ip"):
-        segmentation["anterior_ip"] = np.array(
-            [
-                callback.ip.ip_x[0],
-                callback.ip.ip_y[0],
-            ]
-        )
-        segmentation["inferior_ip"] = np.array(
-            [
-                callback.ip.ip_x[1],
-                callback.ip.ip_y[1],
-            ]
-        )
+    if actions.ip_selected:
+        segmentation["anterior_ip"] = actions.ip["anterior"]
+        segmentation["inferior_ip"] = actions.ip["inferior"]
     else:
         segmentation["anterior_ip"] = np.array([])
         segmentation["inferior_ip"] = np.array([])
