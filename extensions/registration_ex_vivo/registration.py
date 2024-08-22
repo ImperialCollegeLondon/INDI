@@ -24,10 +24,10 @@ class RegistrationExVivo(ExtensionBase):
             )
             # check if the reference images have been saved already
             if not os.path.exists(reg_file_reference):
-                self.logger.info("No saved reference image found for slice " + str(slice).zfill(2))
+                self.logger.info("No saved registration image found for slice " + str(slice).zfill(2))
 
             else:
-                self.logger.info("Saved reference images found for slice " + str(slice).zfill(2))
+                self.logger.info("Saved registration images found for slice " + str(slice).zfill(2))
                 save_path = reg_file_reference
                 npzfile = np.load(
                     save_path, allow_pickle=True
