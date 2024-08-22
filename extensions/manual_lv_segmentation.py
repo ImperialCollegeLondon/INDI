@@ -270,10 +270,14 @@ class Actions:
         self.epi_poly = PolygonSelectorSpline(
             ax_seg, select_epi, useblit=True, num_points=num_points, curve_props=spline_props, props=line_props
         )
+
+        (self.endo_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
+        (self.epi_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
+        (self.ip_preview,) = self.ax_preview.plot([], [], "X", color="tab:green", markersize=8, alpha=0.8)
+
         if initial_epi_poly is not None:
             self.epi_poly.verts = initial_epi_poly
             self.epi_selected = True
-
         self.epi_poly.set_active(False)
         self.epi_poly.set_visible(False)
 
@@ -309,6 +313,14 @@ class Actions:
         self.ip_event_id = self.fig.canvas.mpl_connect("button_press_event", self.update_ip)
         self.fig.canvas.mpl_disconnect(self.ip_event_id)
 
+        if initial_epi_poly is not None and initial_endo_poly is not None:
+            # If we are here is because we have the contours already, likely from an AI model.
+            # Set them both to visible, and if no editing needs to be done, we just need to
+            # define the insertion points, otherwise we can press the buttons to edit the contours.
+            self.draw_preview()
+            self.epi_poly.set_visible(True)
+            self.endo_poly.set_visible(True)
+
         self.mask = np.ones_like(cont_img)
         self.cont_img = cont_img
         self.cont_img_org = cont_img.copy()
@@ -323,21 +335,35 @@ class Actions:
         self.bg_seg = self.fig.canvas.copy_from_bbox(self.ax_seg.get_tightbbox())
         self.bg_preview = self.fig.canvas.copy_from_bbox(self.ax_preview.get_tightbbox())
 
-        (self.endo_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
-        (self.epi_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
-        (self.ip_preview,) = self.ax_preview.plot([], [], "X", color="tab:green", markersize=8, alpha=0.8)
-
     def draw_images(self):
         if self.seg_on_map:
-            self.ax_seg.images[0].remove()
-            self.ax_seg.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
-            self.ax_preview.images[0].remove()
-            self.ax_preview.imshow(self.cont_img, **self.cont_img_props)
+            imgs = self.ax_seg.images
+            if len(imgs) > 0:
+                imgs[0].set_data(self.maps[self.map_use])
+                imgs[0].set(**self.maps_props[self.map_use])
+            else:
+                self.ax_seg.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+
+            imgs = self.ax_preview.images
+            if len(imgs) > 0:
+                imgs[0].set_data(self.cont_img)
+                imgs[0].set(**self.cont_img_props)
+            else:
+                self.ax_preview.imshow(self.cont_img, **self.cont_img_props)
         else:
-            self.ax_seg.images[0].remove()
-            self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
-            self.ax_preview.images[0].remove()
-            self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
+            imgs = self.ax_seg.images
+            if len(imgs) > 0:
+                imgs[0].set_data(self.cont_img)
+                imgs[0].set(**self.cont_img_props)
+            else:
+                self.ax_seg.imshow(self.cont_img, **self.cont_img_props)
+
+            imgs = self.ax_preview.images
+            if len(imgs) > 0:
+                imgs[0].set_data(self.maps[self.map_use])
+                imgs[0].set(**self.maps_props[self.map_use])
+            else:
+                self.ax_preview.imshow(self.maps[self.map_use], **self.maps_props[self.map_use])
 
     def draw_preview(self):
         self.endo_preview.set_data(self.endo_poly.curve_points[:, 0], self.endo_poly.curve_points[:, 1])
@@ -578,9 +604,9 @@ def manual_lv_segmentation(
 
     # leave some space for the buttons
     fig.subplots_adjust(left=0.2, bottom=0.2)
-    map1_props = dict(cmap=colormaps["HA"], vmin=-90, vmax=90, alpha=0.5, interpolation="none")
-    map2_props = dict(cmap=colormaps["MD"], vmin=0.0, vmax=2.5, alpha=0.5, interpolation="none")
-    cont_img_props = dict(cmap="Greys_r", vmin=0, vmax=0.85, alpha=0.8, interpolation="none")
+    map1_props = dict(cmap=colormaps["HA"], clim=[-90, 90], alpha=0.5, interpolation="none")
+    map2_props = dict(cmap=colormaps["MD"], clim=[0.0, 2.5], alpha=0.5, interpolation="none")
+    cont_img_props = dict(cmap="Greys_r", clim=[0.0, 0.85], alpha=0.8, interpolation="none")
 
     # axis where the magnitude image will be shown initially
     ax[0].imshow(average_map, **cont_img_props)
