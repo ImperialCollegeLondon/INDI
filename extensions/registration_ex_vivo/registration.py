@@ -3,6 +3,7 @@ import pathlib
 
 import itk
 import numpy as np
+from pystackreg import StackReg
 from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
@@ -58,13 +59,15 @@ class RegistrationExVivo(ExtensionBase):
 
             assert len(images) == len(indices)
 
-            registered_images = self._register(
-                ref_image,
-                images,
-                phase_images,
-                indices,
-                self.code_path / "extensions" / "image_registration_recipes" / "Elastix_rigid.txt",
-            )
+            # registered_images = self._register_itk(
+            #     ref_image,
+            #     images,
+            #     phase_images,
+            #     indices,
+            #     self.code_path / "extensions" / "image_registration_recipes" / "Elastix_rigid.txt",
+            # )
+
+            registered_images = self._register_stagreg(ref_image, images, phase_images, indices)
 
             # Averaging the repetitions
             average_image = []
@@ -81,7 +84,7 @@ class RegistrationExVivo(ExtensionBase):
                     average_image.append(np.mean(registered_images_index, axis=0))
 
             self.logger.info(f"BSpline registering slice {slice}")
-            registered_images = self._register(
+            registered_images = self._register_itk(
                 ref_image,
                 average_image,
                 phase_images,
@@ -112,7 +115,7 @@ class RegistrationExVivo(ExtensionBase):
                 else images,
             )
 
-    def _register(self, ref_image, images, phase_images, indices, recipe):
+    def _register_itk(self, ref_image, images, phase_images, indices, recipe):
         ref_image = itk.GetImageFromArray(ref_image)
 
         # Denoise the images ?
@@ -149,6 +152,29 @@ class RegistrationExVivo(ExtensionBase):
                     parameter_object=parameter_object,
                     log_to_console=False,
                 )
+                registered_images.append((img_reg, indices[i]))
+
+        return registered_images
+
+    def _register_stagreg(self, ref_image, images, phase_images, indices):
+        sr = StackReg(StackReg.TRANSLATION)
+        sr.register(ref_image, images[0])
+        registered_images = [sr.transform(img) for img in images]
+
+        registered_images = []
+
+        for i in tqdm(range(1, len(images)), desc="Registering images"):
+            mov_image = images[i]
+
+            if self.settings["complex_data"]:
+                mov_image_real = mov_image * np.cos(phase_images[i])
+                mov_image_imag = mov_image * np.sin(phase_images[i])
+
+                img_reg_real = sr.transform(mov_image_real, ref_image.real)
+                (img_reg_imag,) = sr.transform(mov_image_imag, ref_image.imag)
+                registered_images.append((img_reg_real, img_reg_imag, indices[i]))
+            else:
+                img_reg = sr.transform(mov_image, ref_image)
                 registered_images.append((img_reg, indices[i]))
 
         return registered_images
