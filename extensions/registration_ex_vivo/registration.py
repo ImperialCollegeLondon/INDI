@@ -76,7 +76,6 @@ class RegistrationExVivo(ExtensionBase):
         if self.settings["complex_data"]:
             self.data_reg = pd.DataFrame(
                 {
-                    "index": [],
                     "image": [],
                     "image_phase": [],
                     "slice_integer": [],
@@ -87,7 +86,6 @@ class RegistrationExVivo(ExtensionBase):
         else:
             self.data_reg = pd.DataFrame(
                 {
-                    "index": [],
                     "image": [],
                     "slice_integer": [],
                     "b_value": [],
@@ -185,6 +183,10 @@ class RegistrationExVivo(ExtensionBase):
 
             plot_ref_images(np.mean(average_image, axis=0), slice, ref_image, contour, self.settings)
 
+        self.data_reg["diffusion_direction"] = self.data_reg["diffusion_direction"].apply(tuple)
+        data_grouped = self.data_reg.groupby(["b_value", "diffusion_direction"])
+        self.data_reg["index"] = data_grouped.ngroup()
+
         self.context["data"] = self.data_reg
 
     def _register_itk(self, ref_image, images, phase_images, mask, indices, recipe):
@@ -269,7 +271,6 @@ class RegistrationExVivo(ExtensionBase):
                     self.data_reg,
                     pd.DataFrame(
                         {
-                            "index": np.unique(indices).astype(int),
                             "image": np.abs(reg_images),
                             "image_phase": np.angle(reg_images),
                             "slice_integer": [int(slice) for _ in range(len(reg_images))],
@@ -277,7 +278,8 @@ class RegistrationExVivo(ExtensionBase):
                             "diffusion_direction": diffusion_directions,
                         }
                     ),
-                ]
+                ],
+                ignore_index=True,
             )
         else:
             self.data_reg = pd.concat(
@@ -285,12 +287,12 @@ class RegistrationExVivo(ExtensionBase):
                     self.data_reg,
                     pd.DataFrame(
                         {
-                            "index": indices.astype(int),
                             "image": reg_images,
                             "slice_integer": [int(slice) for _ in range(len(reg_images))],
                             "b_value": b_values,
                             "diffusion_direction": diffusion_directions,
                         }
                     ),
-                ]
+                ],
+                ignore_index=True,
             )

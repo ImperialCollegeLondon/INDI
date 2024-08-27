@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from extensions.rotation import rotate_vector
+from extensions.rotation.rotation import rotate_vector
 
 
 @pytest.mark.parametrize(

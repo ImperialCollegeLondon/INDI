@@ -34,8 +34,8 @@ from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
+from extensions.rotation.rotation import Rotation
 from extensions.segmentation.heart_segmentation import HeartSegmentation
-from extensions.rotation import rotate_data
 from extensions.select_outliers import select_outliers
 from extensions.tensor_fittings import dipy_tensor_fit
 from extensions.u_net_segmentation import get_average_images
@@ -124,7 +124,12 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     if settings["ex_vivo"] and settings["rotate"]:
         logger.info("Ex-vivo rotation is True")
-        data, slices, info = rotate_data(data, slices, info, settings, logger)
+        context = {"data": data, "info": info, "slices": slices}
+        Rotation(context, settings, logger).run()
+        data = context["data"]
+        slices = context["slices"]
+        info = context["info"]
+        # data, slices, info = rotate_data(data, slices, info, settings, logger)
 
     # =========================================================
     # Remove outliers (pre-segmentation)
