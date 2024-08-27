@@ -112,7 +112,10 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     if settings["ex_vivo"]:
         logger.info("Ex-vivo mode is True. Using ex-vivo registration.")
-        RegistrationExVivo({"data": data}, settings, logger).run()
+        context = {"data": data, "info": info}
+        RegistrationExVivo(context, settings, logger).run()
+        data = context["data"]
+        reg_mask = context["reg_mask"]
 
     else:
         data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
