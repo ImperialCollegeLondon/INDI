@@ -30,11 +30,11 @@ from extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from extensions.get_eigensystem import get_eigensystem
 from extensions.get_fa_md import get_fa_md
 from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
-from extensions.heart_segmentation import heart_segmentation
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
+from extensions.segmentation.heart_segmentation import HeartSegmentation
 from extensions.select_outliers import select_outliers
 from extensions.tensor_fittings import dipy_tensor_fit
 from extensions.u_net_segmentation import get_average_images
@@ -155,9 +155,13 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Heart segmentation
     # =========================================================
-    segmentation, mask_3c = heart_segmentation(
-        data, average_images, slices, info["n_slices"], colormaps, settings, info, logger
-    )
+    context = {"data": data, "info": info, "average_images": average_images, "slices": slices, "colormaps": colormaps}
+    HeartSegmentation(context, settings, logger).run()
+    data = context["data"]
+    info = context["info"]
+    slices = context["slices"]
+    segmentation = context["segmentation"]
+    mask_3c = context["mask_3c"]
 
     # =========================================================
     # Remove non segmented slices
