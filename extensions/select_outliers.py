@@ -334,7 +334,7 @@ def select_outliers(
     if "n_images_rejected" not in info:
         info["n_images_rejected"] = 0
 
-    # ========================================================={
+    # =========================================================
     # manual removal of images
     # =========================================================
     if settings["remove_outliers_manually"]:

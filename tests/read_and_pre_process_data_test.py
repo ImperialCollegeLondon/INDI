@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from extensions.read_data.read_and_pre_process_data import get_data
+from extensions.read_data.read_and_pre_process_data import read_data
 
 
 def test_get_data():
@@ -17,7 +17,7 @@ def test_get_data():
     abspath = os.path.abspath(os.path.join("extensions"))
     dname = os.path.dirname(abspath)
     settings["code_path"] = dname
-    table_calculated, info = get_data(settings, info)
+    table_calculated, info = read_data(settings, info)
 
     # we need to separate the dir list into 3 columns
     table_true[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(table_true.direction.tolist(), index=table_true.index)
