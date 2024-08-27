@@ -13,7 +13,7 @@ import matplotlib
 import pyautogui
 
 from extensions.complex_averaging import complex_averaging
-from extensions.crop import crop_data
+from extensions.crop.crop import Crop
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
@@ -103,9 +103,11 @@ for current_folder in all_to_be_analysed_folders:
     # Crop data
     # =========================================================
     if settings["ex_vivo"]:
-        logger.info("Ex-vivo settings enabled!")
         logger.info("Cropping data to the region of interest")
-        data, slices = crop_data(data, slices, settings, info, logger)
+        context = {"data": data, "slices": slices}
+        Crop(context, settings, logger).run()
+        data = context["data"]
+        slices = context["slices"]
 
     # =========================================================
     # DWIs registration

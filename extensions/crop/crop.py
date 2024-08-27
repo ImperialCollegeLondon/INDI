@@ -1,12 +1,11 @@
-import logging
 import os
-from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import yaml
 from matplotlib.widgets import RectangleSelector
+
+from extensions.extension_base import ExtensionBase
 
 
 class ThreeDSelector:
@@ -96,58 +95,58 @@ def manual_crop(image):
     return roi.slice, roi.row, roi.col
 
 
-def crop_data(data: pd.DataFrame, slices: List[int], settings: Dict, info: Dict, logger: logging.Logger):
-    """
-    Crop data to the desired ROI
+class Crop(ExtensionBase):
+    def run(self) -> None:
+        """Crop data to the desired ROI
 
-    Parameters
-    ----------
-    data : dict
-        dictionary to hold data
-    slices : list
-        list of slices index
-    settings : dict
-    info : dict
-    logger : logging
-        logger for console
+        Parameters
+        ----------
+        data : dict
+            dictionary to hold data
+        slices : list
+            list of slices index
+        settings : dict
+        info : dict
+        logger : logging
+            logger for console
 
-    Returns
-    -------
-    data : dict
-        dictionary to hold data
-    slices : list
-        dictionary to hold slices
-    """
+        Returns
+        -------
+        data : dict
+            pd.Dataframe to hold data
+        slices : list
+            dictionary to hold slices
+        """
 
-    image = np.asarray([np.asarray(data["image"][i], dtype=int) for i in slices])
+        data = self.context["data"]
+        image = np.asarray([np.asarray(data["image"][i], dtype=int) for i in self.context["slices"]])
 
-    if os.path.exists(os.path.join(settings["session"], "crop.yaml")):
-        with open(os.path.join(settings["session"], "crop.yaml"), "r") as handle:
-            crop = yaml.safe_load(handle)
-            slice = crop["slice"]
-            row = crop["row"]
-            col = crop["col"]
-        logger.debug("ROI loaded from crop.yaml")
+        if os.path.exists(os.path.join(self.settings["session"], "crop.yaml")):
+            with open(os.path.join(self.settings["session"], "crop.yaml"), "r") as handle:
+                crop = yaml.safe_load(handle)
+                self.slice = crop["slice"]
+                self.row = crop["row"]
+                self.col = crop["col"]
+            self.logger.debug("ROI loaded from crop.yaml")
 
-    else:
-        logger.info("Select the ROI for cropping")
-        slice, row, col = manual_crop(image)
-        slice = [int(slice[0]), int(slice[1])]
-        row = [int(row[0]), int(row[1])]
-        col = [int(col[0]), int(col[1])]
+        else:
+            self.logger.info("Select the ROI for cropping")
+            slice, row, col = manual_crop(image)
+            self.slice = [int(slice[0]), int(slice[1])]
+            self.row = [int(row[0]), int(row[1])]
+            self.col = [int(col[0]), int(col[1])]
 
-    logger.info(f"ROI: {slice}, {row}, {col}")
+        self.logger.info(f"ROI: {slice}, {row}, {col}")
 
-    # crop the data
-    data["image"] = data["image"].apply(lambda x: x[row[0] : row[1], col[0] : col[1]])
-    slices = slices[slice[0] : slice[1]]
-    save_crop(slice, row, col, settings)
-    return data, slices
+        # crop the data
+        data["image"] = data["image"].apply(lambda x: x[self.row[0] : self.row[1], self.col[0] : self.col[1]])
+        slices = self.context["slices"][self.slice[0] : self.slice[1]]
+        self._save_crop()
 
+        self.context["data"], self.context["slices"] = data, slices
 
-def save_crop(slice: Tuple[int], row: Tuple[int], col: Tuple[int], settings: Dict):
-    """Saves the crop values"""
-
-    crop = dict(slice=slice, row=row, col=col)
-    with open(os.path.join(settings["session"], "crop.yaml"), "w") as handle:
-        yaml.dump(crop, handle)
+    def _save_crop(self):
+        """Saves the crop values"""
+        crop = dict(slice=self.slice, row=self.row, col=self.col)
+        with open(os.path.join(self.settings["session"], "crop.yaml"), "w") as handle:
+            yaml.dump(crop, handle)
