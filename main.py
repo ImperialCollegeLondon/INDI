@@ -18,21 +18,16 @@ from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
     export_results,
-    get_cardiac_coordinates_short_axis,
     get_colourmaps,
-    get_ha_line_profiles,
-    get_lv_segments,
     get_snr_maps,
     query_yes_no,
     remove_outliers,
     remove_slices,
 )
 from extensions.folder_loop_initial_setup import folder_loop_initial_setup
-from extensions.get_eigensystem import get_eigensystem
-from extensions.get_fa_md import get_fa_md
-from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
+from extensions.metrics.metrics import Metrics
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.segmentation.heart_segmentation import HeartSegmentation
@@ -273,54 +268,18 @@ for current_folder in all_to_be_analysed_folders:
     else:
         logger.info("Denoising tensor with uformer model is False")
 
-    # =========================================================
-    # Get Eigensystems
-    # =========================================================
-    dti, info = get_eigensystem(
-        dti,
-        slices,
-        info,
-        average_images,
-        settings,
-        mask_3c,
-        logger,
-    )
-
-    # =========================================================
-    # Get dti["fa"] and dti["md"] maps
-    # =========================================================
-    dti["md"], dti["fa"], info = get_fa_md(dti["eigenvalues"], info, mask_3c, slices, logger)
-
-    # =========================================================
-    # Get cardiac coordinates
-    # =========================================================
-    local_cardiac_coordinates, lv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
-        mask_3c, segmentation, slices, info["n_slices"], settings, dti, average_images, info
-    )
-
-    # =========================================================
-    # Segment heart
-    # =========================================================
-    dti["lv_sectors"] = get_lv_segments(segmentation, phi_matrix, mask_3c, lv_centres, slices, logger)
-
-    # =========================================================
-    # Get dti["ha"] and dti["e2a"] maps
-    # =========================================================
-    dti["ha"], dti["ta"], dti["e2a"], info = get_tensor_orientation_maps(
-        slices, mask_3c, local_cardiac_coordinates, dti, settings, info, logger
-    )
-
-    # =========================================================
-    # Get HA line profiles
-    # =========================================================
-    dti["ha_line_profiles"], dti["wall_thickness"] = get_ha_line_profiles(
-        dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info
-    )
-
-    # =========================================================
-    # Copy diffusion maps to an xarray dataset
-    # =========================================================
-    # ds = get_xarray(info, dti, crop_mask, slices)
+    context = {
+        "data": data,
+        "info": info,
+        "slices": slices,
+        "dti": dti,
+        "segmentation": segmentation,
+        "mask_3c": mask_3c,
+        "average_images": average_images,
+    }
+    Metrics(context, settings, logger).run()
+    dti = context["dti"]
+    info = context["info"]
 
     # =========================================================
     # Plot main results and save data
@@ -336,11 +295,8 @@ for current_folder in all_to_be_analysed_folders:
         crop_mask,
         data,
         info,
-        local_cardiac_coordinates,
-        lv_centres,
         mask_3c,
         noise,
-        phi_matrix,
         ref_images,
         registration_image_data,
         segmentation,
