@@ -136,7 +136,7 @@ class Crop(ExtensionBase):
             self.row = [int(row[0]), int(row[1])]
             self.col = [int(col[0]), int(col[1])]
 
-        self.logger.info(f"ROI: {slice}, {row}, {col}")
+        self.logger.info(f"ROI: {self.slice}, {self.row}, {self.col}")
 
         # crop the data
         data["image"] = data["image"].apply(lambda x: x[self.row[0] : self.row[1], self.col[0] : self.col[1]])

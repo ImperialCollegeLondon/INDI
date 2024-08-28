@@ -36,7 +36,7 @@ from extensions.initial_setup import initial_setup
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.segmentation.heart_segmentation import HeartSegmentation
-from extensions.select_outliers import select_outliers
+from extensions.select_outliers.select_outliers import SelectOutliers
 from extensions.tensor_fittings import dipy_tensor_fit
 from extensions.u_net_segmentation import get_average_images
 
@@ -134,17 +134,19 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     if settings["remove_outliers_manually_pre"]:
         logger.info("Manual removal of outliers pre segmentation")
-        [data, info, slices] = select_outliers(
-            data,
-            slices,
-            registration_image_data,
-            settings,
-            info,
-            logger,
-            stage="pre",
-            segmentation={},
-            mask=reg_mask,
-        )
+        context = {
+            "data": data,
+            "info": info,
+            "slices": slices,
+            "registration_image_data": registration_image_data,
+            "stage": "pre",
+            "mask": reg_mask,
+            "segmentation": {},
+        }
+        SelectOutliers(context, settings, logger).run()
+        data = context["data"]
+        info = context["info"]
+        slices = context["slices"]
     else:
         # initialise some variables if we are not removing outliers manually
         logger.info("Manual removal of outliers pre segmentation is False")
@@ -203,17 +205,19 @@ for current_folder in all_to_be_analysed_folders:
     # Remove outliers (post-segmentation)
     # =========================================================
     logger.info("Manual removal of outliers post segmentation")
-    [data, info, slices] = select_outliers(
-        data,
-        slices,
-        registration_image_data,
-        settings,
-        info,
-        logger,
-        stage="post",
-        segmentation=segmentation,
-        mask=reg_mask,
-    )
+    context = {
+        "data": data,
+        "info": info,
+        "slices": slices,
+        "registration_image_data": registration_image_data,
+        "stage": "post",
+        "mask": reg_mask,
+        "segmentation": segmentation,
+    }
+    SelectOutliers(context, settings, logger).run()
+    data = context["data"]
+    info = context["info"]
+    slices = context["slices"]
 
     # =========================================================
     # Remove outliers from table
