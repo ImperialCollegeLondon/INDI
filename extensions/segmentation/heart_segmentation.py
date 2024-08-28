@@ -14,7 +14,7 @@ from extensions.segmentation.manual_segmentation import (
     plot_manual_lv_segmentation,
 )
 from extensions.segmentation.polygon_selector import spline_interpolate_contour
-from extensions.tensor_fittings import dipy_tensor_fit
+from extensions.tensor_fittings.tensor_fittings import dipy_tensor_fit
 
 # Ideas
 # Use a dynamically set tool for segmentation.

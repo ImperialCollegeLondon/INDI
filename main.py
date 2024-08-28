@@ -37,7 +37,7 @@ from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.segmentation.heart_segmentation import HeartSegmentation
 from extensions.select_outliers.select_outliers import SelectOutliers
-from extensions.tensor_fittings import dipy_tensor_fit
+from extensions.tensor_fittings.tensor_fittings import TensorFit
 from extensions.u_net_segmentation import get_average_images
 
 # # for debugging numpy warnings
@@ -244,17 +244,25 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Calculate tensor
     # =========================================================
-    dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], info = dipy_tensor_fit(
-        slices,
-        data,
-        info,
-        settings,
-        mask_3c,
-        average_images,
-        logger,
-        method=settings["tensor_fit_method"],
-        quick_mode=False,
-    )
+    context = {"data": data, "info": info, "slices": slices, "mask_3c": mask_3c, "average_images": average_images}
+    TensorFit(context, settings, logger, method=settings["tensor_fit_method"], quick_mode=False).run()
+    dti["tensor"] = context["dti"]["tensor"]
+    dti["s0"] = context["dti"]["s0"]
+    dti["residuals_plot"] = context["dti"]["residuals_plot"]
+    dti["residuals_map"] = context["dti"]["residuals_map"]
+    info = context["info"]
+
+    # dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], info = dipy_tensor_fit(
+    #     slices,
+    #     data,
+    #     info,
+    #     settings,
+    #     mask_3c,
+    #     average_images,
+    #     logger,
+    #     method=settings["tensor_fit_method"],
+    #     quick_mode=False,
+    # )
 
     # =========================================================
     # Denoise tensor with uformer models
