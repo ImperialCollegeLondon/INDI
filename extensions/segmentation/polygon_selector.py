@@ -9,11 +9,16 @@ def spline_interpolate_contour(contour, n_points, join_ends=False):
     """
     Interpolate a contour to a spline curve with n_points
     """
+    contour = np.array(contour)
     if join_ends:
         contour = np.append(contour, [contour[0]], axis=0)
-    x = contour[:, 0]
-    y = contour[:, 1]
-    tck, _ = splprep([x, y], s=0, per=True)
+        x = contour[:, 0]
+        y = contour[:, 1]
+        tck, _ = splprep([x, y], s=0, per=True)
+    else:
+        x = contour[:, 0]
+        y = contour[:, 1]
+        tck, _ = splprep([x, y], s=0, per=False)
     xi, yi = splev(np.linspace(0, 1, n_points), tck, der=0)
     return np.array([xi, yi]).T
 
@@ -176,9 +181,14 @@ class PolygonSelectorSpline(_SelectorWidget):
     def _draw_curve(self):
         if self._selection_completed:
             self.curve_points = spline_interpolate_contour(self._xys[:-1], self.num_points, join_ends=True)
-            self.curve.set_visible(True)
-            self.curve.set_ydata(self.curve_points[:, 1])
-            self.curve.set_xdata(self.curve_points[:, 0])
+        elif len(self._xys) > 4:
+            try:
+                self.curve_points = spline_interpolate_contour(np.asarray(self._xys), self.num_points, join_ends=False)
+            except ValueError:
+                return
+        self.curve.set_visible(True)
+        self.curve.set_ydata(self.curve_points[:, 1])
+        self.curve.set_xdata(self.curve_points[:, 0])
 
     @property
     def artists(self):
@@ -318,6 +328,7 @@ class PolygonSelectorSpline(_SelectorWidget):
         # Place new vertex.
         elif not self._selection_completed and "move_all" not in self._state and "move_vertex" not in self._state:
             self._xys.insert(-1, self._get_data_coords(event))
+            self._draw_polygon()
 
         if self._selection_completed:
             self.onselect(self.verts)
@@ -393,6 +404,7 @@ class PolygonSelectorSpline(_SelectorWidget):
         elif event.key == self._state_modifier_keys.get("clear"):
             event = self._clean_event(event)
             self._xys = [self._get_data_coords(event)]
+            self.curve_points = np.array([[np.nan, np.nan]])
             self._selection_completed = False
             self._remove_box()
             self.set_visible(True)
