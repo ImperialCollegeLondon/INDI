@@ -13,6 +13,7 @@ from extensions.segmentation.manual_segmentation import (
     manual_lv_segmentation,
     plot_manual_lv_segmentation,
 )
+from extensions.segmentation.manual_tissue_segmentation import manual_tissue_segmentation
 from extensions.segmentation.polygon_selector import spline_interpolate_contour
 from extensions.tensor_fittings.tensor_fittings import dipy_tensor_fit
 
@@ -134,17 +135,31 @@ class HeartSegmentation(ExtensionBase):
             else:
                 # manual LV segmentation
                 self.logger.info("Manual LV segmentation for slice: " + str(slice_idx))
-                segmentation[slice_idx], thr_mask[slice_idx] = manual_lv_segmentation(
-                    mask_3c[slice_idx],
-                    self.context["average_images"][slice_idx],
-                    prelim_ha[slice_idx],
-                    prelim_md[slice_idx],
-                    100,
-                    self.settings,
-                    self.context["colormaps"],
-                    slice_idx,
-                    self.context["slices"],
-                )
+                if self.settings["tissue_block"]:
+                    self.logger.info("Tissue block segmentation")
+                    segmentation[slice_idx], thr_mask[slice_idx] = manual_tissue_segmentation(
+                        mask_3c[slice_idx],
+                        self.context["average_images"][slice_idx],
+                        prelim_ha[slice_idx],
+                        prelim_md[slice_idx],
+                        100,
+                        self.settings,
+                        self.context["colormaps"],
+                        slice_idx,
+                        self.context["slices"],
+                    )
+                else:
+                    segmentation[slice_idx], thr_mask[slice_idx] = manual_lv_segmentation(
+                        mask_3c[slice_idx],
+                        self.context["average_images"][slice_idx],
+                        prelim_ha[slice_idx],
+                        prelim_md[slice_idx],
+                        100,
+                        self.settings,
+                        self.context["colormaps"],
+                        slice_idx,
+                        self.context["slices"],
+                    )
 
                 # define the final mask_3c
                 if segmentation[slice_idx]["epicardium"].size != 0:
@@ -179,23 +194,23 @@ class HeartSegmentation(ExtensionBase):
                         mask_endo *= thr_mask[slice_idx]
 
                     mask_lv = mask_epi - mask_endo
-                    if segmentation[slice_idx]["endocardium"].size != 0:
+                    if segmentation[slice_idx]["endocardium"].size != 0 and not self.settings["tissue_block"]:
                         epi_contour, endo_contour = get_sa_contours(mask_lv)
                     else:
                         epi_contour = get_epi_contour(mask_lv)
-                        endo_contour = np.array([])
+                        endo_contour = np.array([[]])
 
                     epi_len = len(epi_contour)
                     endo_len = len(endo_contour)
                     epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
                     epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
 
-                    if segmentation[slice_idx]["endocardium"].size != 0:
+                    if segmentation[slice_idx]["endocardium"].size != 0 and not self.settings["tissue_block"]:
                         endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
                         endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
 
                     segmentation[slice_idx]["epicardium"] = epi_contour
-                    if segmentation[slice_idx]["endocardium"].size != 0:
+                    if segmentation[slice_idx]["endocardium"].size != 0 and not self.settings["tissue_block"]:
                         segmentation[slice_idx]["endocardium"] = endo_contour
 
                     all_channel_mask = mask_3c[slice_idx].copy()
