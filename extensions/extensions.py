@@ -682,7 +682,7 @@ def get_ha_line_profiles(
         c_mask = np.array(c_mask * 255, dtype=np.uint8)
 
         # get the contours of the epicardium
-        if segmentation[slice_idx]["endocardium"].size != 0:
+        if segmentation[slice_idx]["endocardium"].size != 0 and not settings["tissue_block"]:
             epi_contour, _ = get_sa_contours(c_mask)
         else:
             epi_contour = get_epi_contour(c_mask)
