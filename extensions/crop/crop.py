@@ -119,6 +119,7 @@ class Crop(ExtensionBase):
         """
 
         data = self.context["data"]
+        info = self.context["info"]
         image = np.asarray([np.asarray(data["image"][i], dtype=int) for i in self.context["slices"]])
 
         if os.path.exists(os.path.join(self.settings["session"], "crop.yaml")):
@@ -143,7 +144,10 @@ class Crop(ExtensionBase):
         slices = self.context["slices"][self.slice[0] : self.slice[1]]
         self._save_crop()
 
-        self.context["data"], self.context["slices"] = data, slices
+        info["n_slices"] = self.slice
+        info["img_size"] = (self.row, self.col)
+
+        self.context["data"], self.context["slices"], self.context["info"] = data, slices, info
 
     def _save_crop(self):
         """Saves the crop values"""

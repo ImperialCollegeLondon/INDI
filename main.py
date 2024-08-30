@@ -99,10 +99,11 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     if settings["ex_vivo"]:
         logger.info("Cropping data to the region of interest")
-        context = {"data": data, "slices": slices}
+        context = {"data": data, "slices": slices, "info": info}
         Crop(context, settings, logger).run()
         data = context["data"]
         slices = context["slices"]
+        info = context["info"]
 
     # =========================================================
     # DWIs registration
