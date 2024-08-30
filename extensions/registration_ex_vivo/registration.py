@@ -185,6 +185,10 @@ class RegistrationExVivo(ExtensionBase):
 
             plot_ref_images(np.mean(average_image, axis=0), slice, ref_image, contour, self.settings)
 
+        self.data_reg["diffusion_direction"] = self.data_reg["diffusion_direction"].apply(tuple)
+        data_grouped = self.data_reg.groupby(["b_value", "diffusion_direction"])
+        self.data_reg["index"] = data_grouped.ngroup()
+
         self.context["data"] = self.data_reg
 
     def _register_itk(self, ref_image, images, phase_images, mask, indices, recipe):

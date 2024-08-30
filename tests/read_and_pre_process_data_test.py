@@ -6,7 +6,7 @@ import pandas as pd
 from extensions.read_data.read_and_pre_process_data import read_data
 
 
-def test_get_data():
+def test_read_data():
     """test if this function creates the DTI table correctly"""
     table_true = pd.read_pickle(os.path.join("tests", "data", "cdti_table_from_dicoms.zip"))
 

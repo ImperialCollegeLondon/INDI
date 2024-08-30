@@ -30,6 +30,7 @@ from extensions.initial_setup import initial_setup
 from extensions.metrics.metrics import Metrics
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
+from extensions.rotation.rotation import Rotation
 from extensions.segmentation.heart_segmentation import HeartSegmentation
 from extensions.select_outliers.select_outliers import SelectOutliers
 from extensions.tensor_fittings.tensor_fittings import TensorFit
@@ -124,6 +125,18 @@ for current_folder in all_to_be_analysed_folders:
     if settings["workflow_mode"] == "reg":
         logger.info("Registration only mode is True. Stopping here.")
         continue
+
+    # =========================================================
+    # Rotation if ex-vivo
+    # =========================================================
+    if settings["ex_vivo"] and settings["rotate"]:
+        logger.info("Ex-vivo rotation is True")
+        context = {"data": data, "info": info, "slices": slices}
+        Rotation(context, settings, logger).run()
+        data = context["data"]
+        slices = context["slices"]
+        info = context["info"]
+        # data, slices, info = rotate_data(data, slices, info, settings, logger)
 
     # =========================================================
     # Remove outliers (pre-segmentation)
