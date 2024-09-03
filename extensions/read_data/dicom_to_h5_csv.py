@@ -571,7 +571,8 @@ def read_all_dicom_files(
 
     def read_file(file_name):
         list_of_dictionaries = [dict() for _ in range(n_images_per_file)]
-        c_dicom_header = pydicom.dcmread(open(file_name, "rb"))
+        with open(file_name, "rb") as f:
+            c_dicom_header = pydicom.dcmread(f)
 
         for frame_idx in range(n_images_per_file):
             # collect pixel values
