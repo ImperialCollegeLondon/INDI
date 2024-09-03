@@ -5,7 +5,8 @@ import os
 import re
 import shutil
 import sys
-from typing import Tuple
+from pathlib import Path
+from typing import Dict, List, Tuple
 
 import h5py
 import matplotlib.pyplot as plt
@@ -17,6 +18,7 @@ import scipy.ndimage
 from dotenv import dotenv_values
 from numpy.typing import NDArray
 
+from extensions.read_data.bruker import load_bruker
 from extensions.read_data.dicom_to_h5_csv import (
     add_missing_columns,
     check_global_info,
@@ -95,8 +97,9 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     # create a new column with date and time, drop the previous two columns
     # if this column doesn't exist already
     if "acquisition_date_time" in df.columns:
-        df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S.%f")
-        df = df.sort_values(["acquisition_date_time"], ascending=True)
+        if not (df["acquisition_date_time"] == "None").all():
+            df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S.%f")
+            df = df.sort_values(["acquisition_date_time"], ascending=True)
     else:
         df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
 
@@ -516,7 +519,7 @@ def adjust_b_val_and_dir(
     # copy the b-values to another column to save the original prescribed
     # b-value
     # this is not done for NIFTI data because we already have this columns
-    if data_type == "dicom" or data_type == "pandas":
+    if data_type == "dicom" or data_type == "pandas" or data_type == "bruker":
         data["b_value_original"] = data["b_value"]
     data["diffusion_direction_original"] = data["diffusion_direction"]
 
@@ -985,7 +988,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     settings["complex_data"] = False
 
     # gather possible dicoms, or nii file paths into a list
-    data_type, list_dicoms, list_dicoms_phase, list_nii = list_files(data_type, logger, settings)
+    data_type, list_dicoms, list_dicoms_phase, list_nii, list_bruker = list_files(data_type, logger, settings)
 
     # If DICOMs are present, then we will read them and build our diffusion database.
     # If DICOMs are not present but NIFTI files are, then we will read them and build our diffusion database.
@@ -997,6 +1000,11 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
         # read nii files
         logger.debug("Nii files found.")
         data, info = read_and_process_niis(list_nii, settings, info, logger)
+
+    elif data_type == "bruker":
+        # read bruker files
+        logger.debug("Bruker files found.")
+        data, data_phase, info = read_and_process_bruker(list_bruker, settings, info, logger)
 
     else:
         # read pandas
@@ -1040,7 +1048,10 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     # number of dicom files
     info["n_images"] = data.shape[0]
     # image size
-    info["img_size"] = (info["Rows"], info["Columns"])
+    if "Rows" in info and "Columns" in info:
+        info["img_size"] = (info["Rows"], info["Columns"])
+    else:
+        info["img_size"] = data.image[0].shape
 
     data_summary_plots(data, settings)
 
@@ -1358,7 +1369,45 @@ def read_and_process_dicoms(
     return data, data_phase, info
 
 
-def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, list, list]:
+def read_and_process_bruker(
+    list_bruker: List[str], settings: Dict, info: Dict, logger: logging.Logger
+) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
+    """
+    Read Bruker data
+
+    Parameters
+    ----------
+    list_bruker: list of bruker files
+    list_bruker_phase: list of bruker phase files
+    settings: settings from YAML file
+    info: useful info
+    logger: logger for console
+
+    Returns
+    -------
+    dataframe with diffusion info
+    dataframe with phase diffusion info (if any)
+    info dict
+
+    """
+    # create empty dataframe
+    data = pd.DataFrame()
+    data_phase = pd.DataFrame()
+
+    phase = settings["complex_data"]
+    list_bruker = list(map(Path, list_bruker))
+    data, attr = load_bruker(list_bruker, phase)
+    # separate the phase and magnitude data
+    if phase:
+        data_phase = data.drop("image", axis=1)
+        data_phase["image"] = data["phase_image"].copy()
+
+    info = {**attr, **info}
+
+    return data, data_phase, info
+
+
+def list_files(data_type: str, logger: logging, settings: dict) -> Tuple[str, List, List, List, List, List, List]:
     """
     List possible magnitude DICOMs, phase DICOMs, and NII files
 
@@ -1380,6 +1429,8 @@ def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, l
     list_dicoms = []
     list_dicoms_phase = []
     list_nii = []
+    list_bruker = []
+    data_type = None
 
     # Check for DICOM files
     included_extensions = ["dcm", "DCM", "IMA"]
@@ -1414,7 +1465,7 @@ def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, l
                 logger.debug("Complex averaging on.")
                 list_dicoms.sort()
                 list_dicoms_phase.sort()
-    if not data_type:
+    if data_type is None:
         # If no DICOMS, check for nii files
         included_extensions = ["nii", "nii.gz"]
         list_nii = [
@@ -1422,5 +1473,16 @@ def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, l
         ]
         if len(list_nii) > 0:
             data_type = "nii"
+    if data_type is None:
+        # Checking for Bruker data
+        if os.path.exists(os.path.join(settings["dicom_folder"], "pdata")):
+            if (
+                os.path.exists(os.path.join(settings["dicom_folder"], "pdata/2"))
+                or os.path.exists(os.path.join(settings["dicom_folder"], "pdata/3"))
+                or os.path.exists(os.path.join(settings["dicom_folder"], "pdata/phase"))
+            ):
+                settings["complex_data"] = True
+            data_type = "bruker"
+            list_bruker = [settings["dicom_folder"]]
 
-    return data_type, list_dicoms, list_dicoms_phase, list_nii
+    return data_type, list_dicoms, list_dicoms_phase, list_nii, list_bruker
