@@ -644,7 +644,7 @@ def read_all_dicom_files(
 
     # loop through all DICOM files
 
-    Parallel(n_jobs=-1, backend="threading")(
+    Parallel(n_jobs=-1)(
         delayed(read_file)(file_name, idx) for idx, file_name in enumerate(tqdm(dicom_files, desc="Reading DICOMs"))
     )
     # create dataframe from list_of_dictionaries
