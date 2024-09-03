@@ -200,7 +200,6 @@ def get_data_from_dicoms(
     elif dicom_type == 1:
         header_table.sort_values(by=["AcquisitionDateTime"], inplace=True)
 
-    print(header_table)
     # reset index
     header_table.reset_index(drop=True, inplace=True)
 
