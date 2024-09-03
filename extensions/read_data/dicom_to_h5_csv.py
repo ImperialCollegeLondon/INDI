@@ -254,7 +254,8 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
     info = {**info, **header_info}
 
     # remove temp column
-    data = data.drop("temp", axis=1)
+    if "temp" in data.columns:  # field_list is empty in ex-vivo scans
+        data = data.drop("temp", axis=1)
 
     return info, data
 
