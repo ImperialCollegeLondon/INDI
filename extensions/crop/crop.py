@@ -145,7 +145,7 @@ class Crop(ExtensionBase):
         self._save_crop()
 
         info["n_slices"] = self.slice
-        info["img_size"] = (self.row, self.col)
+        info["img_size"] = (self.row[1] - self.row[0], self.col[1] - self.col[0])
 
         self.context["data"], self.context["slices"], self.context["info"] = data, slices, info
 
