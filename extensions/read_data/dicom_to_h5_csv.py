@@ -200,6 +200,7 @@ def get_data_from_dicoms(
     elif dicom_type == 1:
         header_table.sort_values(by=["AcquisitionDateTime"], inplace=True)
 
+    print(header_table)
     # reset index
     header_table.reset_index(drop=True, inplace=True)
 
@@ -566,9 +567,10 @@ def read_all_dicom_files(
 
     """
 
-    list_of_dictionaries = [[dict() for _ in range(n_images_per_file)] for _ in range(len(dicom_files))]
+    # list_of_dictionaries = [[dict() for _ in range(n_images_per_file)] for _ in range(len(dicom_files))]
 
-    def read_file(file_name, idx):
+    def read_file(file_name):
+        list_of_dictionaries = [dict() for _ in range(n_images_per_file)]
         c_dicom_header = pydicom.dcmread(open(file_name, "rb"))
 
         for frame_idx in range(n_images_per_file):
@@ -608,7 +610,8 @@ def read_all_dicom_files(
 
                 c_dict = copy.deepcopy(c_dict_general)
 
-                list_of_dictionaries[idx][frame_idx] = c_dict
+                # list_of_dictionaries[idx][frame_idx] = c_dict
+                list_of_dictionaries[frame_idx] = c_dict
 
             # ====================================
             # enhanced dicom format
@@ -641,12 +644,15 @@ def read_all_dicom_files(
                 # fields from the general one)
                 c_dict = {**c_dict_general, **c_dict}
 
-                list_of_dictionaries[idx][frame_idx] = c_dict
+                # list_of_dictionaries[idx][frame_idx] = c_dict
+                list_of_dictionaries[frame_idx] = c_dict
+
+        return list_of_dictionaries
 
     # loop through all DICOM files
 
-    Parallel(n_jobs=-1)(
-        delayed(read_file)(file_name, idx) for idx, file_name in enumerate(tqdm(dicom_files, desc="Reading DICOMs"))
+    list_of_dictionaries = Parallel(n_jobs=-1)(
+        delayed(read_file)(file_name) for file_name in tqdm(dicom_files, desc="Reading DICOMs")
     )
     # create dataframe from list_of_dictionaries
     header_table = pd.DataFrame([x for xs in list_of_dictionaries for x in xs])
