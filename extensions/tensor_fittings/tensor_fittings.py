@@ -8,6 +8,8 @@ from numpy import ndarray
 from numpy.typing import NDArray
 from scipy import stats
 
+from extensions.extension_base import ExtensionBase
+
 # import time
 
 
@@ -196,6 +198,145 @@ def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray
             transparent=False,
         )
         plt.close()
+
+
+class TensorFit(ExtensionBase):
+    def __init__(self, context, settings, logger, method="NLLS", quick_mode=False):
+        ExtensionBase.__init__(self, context, settings, logger)
+
+        self.method = method
+        self.quick_mode = quick_mode
+
+    def run(self):
+        """
+        Fit tensor to data in dataframe. The fitting methods are
+        from DiPy:
+        - LS: Linear Least Squares
+        - WLS: Weighted Linear Least Squares
+        - NLLS: Non-Linear Least Squares
+        - RESTORE: RESTORE method
+
+        Parameters
+        ----------
+        slices: array of strings with slice positions
+        data: dataframe with all the diffusion information
+        info: dictionary with general information
+        settings: dictionary with general options
+        mask_3c: segmentation mask
+        logger: logger messages
+        method: string with the fitting method
+        quick_mode: boolean to speed up the function
+
+        Returns
+        -------
+
+        Tensor array and info dictionary
+
+        """
+        import dipy.denoise.noise_estimate as ne
+        import dipy.reconst.dti as dti
+        from dipy.core.gradients import gradient_table
+
+        slices = self.context["slices"]
+        data = self.context["data"]
+        info = self.context["info"]
+        mask_3c = self.context["mask_3c"]
+        average_images = self.context["average_images"]
+
+        self.logger.info("Starting tensor fitting with method: " + self.method)
+
+        tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3, mask_3c.shape[0]])
+        s0 = np.zeros([info["img_size"][0], info["img_size"][1], info["n_slices"]])
+        residuals_img = {}
+        residuals_map = {}
+
+        myo_mask = np.copy(mask_3c.reshape(mask_3c.shape[0], mask_3c.shape[1] * mask_3c.shape[2]))
+        myo_mask[myo_mask > 1] = 0
+
+        # I need to do this per slice, because gtab might differ from slice to slice
+        info["tensor fitting sigma"] = {}
+        for slice_idx in slices:
+            current_entries = data.loc[data["slice_integer"] == slice_idx]
+
+            # remove any images that have been marked to be removed
+            current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
+
+            bvals = current_entries["b_value"].values
+            bvecs = np.vstack(current_entries["diffusion_direction"])
+            gtab = gradient_table(bvals, bvecs, atol=0.5)
+
+            image_data = np.stack(current_entries["image"])
+            image_data = image_data[..., np.newaxis]
+            image_data = image_data.transpose(1, 2, 3, 0)
+            # t0 = time.time()
+            if not self.quick_mode:
+                sigma = ne.estimate_sigma(image_data)
+                info["tensor fitting sigma"][str(slice_idx).zfill(2)] = (
+                    "%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma)
+                )
+                self.logger.debug(
+                    "Mean sigma for slice "
+                    + str(slice_idx).zfill(2)
+                    + ": "
+                    + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
+                )
+
+            if self.method == "NLLS" or self.method == "RESTORE":
+                tenmodel = dti.TensorModel(gtab, fit_method=self.method, sigma=sigma, return_S0_hat=True)
+            else:
+                tenmodel = dti.TensorModel(gtab, fit_method=self.method, return_S0_hat=True)
+
+            tenfit = tenmodel.fit(image_data)
+            tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
+            s0[..., slice_idx] = np.squeeze(tenfit.S0_hat)
+
+            # t1 = time.time()
+            # total = t1 - t0
+            # logger.info(f"Slice {slice_idx}: Time for tensor fitting: {total = :.3f} seconds")
+
+            if not self.quick_mode:
+                if self.method != "RESTORE":
+                    # calculate tensor residuals
+                    # Predict a signal given tensor parameters.
+                    s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
+                    res = np.abs(image_data - s_est)
+
+                    # estimate res in the myocardium per diffusion image
+                    myo_pxs = np.flatnonzero(myo_mask[slice_idx])
+                    res_img = np.squeeze(np.reshape(res, [res.shape[0] * res.shape[1], res.shape[2], res.shape[3]]))
+                    res_img = np.nanmean(res_img[myo_pxs, :], axis=0)
+                    residuals_img[slice_idx] = res_img
+                    # estimate res per voxel
+                    res_map = np.nanmean(np.squeeze(res), axis=2)
+                    residuals_map[slice_idx] = res_map
+
+                    z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
+
+                    if self.settings["debug"]:
+                        plot_residuals_plot(res_img, slice_idx, self.settings, prefix="")
+                        plot_residuals_map(res_map, average_images, mask_3c, slice_idx, self.settings, prefix="")
+
+                else:
+                    residuals_img = []
+                    residuals_map = []
+            else:
+                residuals_img = []
+                residuals_map = []
+
+        # reorder tensor to: [slice, lines, cols, 3x3 tensor]
+        tensor = tensor.transpose(4, 0, 1, 2, 3)
+        s0 = s0.transpose(2, 0, 1)
+
+        if not self.quick_mode:
+            if self.settings["debug"]:
+                plot_tensor_components(tensor, average_images, mask_3c, slices, self.settings)
+
+        dti = {}
+        dti["tensor"] = tensor
+        dti["s0"] = s0
+        dti["residuals_plot"] = residuals_img
+        dti["residuals_map"] = residuals_map
+        self.context["dti"] = dti
 
 
 def dipy_tensor_fit(

@@ -1,78 +1,27 @@
-import logging
 import os
+import pathlib
 import sys
+from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from extensions.dwis_classifier import dwis_classifier
-from extensions.extensions import crop_pad_rotate_array, get_window
+from extensions.extension_base import ExtensionBase
+from extensions.extensions import get_window
 from extensions.read_data.read_and_pre_process_data import create_2d_montage_from_database
-
-
-def remove_outliers_ai(
-    data: pd.DataFrame,
-    info: dict,
-    settings: dict,
-    slices: NDArray,
-    logger: logging.Logger,
-    threshold: float = 0.3,
-) -> tuple[pd.DataFrame, NDArray]:
-    """Remove the bad frames from the dataframe using the AI classifier
-
-    Parameters
-    ----------
-    data : pd.DataFrame
-        dataframe with diffusion info
-    info : dict
-        useful info
-    settings : dict
-        settings
-    slices : NDArray
-        array with slice positions as strings
-    logger : logging.Logger
-        logger
-    threshold : float, optional
-        threshold value to consider bad in [0, 1], by default 0.3
-
-    Returns
-    -------
-    Tuple[pd.DataFrame, NDArray]
-        [dataframe without bad frames, array with bad frames positions]
-    """
-
-    # gather images from dataframe
-    dwis = np.zeros([info["n_images"], info["img_size"][0], info["img_size"][1]])
-    for i in range(info["n_images"]):
-        # moving image
-        dwis[i] = data.loc[i, "image"]
-
-    # make sure image stack has the correct dimensions
-    dwis = crop_pad_rotate_array(dwis, (info["n_images"], 256, 96), True)
-
-    # use the AI classifier to determine which ones are bad
-    frame_labels = dwis_classifier(dwis, threshold)
-
-    # drop frames frames labeled as bad (0)
-    rows_to_drop = np.where(frame_labels < 1)[0]
-    data_new = data.drop(index=list(rows_to_drop))
-
-    logger.debug("Number of images removed by AI: " + str(len(rows_to_drop)))
-
-    return data_new, rows_to_drop
 
 
 def manual_image_removal(
     data: pd.DataFrame,
     slices: NDArray,
-    segmentation: dict,
+    segmentation: Dict,
     mask: NDArray,
-    settings: dict,
+    settings: Dict,
     stage: str,
-    info: dict,
-) -> tuple[pd.DataFrame, pd.DataFrame, dict, NDArray]:
+    info: Dict,
+) -> List[int]:
     """
     Manual removal of images. A matplotlib window will open, and we can select images to be removed.
 
@@ -293,61 +242,31 @@ def manual_image_removal(
     return rejected_indices
 
 
-def select_outliers(
-    data: pd.DataFrame,
-    slices: NDArray,
-    registration_image_data: dict,
-    settings: dict,
-    info: dict,
-    logger: logging,
-    stage: str,
-    segmentation: dict = {},
-    mask: NDArray = np.array([]),
-) -> tuple[pd.DataFrame, dict, NDArray]:
-    """
-    Remove Outliers: remove outliers, and display all DWIs in a montage
+class SelectOutliers(ExtensionBase):
+    def run(self):
+        data = self.context["data"]
+        info = self.context["info"]
+        self.logger.info("Running Select Outliers")
 
-    Parameters
-    ----------
-    data: dataframe with images and diffusion info
-    slices: array with slice integers
-    registration_image_data: dict with registration images and QC data
-    settings
-    info
-    logger
-    stage: string with stage pre or post segmentation
-    mask: array with heart masks
+        # check if there is already a column marking the images to be removed
+        if "to_be_removed" not in data:
+            data["to_be_removed"] = False
 
-    Returns
-    -------
-    data, info, slices
+        # check if the info dictionary has the rejected_indices and n_images_rejected keys
+        if "rejected_indices" not in info:
+            info["rejected_indices"] = []
+        if "n_images_rejected" not in info:
+            info["n_images_rejected"] = 0
 
-    """
-
-    # check if there is already a column marking the images to be removed
-    if "to_be_removed" not in data:
-        data["to_be_removed"] = False
-
-    # check if the info dictionary has the rejected_indices and n_images_rejected keys
-    if "rejected_indices" not in info:
-        info["rejected_indices"] = []
-    if "n_images_rejected" not in info:
-        info["n_images_rejected"] = 0
-
-    # ========================================================={
-    # manual removal of images
-    # =========================================================
-    if settings["remove_outliers_manually"]:
-        session_file = os.path.join(settings["session"], "image_manual_removal_" + stage + ".zip")
+        session_file = pathlib.Path(self.settings["session"], "image_manual_removal_" + self.context["stage"] + ".zip")
         # check if this manual removal has been previously done
-        if os.path.exists(session_file):
-            logger.info("Manual image removal already done, loading information.")
-            # load initial database with rejected images included
+        if session_file.exists():
+            self.logger.info("Manual image removal already done, loading information.")
             data_to_load = pd.read_pickle(session_file)
             # check if the column acquisition_date_time matches
             if not data_to_load["acquisition_date_time"].equals(data["acquisition_date_time"]):
-                logger.error("Data in the session file does not match the current data.")
-                logger.error("Please remove the session file and run the manual image removal again.")
+                self.logger.error("Data in the session file does not match the current data.")
+                self.logger.error("Please remove the session file and run the manual image removal again.")
                 sys.exit()
             else:
                 # toggle to True the indices to be removed
@@ -362,17 +281,16 @@ def select_outliers(
 
         else:
             # Manual image removal
-            # logger.info("Starting manual image removal...")
             rejected_indices = manual_image_removal(
                 data,
-                slices,
-                segmentation,
-                mask,
-                settings,
-                stage,
+                self.context["slices"],
+                self.context["segmentation"],
+                self.context["mask"],
+                self.settings,
+                self.context["stage"],
                 info,
             )
-            logger.info("Manual image removal done.")
+            self.logger.info("Manual image removal done.")
 
             # toggle to True the indices to be removed
             for idx in rejected_indices:
@@ -385,95 +303,39 @@ def select_outliers(
             info["n_images_rejected"] += len(rejected_indices)
             info["rejected_indices"].extend(rejected_indices)
 
-        logger.info("Number of images rejected after " + stage + ": " + str(info["n_images_rejected"]))
+        self.logger.info(
+            "Number of images rejected after " + self.context["stage"] + ": " + str(info["n_images_rejected"])
+        )
 
-        # simplify this list to be able to save it in the yaml file
-        info["rejected_indices"] = [int(i) for i in info["rejected_indices"]]
-
-        if stage == "post":
-            # remove the rejected images from the registration_image_data
-            for slice_idx in slices:
-                c_indices = data[data.slice_integer == slice_idx].index.values
-                all_rejected_indices = info["rejected_indices"]
-                all_rejected_indices.sort(reverse=True)
-
-                to_remove_idxs = c_indices[np.isin(c_indices, all_rejected_indices)]
-                to_remove_idxs = [np.where(c_indices == x)[0][0] for x in to_remove_idxs]
-
-                registration_image_data[slice_idx]["img_post_reg"] = np.delete(
-                    registration_image_data[slice_idx]["img_post_reg"], to_remove_idxs, axis=0
-                )
-                registration_image_data[slice_idx]["img_pre_reg"] = np.delete(
-                    registration_image_data[slice_idx]["img_pre_reg"], to_remove_idxs, axis=0
-                )
-                registration_image_data[slice_idx]["deformation_field"]["field"] = np.delete(
-                    registration_image_data[slice_idx]["deformation_field"]["field"], to_remove_idxs, axis=0
-                )
-                registration_image_data[slice_idx]["deformation_field"]["grid"] = np.delete(
-                    registration_image_data[slice_idx]["deformation_field"]["grid"], to_remove_idxs, axis=0
-                )
-
-        if stage == "post":
+        if self.context["stage"] == "post":
             # plot all remaining DWIs also add the segmentation curves
             create_2d_montage_from_database(
                 data,
                 "b_value_original",
                 "diffusion_direction_original",
-                settings,
+                self.settings,
                 info,
-                slices,
+                self.context["slices"],
                 "dwis_accepted",
-                os.path.join(settings["results"], "results_b"),
+                os.path.join(self.settings["results"], "results_b"),
                 info["rejected_indices"],
-                segmentation,
+                self.context["segmentation"],
                 False,
             )
-            if settings["complex_data"]:
+            if self.settings["complex_data"]:
                 create_2d_montage_from_database(
                     data,
                     "b_value_original",
                     "diffusion_direction_original",
-                    settings,
+                    self.settings,
                     info,
-                    slices,
+                    self.context["slices"],
                     "dwis_accepted_phase",
-                    settings["debug_folder"],
+                    self.settings["debug_folder"],
                     info["rejected_indices"],
-                    segmentation,
+                    self.context["segmentation"],
                     False,
                     "image_phase",
                 )
-
-    else:
-        # no image removal to be done
-        logger.info("No image removal to be done.")
-
-    # =========================================================
-    # remove outliers with AI
-    # =========================================================
-    if settings["remove_outliers_with_ai"]:
-        pass
-        # data_new, rows_to_drop = remove_outliers_ai(data, info, settings, slices, logger, threshold=0.25)
-        # logger.info("Removed outliers with AI")
-        # if settings["debug"]:
-        #     create_2d_montage_from_database(
-        #         data,
-        #         "b_value_original",
-        #         "direction_original",
-        #         info,
-        #         settings,
-        #         slices,
-        #         "dwis_outliers_with_ai",
-        #         settings["debug_folder"],
-        #         rows_to_drop,
-        #     )
-        #     logger.info("2d montage of DWIs after outlier removal with AI")
-        #
-        # # copy dataframe with removed images to the data variable
-        # data = data_new.reset_index(drop=True)
-        # del data_new
-        # # update number of dicom files
-        # info["n_images"] = data.shape[0]
-        # logger.debug("DWIs after outlier removal with AI: " + str(info["n_images"]))
-
-    return data, info, slices
+        self.context["data"] = data
+        self.context["info"] = info

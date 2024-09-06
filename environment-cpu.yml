@@ -32,6 +32,7 @@ dependencies:
   - torchaudio
   - pytorch
   - opencv
+  - pystackreg
   - pip
   - pip:
     - tensorflow
