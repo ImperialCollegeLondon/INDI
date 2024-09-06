@@ -136,7 +136,8 @@ class RegistrationExVivo(ExtensionBase):
 
             assert len(images) == len(indices)
 
-            plt.imsave(self.debug_folder / f"reference_image_{slice:06d}.png", ref_image, cmap="Greys_r")  # noqa
+            if self.settings["debug"]:
+                plt.imsave(self.debug_folder / f"reference_image_{slice:06d}.png", ref_image, cmap="Greys_r")  # noqa
 
             # registered_images = self._register_itk(
             #     ref_image,
@@ -148,9 +149,12 @@ class RegistrationExVivo(ExtensionBase):
 
             registered_images = self._register_stagreg(ref_image, images, phase_images, indices)
 
-            plt.imsave(
-                self.debug_folder / f"reg_rigid_image_{slice:06d}.png", registered_images[0][0], cmap="Greys_r"  # noqa
-            )
+            if self.settings["debug"]:
+                plt.imsave(
+                    self.debug_folder / f"reg_rigid_image_{slice:06d}.png",  # noqa
+                    registered_images[0][0],
+                    cmap="Greys_r",
+                )
 
             # Averaging the repetitions
             average_image = []
@@ -175,11 +179,13 @@ class RegistrationExVivo(ExtensionBase):
                 indices,
                 self.code_path / "extensions" / "image_registration_recipes" / "Elastix_bspline.txt",
             )
-            plt.imsave(
-                self.debug_folder / f"reg_elastix_image_{slice:06d}.png",  # noqa
-                registered_images[0][0],
-                cmap="Greys_r",
-            )
+
+            if self.settings["debug"]:
+                plt.imsave(
+                    self.debug_folder / f"reg_elastix_image_{slice:06d}.png",  # noqa
+                    registered_images[0][0],
+                    cmap="Greys_r",
+                )
 
             reg_images[slice] = (
                 average_image * np.exp(1j * phase_images) if self.settings["complex_data"] else average_image
@@ -195,7 +201,10 @@ class RegistrationExVivo(ExtensionBase):
 
             self._updata_reg_df(reg_images[slice], slice, np.unique(indices))
 
-            plt.imsave(self.debug_folder / f"reg_image_{slice:06d}.png", reg_images[slice][0], cmap="Greys_r")  # noqa
+            if self.settings["debug"]:
+                plt.imsave(
+                    self.debug_folder / f"reg_image_{slice:06d}.png", reg_images[slice][0], cmap="Greys_r"  # noqa
+                )
 
             plot_ref_images(np.mean(average_image, axis=0), slice, ref_image, contour, self.settings)
 
