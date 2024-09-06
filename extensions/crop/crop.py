@@ -49,26 +49,50 @@ class ThreeDSelector:
     def callback_top_horizontal(self, pos):
         self.img_plots["front"].set_data(self.img[int(pos), :, :])
         self.lines["side"]["horizontal"].pos = pos
+        if self.slice[0] < pos < self.slice[1]:
+            self.img_plots["front"].set_alpha(1)
+        else:
+            self.img_plots["front"].set_alpha(0.5)
 
     def callback_top_vertical(self, pos):
         self.img_plots["side"].set_data(self.img[:, int(pos), :])
         self.lines["front"]["vertical"].pos = pos
+        if self.row[0] < pos < self.row[1]:
+            self.img_plots["side"].set_alpha(1)
+        else:
+            self.img_plots["side"].set_alpha(0.5)
 
     def callback_side_horizontal(self, pos):
         self.img_plots["front"].set_data(self.img[int(pos), :, :])
         self.lines["top"]["horizontal"].pos = pos
+        if self.slice[0] < pos < self.slice[1]:
+            self.img_plots["front"].set_alpha(1)
+        else:
+            self.img_plots["front"].set_alpha(0.5)
 
     def callback_side_vertical(self, pos):
         self.img_plots["top"].set_data(self.img[:, :, int(pos)])
         self.lines["front"]["horizontal"].pos = pos
+        if self.col[0] < pos < self.col[1]:
+            self.img_plots["top"].set_alpha(1)
+        else:
+            self.img_plots["top"].set_alpha(0.5)
 
     def callback_front_horizontal(self, pos):
         self.img_plots["side"].set_data(self.img[:, int(pos), :])
         self.lines["top"]["vertical"].pos = pos
+        if self.row[0] < pos < self.row[1]:
+            self.img_plots["side"].set_alpha(1)
+        else:
+            self.img_plots["side"].set_alpha(0.5)
 
     def callback_front_vertical(self, pos):
         self.img_plots["top"].set_data(self.img[:, :, int(pos)])
         self.lines["side"]["vertical"].pos = pos
+        if self.col[0] < pos < self.col[1]:
+            self.img_plots["top"].set_alpha(1)
+        else:
+            self.img_plots["top"].set_alpha(0.5)
 
 
 class LineSelector:
@@ -155,6 +179,7 @@ class LineSelector:
 
 def manual_crop(image):
     """Use the mouse to select the ROI for cropping"""
+
     nx, ny, nz = image.shape
 
     roi = ThreeDSelector(nx, ny, nz, image)
