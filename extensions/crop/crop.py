@@ -275,9 +275,7 @@ class Crop(ExtensionBase):
         info = self.context["info"]
         images = []
         for slice in self.context["slices"]:
-            ref_image = data.loc[
-                data["b_value"] == np.sort(data[data["slice_integer"] == slice]["b_value"])[0], "image"
-            ].values[0]
+            ref_image = data[(data["index"] == 0) & (data["slice_integer"] == slice)]["image"].values[0]
             images.append(ref_image)
 
         image = np.stack(images, axis=0)
