@@ -209,8 +209,6 @@ def manual_crop(image):
         props=rect_props,
         button=1,
     )
-    # vline = axs[0].axhline(ny // 2, color="r", linestyle="--", picker=True)
-    # hline = axs[0].axvline(nz // 2, color="r", linestyle="--", picker=True)
 
     hline = LineSelector(
         axs[0], ny // 2, "horizontal", roi.callback_front_horizontal, interactive=True, props=line_props
