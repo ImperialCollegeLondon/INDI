@@ -65,6 +65,7 @@ class RegistrationExVivo(ExtensionBase):
         ExtensionBase.__init__(self, context, settings, logger)
 
         self.code_path = pathlib.Path(self.settings["code_path"])
+        self.debug_folder = pathlib.Path(self.settings["debug_folder"])
 
     def run(self):
         registration_mask, contour = get_registration_mask(self.context["info"], self.settings)
@@ -135,6 +136,8 @@ class RegistrationExVivo(ExtensionBase):
 
             assert len(images) == len(indices)
 
+            plt.imsave(self.debug_folder / f"reference_image_{slice:06d}.png", ref_image, cmap="Greys_r")  # noqa
+
             # registered_images = self._register_itk(
             #     ref_image,
             #     images,
@@ -144,6 +147,10 @@ class RegistrationExVivo(ExtensionBase):
             # )
 
             registered_images = self._register_stagreg(ref_image, images, phase_images, indices)
+
+            plt.imsave(
+                self.debug_folder / f"reg_rigid_image_{slice:06d}.png", registered_images[0][0], cmap="Greys_r"  # noqa
+            )
 
             # Averaging the repetitions
             average_image = []
@@ -168,6 +175,11 @@ class RegistrationExVivo(ExtensionBase):
                 indices,
                 self.code_path / "extensions" / "image_registration_recipes" / "Elastix_bspline.txt",
             )
+            plt.imsave(
+                self.debug_folder / f"reg_elastix_image_{slice:06d}.png",  # noqa
+                registered_images[0][0],
+                cmap="Greys_r",
+            )
 
             reg_images[slice] = (
                 average_image * np.exp(1j * phase_images) if self.settings["complex_data"] else average_image
@@ -182,6 +194,8 @@ class RegistrationExVivo(ExtensionBase):
             self.logger.info(f"Saved registered images for slice {slice}")
 
             self._updata_reg_df(reg_images[slice], slice, np.unique(indices))
+
+            plt.imsave(self.debug_folder / f"reg_image_{slice:06d}.png", reg_images[slice][0], cmap="Greys_r")  # noqa
 
             plot_ref_images(np.mean(average_image, axis=0), slice, ref_image, contour, self.settings)
 
@@ -198,9 +212,7 @@ class RegistrationExVivo(ExtensionBase):
         parameter_object = itk.ParameterObject.New()
         parameter_object.AddParameterFile(recipe.as_posix())
 
-        registered_images = []
-
-        for i in tqdm(range(1, len(images)), desc="Registering images"):
+        def register(i):
             mov_image = images[i]
 
             if self.settings["complex_data"]:
@@ -221,7 +233,7 @@ class RegistrationExVivo(ExtensionBase):
                     log_to_console=False,
                     fixed_mask=mask,
                 )
-                registered_images.append((img_reg_real, img_reg_imag, indices[i]))
+                return img_reg_real, img_reg_imag, indices[i]
             else:
                 img_reg, _ = itk.elastix_registration_method(
                     ref_image,
@@ -229,15 +241,16 @@ class RegistrationExVivo(ExtensionBase):
                     parameter_object=parameter_object,
                     log_to_console=False,
                 )
-                registered_images.append((img_reg, indices[i]))
+                return img_reg, indices[i]
 
+        # registered_images = Parallel(n_jobs=-1)(
+        #     delayed(register)(i) for i in tqdm(range(1, len(images)), desc="Registering images")
+        # )
+        registered_images = [register(i) for i in tqdm(range(1, len(images)), desc="Registering images")]
         return registered_images
 
     def _register_stagreg(self, ref_image, images, phase_images, indices):
         sr = StackReg(StackReg.TRANSLATION)
-        sr.register(ref_image, images[0])
-        registered_images = [sr.transform(img) for img in images]
-
         registered_images = []
 
         for i in tqdm(range(1, len(images)), desc="Registering images"):
@@ -247,11 +260,11 @@ class RegistrationExVivo(ExtensionBase):
                 mov_image_real = mov_image * np.cos(phase_images[i])
                 mov_image_imag = mov_image * np.sin(phase_images[i])
 
-                img_reg_real = sr.transform(mov_image_real, ref_image.real)
-                img_reg_imag = sr.transform(mov_image_imag, ref_image.imag)
+                img_reg_real = sr.register_transform(ref_image.real, mov_image_real)
+                img_reg_imag = sr.register_transform(ref_image.imag, mov_image_imag)
                 registered_images.append(((img_reg_real, img_reg_imag), indices[i]))
             else:
-                img_reg = sr.transform(mov_image, ref_image)
+                img_reg = sr.register_transform(ref_image, mov_image)
                 registered_images.append((img_reg, indices[i]))
 
         return registered_images
