@@ -98,7 +98,7 @@ for current_folder in all_to_be_analysed_folders:
     # Crop data
     # =========================================================
     if settings["ex_vivo"]:
-        logger.info("Ex-vivo: Cropping data to the region of interest")
+        logger.info("Cropping data to the region of interest")
         context = {"data": data, "slices": slices, "info": info}
         Crop(context, settings, logger).run()
         data = context["data"]
@@ -109,7 +109,7 @@ for current_folder in all_to_be_analysed_folders:
     # DWIs registration
     # =========================================================
     if settings["ex_vivo"]:
-        logger.info("Ex-vivo: Using ex-vivo registration.")
+        logger.info("Ex-vivo mode is True. Using ex-vivo registration.")
         context = {"data": data, "info": info}
         RegistrationExVivo(context, settings, logger).run()
         data = context["data"]
