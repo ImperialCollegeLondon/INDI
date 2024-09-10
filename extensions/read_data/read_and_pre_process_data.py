@@ -1043,7 +1043,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     # =========================================================
     data["diffusion_direction"] = data["diffusion_direction"].apply(tuple)
     data_grouped = data.groupby(["b_value", "diffusion_direction"])
-    data["index"] = data_grouped.ngroup()
+    data["diff_config"] = data_grouped.ngroup()
 
     # number of dicom files
     info["n_images"] = data.shape[0]
