@@ -6,6 +6,7 @@ Python script to convert DICOM files to HDF5 (pixel array), and CSV files with m
 """
 
 import copy
+import json
 import logging
 import os
 import sys
@@ -248,8 +249,28 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
         if is_unique(data["temp"]):
             header_info[field] = data[field].values[0]
         else:
-            logger.error("Field " + field + " is not unique in table.")
-            sys.exit()
+            if field == "image_orientation_patient":
+                # check if different values are different just in rounding errors
+                decimal_places = 3
+                unique_vals = data["temp"].unique()
+
+                rows = []
+                for val in unique_vals:
+                    temp = json.loads(val)
+                    temp = [f"{i:.{decimal_places}f}" for i in temp]
+                    rows.append(temp)
+
+                def equalLists(lists):
+                    return not lists or all(lists[0] == b for b in lists[1:])
+
+                if equalLists(rows):
+                    header_info[field] = data[field].values[0]
+                else:
+                    logger.error("Field " + field + " is not unique in table.")
+                    sys.exit()
+            else:
+                logger.error("Field " + field + " is not unique in table.")
+                sys.exit()
 
     # merge header info into info
     info = {**info, **header_info}
