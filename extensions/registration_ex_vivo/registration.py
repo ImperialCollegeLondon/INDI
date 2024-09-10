@@ -122,9 +122,8 @@ class RegistrationExVivo(ExtensionBase):
                 phase_images = data[data["slice_integer"] == slice_idx]["image_phase"].values
 
             # Get reference image
-            ref_image = data.loc[
-                data["b_value"] == np.sort(data[data["slice_integer"] == slice_idx]["b_value"])[0], "image"
-            ].values[0]
+            c_table = data[data["slice_integer"] == slice_idx]
+            ref_image = c_table.loc[data["b_value"] == np.sort(c_table["b_value"])[0], "image"].values[0]
 
             # if self.settings["complex_data"]:
             #     ref_image_phase = data.loc[
@@ -132,15 +131,10 @@ class RegistrationExVivo(ExtensionBase):
             #     ].values[0]
             #     ref_image = ref_image * np.exp(1j * ref_image_phase)
 
-            indices = data[data["slice_integer"] == slice_idx]["diff_config"].values
+            indices = c_table["diff_config"].values
             self.logger.info(f"Rigid registering slice {slice_idx}")
 
             assert len(images) == len(indices)
-
-            if self.settings["debug"]:
-                plt.imsave(
-                    self.debug_folder / f"reference_image_{slice_idx:06d}.png", ref_image, cmap="Greys_r"
-                )  # noqa
 
             # registered_images = self._register_itk(
             #     ref_image,
@@ -170,23 +164,23 @@ class RegistrationExVivo(ExtensionBase):
 
             # TODO CAT
             # Averaging the repetitions
-            average_image = []
+            average_images = []
             phase_images = []
             for index in np.unique(indices):
                 if self.settings["complex_data"]:
                     registered_images_index = [img for img, idx in registered_images if idx == index]
                     average_image_real = np.mean([img[0] for img in registered_images_index], axis=0)
                     average_image_imag = np.mean([img[1] for img in registered_images_index], axis=0)
-                    average_image.append(np.sqrt(np.square(average_image_real) + np.square(average_image_imag)))
+                    average_images.append(np.sqrt(np.square(average_image_real) + np.square(average_image_imag)))
                     phase_images.append(np.arctan2(average_image_imag, average_image_real))
                 else:
                     registered_images_index = [img for img, idx in registered_images if idx == index]
-                    average_image.append(np.mean(registered_images_index, axis=0))
+                    average_images.append(np.mean(np.stack(registered_images_index), axis=0))
 
             self.logger.info(f"BSpline registering slice {slice_idx}")
             registered_images = self._register_itk(
                 ref_image,
-                average_image,
+                average_images,
                 phase_images,
                 registration_mask,
                 indices,
@@ -194,14 +188,24 @@ class RegistrationExVivo(ExtensionBase):
             )
 
             if self.settings["debug"]:
+                if not self.settings["complex_data"]:
+                    # averaged image stack pre- and post-registration
+                    pre_reg_mag_stack_mean = np.mean(np.stack(average_images, axis=0), axis=0)
+                    mag_list, diff_config_idx_list = map(list, zip(*registered_images))
+                    post_reg_mag_stack_mean = np.mean(np.array(mag_list), axis=0)
+                else:
+                    # TODO do this for complex data
+                    pass
+
                 plt.imsave(
                     self.debug_folder / f"reg_elastix_image_{slice_idx:06d}.png",  # noqa
-                    registered_images[0][0],
+                    np.hstack((pre_reg_mag_stack_mean, post_reg_mag_stack_mean)),
                     cmap="Greys_r",
                 )
 
+            # TODO check for complex data
             reg_images[slice_idx] = (
-                average_image * np.exp(1j * phase_images) if self.settings["complex_data"] else average_image
+                average_images * np.exp(1j * phase_images) if self.settings["complex_data"] else mag_list
             )
 
             np.savez(
@@ -216,12 +220,12 @@ class RegistrationExVivo(ExtensionBase):
 
             if self.settings["debug"]:
                 plt.imsave(
-                    self.debug_folder / f"reg_image_{slice_idx:06d}.png",
+                    self.debug_folder / f"reg_image_{slice_idx: 06d}.png",
                     reg_images[slice_idx][0],
                     cmap="Greys_r",  # noqa
                 )
 
-            plot_ref_images(np.mean(average_image, axis=0), slice_idx, ref_image, contour, self.settings)
+            plot_ref_images(np.mean(average_images, axis=0), slice_idx, ref_image, contour, self.settings)
 
         self.data_reg["diffusion_direction"] = self.data_reg["diffusion_direction"].apply(tuple)
         data_grouped = self.data_reg.groupby(["b_value", "diffusion_direction"])
@@ -230,7 +234,8 @@ class RegistrationExVivo(ExtensionBase):
         self.context["data"] = self.data_reg
 
     def _register_itk(self, ref_image, images, phase_images, mask, indices, recipe):
-        ref_image = itk.GetImageFromArray(ref_image)
+        ref_image = itk.GetImageFromArray(np.array(ref_image, dtype=np.float32))
+        mask = itk.GetImageFromArray(mask)
 
         # Denoise the images ?
         parameter_object = itk.ParameterObject.New()
@@ -240,6 +245,8 @@ class RegistrationExVivo(ExtensionBase):
             mov_image = images[i]
 
             if self.settings["complex_data"]:
+                # TODO we need to fix this for complex data, imag and real
+                # need to use the same registration transform
                 mov_image_real = mov_image * np.cos(phase_images[i])
                 mov_image_imag = mov_image * np.sin(phase_images[i])
 
@@ -248,6 +255,7 @@ class RegistrationExVivo(ExtensionBase):
                     itk.GetImageFromArray(mov_image_real),
                     parameter_object=parameter_object,
                     log_to_console=False,
+                    fixed_mask=mask,
                 )
 
                 img_reg_imag, _ = itk.elastix_registration_method(
@@ -261,16 +269,19 @@ class RegistrationExVivo(ExtensionBase):
             else:
                 img_reg, _ = itk.elastix_registration_method(
                     ref_image,
-                    itk.GetImageFromArray(mov_image),
+                    itk.GetImageFromArray(np.array(mov_image, dtype=np.float32)),
                     parameter_object=parameter_object,
                     log_to_console=False,
+                    fixed_mask=mask,
                 )
+                img_reg = itk.GetArrayFromImage(img_reg)
+                img_reg[img_reg < 0] = 0
                 return img_reg, indices[i]
 
         # registered_images = Parallel(n_jobs=-1)(
         #     delayed(register)(i) for i in tqdm(range(1, len(images)), desc="Registering images")
         # )
-        registered_images = [register(i) for i in tqdm(range(1, len(images)), desc="Registering images")]
+        registered_images = [register(i) for i in tqdm(range(0, len(images)), desc="Registering images")]
         return registered_images
 
     def _register_stackreg(self, ref_image, images, phase_images, indices):
