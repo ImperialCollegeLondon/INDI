@@ -37,8 +37,8 @@ class ThreeDSelector:
         self.update()
 
     def select_side(self, eclick, erelease):
-        self.slice = [eclick.xdata, erelease.xdata]
-        self.col = [eclick.ydata, erelease.ydata]
+        self.col = [eclick.xdata, erelease.xdata]
+        self.slice = [eclick.ydata, erelease.ydata]
         self.update()
 
     def select_top(self, eclick, erelease):
