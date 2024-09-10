@@ -118,6 +118,8 @@ for current_folder in all_to_be_analysed_folders:
         RegistrationExVivo(context, settings, logger).run()
         data = context["data"]
         reg_mask = context["reg_mask"]
+        registration_image_data = None
+        ref_images = context["ref_images"]
 
     else:
         data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
@@ -240,7 +242,8 @@ for current_folder in all_to_be_analysed_folders:
     # Get line profile off all remaining images to
     # assess registration
     # =========================================================
-    record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
+    if not settings["ex_vivo"]:
+        record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
 
     # =========================================================
     # Get SNR maps

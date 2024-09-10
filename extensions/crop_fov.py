@@ -411,6 +411,7 @@ def crop_fov(
 
     for slice_idx in slices:
         # crop the images before registration
+        # TODO CAT
         registration_image_data[slice_idx]["img_pre_reg"] = registration_image_data[slice_idx]["img_pre_reg"][
             np.ix_(
                 np.repeat(True, registration_image_data[slice_idx]["img_pre_reg"].shape[0]),

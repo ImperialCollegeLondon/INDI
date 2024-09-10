@@ -97,6 +97,7 @@ class RegistrationExVivo(ExtensionBase):
             )
 
         reg_images = {}
+        ref_images = {}
         for slice_idx in data["slice_integer"].unique():
             reg_file_reference = os.path.join(
                 self.settings["session"], "image_registration_reference_slice_" + str(slice_idx).zfill(2) + ".npz"
@@ -109,6 +110,8 @@ class RegistrationExVivo(ExtensionBase):
                 # this is saved as a dictionary where it should be a numpy archive
                 try:
                     reg_images[slice_idx] = npzfile["img_post_reg"]
+                    ref_images[slice_idx] = {}
+                    ref_images[slice_idx]["image"] = npzfile["ref_images"]
                     self._updata_reg_df(list(reg_images[slice_idx]), slice_idx, npzfile["indices"])
                     continue
                 except KeyError:
@@ -122,8 +125,11 @@ class RegistrationExVivo(ExtensionBase):
                 phase_images = data[data["slice_integer"] == slice_idx]["image_phase"].values
 
             # Get reference image
+            ref_images[slice_idx] = {}
             c_table = data[data["slice_integer"] == slice_idx]
-            ref_image = c_table.loc[data["b_value"] == np.sort(c_table["b_value"])[0], "image"].values[0]
+            ref_images[slice_idx]["image"] = c_table.loc[
+                data["b_value"] == np.sort(c_table["b_value"])[0], "image"
+            ].values[0]
 
             # if self.settings["complex_data"]:
             #     ref_image_phase = data.loc[
@@ -144,7 +150,7 @@ class RegistrationExVivo(ExtensionBase):
             #     self.code_path / "extensions" / "image_registration_recipes" / "Elastix_rigid.txt",
             # )
 
-            registered_images = self._register_stackreg(ref_image, images, phase_images, indices)
+            registered_images = self._register_stackreg(ref_images[slice_idx]["image"], images, phase_images, indices)
 
             if self.settings["debug"]:
                 if not self.settings["complex_data"]:
@@ -162,7 +168,6 @@ class RegistrationExVivo(ExtensionBase):
                     cmap="Greys_r",
                 )
 
-            # TODO CAT
             # Averaging the repetitions
             average_images = []
             phase_images = []
@@ -179,7 +184,7 @@ class RegistrationExVivo(ExtensionBase):
 
             self.logger.info(f"BSpline registering slice {slice_idx}")
             registered_images = self._register_itk(
-                ref_image,
+                ref_images[slice_idx]["image"],
                 average_images,
                 phase_images,
                 registration_mask,
@@ -211,7 +216,7 @@ class RegistrationExVivo(ExtensionBase):
             np.savez(
                 reg_file_reference,
                 img_post_reg=reg_images[slice_idx],
-                ref_image=ref_image,
+                ref_images=ref_images[slice_idx]["image"],
                 indices=np.unique(indices),
             )
             self.logger.info(f"Saved registered images for slice {slice_idx}")
@@ -225,13 +230,16 @@ class RegistrationExVivo(ExtensionBase):
                     cmap="Greys_r",  # noqa
                 )
 
-            plot_ref_images(np.mean(average_images, axis=0), slice_idx, ref_image, contour, self.settings)
+            plot_ref_images(
+                np.mean(average_images, axis=0), slice_idx, ref_images[slice_idx]["image"], contour, self.settings
+            )
 
         self.data_reg["diffusion_direction"] = self.data_reg["diffusion_direction"].apply(tuple)
         data_grouped = self.data_reg.groupby(["b_value", "diffusion_direction"])
         self.data_reg["diff_config"] = data_grouped.ngroup()
 
         self.context["data"] = self.data_reg
+        self.context["ref_images"] = ref_images
 
     def _register_itk(self, ref_image, images, phase_images, mask, indices, recipe):
         ref_image = itk.GetImageFromArray(np.array(ref_image, dtype=np.float32))
