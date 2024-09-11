@@ -257,26 +257,26 @@ class RegistrationExVivo(ExtensionBase):
             mov_image = images[i]
 
             if self.settings["complex_data"]:
-                # TODO we need to fix this for complex data, imag and real
-                # need to use the same registration transform
+                img_reg, transform = itk.elastix_registration_method(
+                    ref_image,
+                    itk.GetImageFromArray(np.array(mov_image, dtype=np.float32)),
+                    parameter_object=parameter_object,
+                    log_to_console=False,
+                    fixed_mask=mask,
+                )
                 mov_image_real = mov_image * np.cos(phase_images[i])
                 mov_image_imag = mov_image * np.sin(phase_images[i])
 
-                img_reg_real, _ = itk.elastix_registration_method(
-                    ref_image.real,
+                img_reg_real = itk.transformix_filter(
                     itk.GetImageFromArray(mov_image_real),
-                    parameter_object=parameter_object,
-                    log_to_console=False,
-                    fixed_mask=mask,
+                    transform,
                 )
 
-                img_reg_imag, _ = itk.elastix_registration_method(
-                    ref_image.imag,
+                img_reg_imag = itk.transformix_filter(
                     itk.GetImageFromArray(mov_image_imag),
-                    parameter_object=parameter_object,
-                    log_to_console=False,
-                    fixed_mask=mask,
+                    transform,
                 )
+
                 return img_reg_real, img_reg_imag, indices[i]
             else:
                 img_reg, _ = itk.elastix_registration_method(
