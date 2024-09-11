@@ -27,3 +27,4 @@ py7zr
 python-dotenv
 pyarrow
 pyautogui
+brukerapi
