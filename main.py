@@ -218,25 +218,26 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Remove outliers (post-segmentation)
     # =========================================================
-    logger.info("Manual removal of outliers post segmentation")
-    context = {
-        "data": data,
-        "info": info,
-        "slices": slices,
-        "registration_image_data": registration_image_data,
-        "stage": "post",
-        "mask": reg_mask,
-        "segmentation": segmentation,
-    }
-    SelectOutliers(context, settings, logger).run()
-    data = context["data"]
-    info = context["info"]
-    slices = context["slices"]
+    if not settings["ex_vivo"]:
+        logger.info("Manual removal of outliers post segmentation")
+        context = {
+            "data": data,
+            "info": info,
+            "slices": slices,
+            "registration_image_data": registration_image_data,
+            "stage": "post",
+            "mask": reg_mask,
+            "segmentation": segmentation,
+        }
+        SelectOutliers(context, settings, logger).run()
+        data = context["data"]
+        info = context["info"]
+        slices = context["slices"]
 
-    # =========================================================
-    # Remove outliers from table
-    # =========================================================
-    data, info = remove_outliers(data, info)
+        # =========================================================
+        # Remove outliers from table
+        # =========================================================
+        data, info = remove_outliers(data, info)
 
     # =========================================================
     # Get line profile off all remaining images to

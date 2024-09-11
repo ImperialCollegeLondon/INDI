@@ -409,46 +409,46 @@ def crop_fov(
     )
     logger.info("Images cropped based on segmentation.")
 
-    for slice_idx in slices:
-        # crop the images before registration
-        # TODO CAT
-        registration_image_data[slice_idx]["img_pre_reg"] = registration_image_data[slice_idx]["img_pre_reg"][
-            np.ix_(
-                np.repeat(True, registration_image_data[slice_idx]["img_pre_reg"].shape[0]),
-                crop_mask.any(1),
-                crop_mask.any(0),
-            )
-        ]
+    if registration_image_data is not None:
+        for slice_idx in slices:
+            # crop the images before registration
+            registration_image_data[slice_idx]["img_pre_reg"] = registration_image_data[slice_idx]["img_pre_reg"][
+                np.ix_(
+                    np.repeat(True, registration_image_data[slice_idx]["img_pre_reg"].shape[0]),
+                    crop_mask.any(1),
+                    crop_mask.any(0),
+                )
+            ]
 
-        # crop the images after registration
-        registration_image_data[slice_idx]["img_post_reg"] = registration_image_data[slice_idx]["img_post_reg"][
-            np.ix_(
-                np.repeat(True, registration_image_data[slice_idx]["img_post_reg"].shape[0]),
-                crop_mask.any(1),
-                crop_mask.any(0),
-            )
-        ]
+            # crop the images after registration
+            registration_image_data[slice_idx]["img_post_reg"] = registration_image_data[slice_idx]["img_post_reg"][
+                np.ix_(
+                    np.repeat(True, registration_image_data[slice_idx]["img_post_reg"].shape[0]),
+                    crop_mask.any(1),
+                    crop_mask.any(0),
+                )
+            ]
 
-        # crop the deformation field
-        registration_image_data[slice_idx]["deformation_field"]["field"] = registration_image_data[slice_idx][
-            "deformation_field"
-        ]["field"][
-            np.ix_(
-                np.repeat(True, registration_image_data[slice_idx]["deformation_field"]["field"].shape[0]),
-                crop_mask.any(1),
-                crop_mask.any(0),
-            )
-        ]
+            # crop the deformation field
+            registration_image_data[slice_idx]["deformation_field"]["field"] = registration_image_data[slice_idx][
+                "deformation_field"
+            ]["field"][
+                np.ix_(
+                    np.repeat(True, registration_image_data[slice_idx]["deformation_field"]["field"].shape[0]),
+                    crop_mask.any(1),
+                    crop_mask.any(0),
+                )
+            ]
 
-        # crop the deformation grid
-        registration_image_data[slice_idx]["deformation_field"]["grid"] = registration_image_data[slice_idx][
-            "deformation_field"
-        ]["grid"][
-            np.ix_(
-                np.repeat(True, registration_image_data[slice_idx]["deformation_field"]["grid"].shape[0]),
-                crop_mask.any(1),
-                crop_mask.any(0),
-            )
-        ]
+            # crop the deformation grid
+            registration_image_data[slice_idx]["deformation_field"]["grid"] = registration_image_data[slice_idx][
+                "deformation_field"
+            ]["grid"][
+                np.ix_(
+                    np.repeat(True, registration_image_data[slice_idx]["deformation_field"]["grid"].shape[0]),
+                    crop_mask.any(1),
+                    crop_mask.any(0),
+                )
+            ]
 
     return dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask

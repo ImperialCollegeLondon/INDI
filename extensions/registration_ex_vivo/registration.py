@@ -168,6 +168,10 @@ class RegistrationExVivo(ExtensionBase):
                     cmap="Greys_r",
                 )
 
+            # TODO before averaging we have to calculate the SNR maps
+            # there is a get SNR function later in the main file but it is too late
+            # we need to calculate the SNR maps before averaging the images
+
             # Averaging the repetitions
             average_images = []
             phase_images = []
@@ -319,15 +323,32 @@ class RegistrationExVivo(ExtensionBase):
 
     def _updata_reg_df(self, reg_images, slice, indices):
         data = self.context["data"]
+
+        # TODO columns below could be simplified with a list and a loop I guess
+
         # The number of images changed from the input so we need a new dataframe
         b_values = [
             data[(data["diff_config"] == index) & (data["slice_integer"] == slice)]["b_value"].values[0]
             for index in np.unique(indices).astype(int)
         ]
+
+        b_values_original = [
+            data[(data["diff_config"] == index) & (data["slice_integer"] == slice)]["b_value_original"].values[0]
+            for index in np.unique(indices).astype(int)
+        ]
+
         diffusion_directions = [
             data[(data["diff_config"] == index) & (data["slice_integer"] == slice)]["diffusion_direction"].values[0]
             for index in np.unique(indices).astype(int)
         ]
+
+        diffusion_directions_original = [
+            data[(data["diff_config"] == index) & (data["slice_integer"] == slice)][
+                "diffusion_direction_original"
+            ].values[0]
+            for index in np.unique(indices).astype(int)
+        ]
+
         if self.settings["complex_data"]:
             self.data_reg = pd.concat(
                 [
@@ -336,10 +357,12 @@ class RegistrationExVivo(ExtensionBase):
                         {
                             "diff_config": np.unique(indices).astype(int),
                             "image": np.abs(reg_images),
-                            "image_phase": np.angle(reg_images),
+                            # "image_phase": np.angle(reg_images),
                             "slice_integer": [int(slice) for _ in range(len(reg_images))],
                             "b_value": b_values,
                             "diffusion_direction": diffusion_directions,
+                            "b_value_original": b_values_original,
+                            "diffusion_direction_original": diffusion_directions_original,
                         }
                     ),
                 ]
@@ -355,6 +378,8 @@ class RegistrationExVivo(ExtensionBase):
                             "slice_integer": [int(slice) for _ in range(len(reg_images))],
                             "b_value": b_values,
                             "diffusion_direction": diffusion_directions,
+                            "b_value_original": b_values_original,
+                            "diffusion_direction_original": diffusion_directions_original,
                         }
                     ),
                 ]
