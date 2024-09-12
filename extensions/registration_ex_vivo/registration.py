@@ -245,12 +245,11 @@ class RegistrationExVivo(ExtensionBase):
             )
 
             if self.settings["debug"]:
-                for i in range(len(reg_images[slice_idx])):
-                    plt.imsave(
-                        self.debug_folder / f"reg_image_{slice_idx:06d}_{i:02d}.png",  # noqa
-                        reg_images[slice_idx][i],
-                        cmap="Greys_r",
-                    )
+                plt.imsave(
+                    self.debug_folder / f"reg_image_{slice_idx:06d}_000.png",  # noqa
+                    np.abs(reg_images[slice_idx][0]),
+                    cmap="Greys_r",
+                )
 
             plot_ref_images(
                 np.mean(average_images, axis=0), slice_idx, ref_images[slice_idx]["image"], contour, self.settings
