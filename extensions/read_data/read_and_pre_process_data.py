@@ -1038,6 +1038,13 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     # =========================================================
     data, info, slices, n_slices = reorder_by_slice(data, settings, info, logger)
 
+    # =========================================================
+    # Make a unique index for each unique b-value and direction
+    # =========================================================
+    data["diffusion_direction"] = data["diffusion_direction"].apply(tuple)
+    data_grouped = data.groupby(["b_value", "diffusion_direction"])
+    data["index"] = data_grouped.ngroup()
+
     # number of dicom files
     info["n_images"] = data.shape[0]
     # image size
@@ -1199,7 +1206,8 @@ def read_and_process_dicoms(
     info, data = check_global_info(data, info, logger)
     # adjust pixel values to the correct scale, and interpolate if images small
     data = scale_dicom_pixel_values(data)
-    data, info = interpolate_dicom_pixel_values(data, info, logger, image_type="mag")
+    if not settings["ex_vivo"]:  # don't interpolate for ex-vivo
+        data, info = interpolate_dicom_pixel_values(data, info, logger, image_type="mag")
 
     # replace the nan directions with (0.0, 0.0, 0.0)
     data = tweak_directions(data)
@@ -1213,7 +1221,8 @@ def read_and_process_dicoms(
         info_phase, data_phase = check_global_info(data_phase, info_phase, logger)
         # adjust pixel values to the correct scale, and interpolate if images small
         data_phase = scale_dicom_pixel_values(data_phase)
-        data_phase, info_phase = interpolate_dicom_pixel_values(data_phase, info_phase, logger, image_type="phase")
+        if not settings["ex_vivo"]:  # don't interpolate for ex-vivo
+            data_phase, info_phase = interpolate_dicom_pixel_values(data_phase, info_phase, logger, image_type="phase")
         data_phase = tweak_directions(data_phase)
 
         # check if the magnitude and phase tables match
@@ -1425,39 +1434,47 @@ def list_files(data_type: str, logger: logging, settings: dict) -> Tuple[str, Li
     list_bruker = []
     data_type = None
 
-    # Check for DICOM files
-    included_extensions = ["dcm", "DCM", "IMA"]
-    list_dicoms = [
-        fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
-    ]
-    if len(list_dicoms) > 0:
-        data_type = "dicom"
-        logger.debug("DICOM files found.")
-        list_dicoms.sort()
+    # Chcek for h5 image file
+    if os.path.exists(os.path.join(settings["dicom_folder"], "images.h5")):
+        data_type = "pandas"
+        logger.debug("Pandas dataframe found.")
 
-    else:
-        # check if subfolders "mag" and "phase" exist
-        # if so read all dicom files in those folders
-        mag_folder = os.path.join(settings["dicom_folder"], "mag")
-        phase_folder = os.path.join(settings["dicom_folder"], "phase")
-        if os.path.exists(mag_folder) and os.path.exists(phase_folder):
-            list_dicoms = [fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)]
-            list_dicoms_phase = [
-                fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
-            ]
-            if len(list_dicoms) > 0 and len(list_dicoms_phase) > 0:
-                data_type = "dicom"
-                settings["complex_data"] = True
-                settings["dicom_folder"] = mag_folder
-                settings["dicom_folder_phase"] = phase_folder
-                # check if both folders have the same number of files
-                if len(list_dicoms) != len(list_dicoms_phase):
-                    logger.error("Number of DICOM files in mag and phase folders are different.")
-                    sys.exit(1)
-                logger.debug("Magnitude and phase DICOM files found.")
-                logger.debug("Complex averaging on.")
-                list_dicoms.sort()
-                list_dicoms_phase.sort()
+    if data_type is None:
+        # Check for DICOM files
+        included_extensions = ["dcm", "DCM", "IMA"]
+        list_dicoms = [
+            fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
+        ]
+        if len(list_dicoms) > 0:
+            data_type = "dicom"
+            logger.debug("DICOM files found.")
+            list_dicoms.sort()
+
+        else:
+            # check if subfolders "mag" and "phase" exist
+            # if so read all dicom files in those folders
+            mag_folder = os.path.join(settings["dicom_folder"], "mag")
+            phase_folder = os.path.join(settings["dicom_folder"], "phase")
+            if os.path.exists(mag_folder) and os.path.exists(phase_folder):
+                list_dicoms = [
+                    fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)
+                ]
+                list_dicoms_phase = [
+                    fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
+                ]
+                if len(list_dicoms) > 0 and len(list_dicoms_phase) > 0:
+                    data_type = "dicom"
+                    settings["complex_data"] = True
+                    settings["dicom_folder"] = mag_folder
+                    settings["dicom_folder_phase"] = phase_folder
+                    # check if both folders have the same number of files
+                    if len(list_dicoms) != len(list_dicoms_phase):
+                        logger.error("Number of DICOM files in mag and phase folders are different.")
+                        sys.exit(1)
+                    logger.debug("Magnitude and phase DICOM files found.")
+                    logger.debug("Complex averaging on.")
+                    list_dicoms.sort()
+                    list_dicoms_phase.sort()
     if data_type is None:
         # If no DICOMS, check for nii files
         included_extensions = ["nii", "nii.gz"]

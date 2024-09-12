@@ -200,7 +200,6 @@ def get_data_from_dicoms(
     elif dicom_type == 1:
         header_table.sort_values(by=["AcquisitionDateTime"], inplace=True)
 
-    print(header_table)
     # reset index
     header_table.reset_index(drop=True, inplace=True)
 
@@ -255,7 +254,8 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
     info = {**info, **header_info}
 
     # remove temp column
-    data = data.drop("temp", axis=1)
+    if "temp" in data.columns:  # field_list is empty in ex-vivo scans
+        data = data.drop("temp", axis=1)
 
     return info, data
 

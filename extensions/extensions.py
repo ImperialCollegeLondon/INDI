@@ -23,7 +23,7 @@ from skimage.measure import label, regionprops_table
 from sklearn.linear_model import LinearRegression
 from tvtk.api import tvtk, write_data
 
-from extensions.manual_lv_segmentation import get_epi_contour, get_sa_contours
+from extensions.segmentation.manual_segmentation import get_epi_contour, get_sa_contours
 from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
 
 
