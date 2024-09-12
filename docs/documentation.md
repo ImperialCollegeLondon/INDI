@@ -41,15 +41,13 @@ flowchart LR
 
 **Diagram summarising the workflow.**
 
-## Quick video tutorial
-
->[!NOTE]
-> Youtube video coming soon...
+>[!WARNING]
+> This page in under development.
 
 ## YAML settings
 
 Before running the script, we need to configure the `settings.yaml` file with the correct parameters.
-See [YAML settings](docs/YAML_settings.md) for more information.
+See [YAML settings](YAML_settings.md) for more information.
 
 ## Folder structure
 

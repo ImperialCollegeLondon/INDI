@@ -17,8 +17,8 @@ Post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 
 ## Introduction
 
-This software is a post-processing pipeline designed to post-process in-vivo cardiac diffusion tensor imaging.
-It currently accepts Siemens and Philips diffusion weighted DICOM data, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). It also supports both STEAM and SE sequences.
+This software is a post-processing pipeline designed for in-vivo cardiac diffusion tensor imaging.
+It currently accepts Siemens and Philips diffusion weighted DICOM data, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). It also supports both STEAM and SE data.
 
 After the data is loaded, the pipeline performs the following steps:
 
@@ -34,15 +34,17 @@ INDI runs from the command line, and when processing a dataset for the first tim
 
 For more details:
 
-See [Pipeline documentation](docs/Pipeline.md) for details on the post-processing pipeline.
+See [documentation](docs/documentation.md) for details on the post-processing pipeline.
 
-See [YAML settings](docs/YAML_settings.md) for run configuration.
+See [YAML settings](docs/YAML_settings.md) for run configuration details.
 
 ## Installation
 
 Software has been tested on macOS Sonoma with python 3.10.
 
-### Installation in macOS (Intel and Apple silicon)
+### Installation in macOS (Intel and Apple silicon) with pip
+
+Install the python environment:
 
 ```bash
 python -m venv .venv
@@ -57,15 +59,26 @@ You also need ImageMagick installed. You can install it with [Homebrew](https://
 brew install imagemagick
 ```
 
-### Installation with cuda (Cross plataform Win & Linux)
+### Installation cross platform (Mac, Win & Linux) with conda
+
+Install miniforge:
+[Miniforge](https://github.com/conda-forge/miniforge)
+
+Install the python environment with conda:
+
+```bash
+conda env create -f environment-cpu.yml
+```
+
+Or alternatively, if you have a CUDA compatible GPU for Win or Linux:
+
+```bash
+conda env create -f environment-gpu.yml
+```
 
 Install [imagemagick](https://imagemagick.org/)
 
-```bash
-conda env create -f environment.yml
-```
-
-#### Development
+### Development
 
 For development, also install the git hook scripts:
 
@@ -83,11 +96,23 @@ This is required to ensure code quality and style before committing code changes
 
 ## Run
 
-Configure the `settings.yaml` file with the correct paths and parameters.
-See [YAML settings](docs/YAML_settings.md) for more information.
+### Quick video tutorial
+
+>[!NOTE]
+> Youtube video coming soon...
+
+### Hello world example
+
+We are going to post-process a synthetic phantom dataset. You can download the dataset from here:
+>[!NOTE]
+> coming soon...
+
+### Processing your own data
+
+Configure the `settings.yaml` file with the correct parameters. See [YAML settings](docs/YAML_settings.md) for more information.
 
 Then run:
 
 ```python main_script.py <data_path>```
 
-Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the diffusion weighted images inside. Multiple subfolders can be processed at once. For more detailed information see [documentation](docs/documentation.md).
+Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the diffusion weighted images inside.
