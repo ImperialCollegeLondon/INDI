@@ -135,31 +135,17 @@ class HeartSegmentation(ExtensionBase):
             else:
                 # manual LV segmentation
                 self.logger.info("Manual LV segmentation for slice: " + str(slice_idx))
-                if self.settings["tissue_block"]:
-                    self.logger.info("Tissue block segmentation")
-                    segmentation[slice_idx], thr_mask[slice_idx] = manual_tissue_segmentation(
-                        mask_3c[slice_idx],
-                        self.context["average_images"][slice_idx],
-                        prelim_ha[slice_idx],
-                        prelim_md[slice_idx],
-                        100,
-                        self.settings,
-                        self.context["colormaps"],
-                        slice_idx,
-                        self.context["slices"],
-                    )
-                else:
-                    segmentation[slice_idx], thr_mask[slice_idx] = manual_lv_segmentation(
-                        mask_3c[slice_idx],
-                        self.context["average_images"][slice_idx],
-                        prelim_ha[slice_idx],
-                        prelim_md[slice_idx],
-                        100,
-                        self.settings,
-                        self.context["colormaps"],
-                        slice_idx,
-                        self.context["slices"],
-                    )
+                segmentation[slice_idx], thr_mask[slice_idx] = manual_lv_segmentation(
+                    mask_3c[slice_idx],
+                    self.context["average_images"][slice_idx],
+                    prelim_ha[slice_idx],
+                    prelim_md[slice_idx],
+                    100,
+                    self.settings,
+                    self.context["colormaps"],
+                    slice_idx,
+                    self.context["slices"],
+                )
 
                 # define the final mask_3c
                 if segmentation[slice_idx]["epicardium"].size != 0:
@@ -239,6 +225,103 @@ class HeartSegmentation(ExtensionBase):
                 self.settings,
                 "lv_manual_mask",
                 self.settings["debug_folder"],
+            )
+
+        # Export segmentation to context
+        self.context["segmentation"] = segmentation
+        self.context["mask_3c"] = mask_3c
+
+        self.logger.info("Heart Segmentation Completed")
+
+
+class TissueSegmentation(ExtensionBase):
+    """Tissue Segmentation Extension
+    If a segmentation file is available, this extension will load it and use it otherwise it will open a window with
+    manual segmentation tool.
+    """
+
+    def run(self) -> None:
+        self.logger.info("Running Tissue Segmentation")
+        # Get preliminary HA and MD maps
+        prelim_ha, prelim_md = get_premliminary_ha_md_maps(
+            self.context["slices"],
+            self.context["average_images"],
+            self.context["data"],
+            self.context["info"],
+            self.settings,
+            self.logger,
+        )
+        session = pathlib.Path(self.settings["session"])
+
+        n_slices = len(self.context["slices"])
+
+        mask_3c = np.zeros(
+            (
+                n_slices,
+                self.context["info"]["img_size"][0],
+                self.context["info"]["img_size"][1],
+            ),
+            dtype="uint8",
+        )
+        thr_mask = np.ones(
+            (
+                n_slices,
+                self.context["info"]["img_size"][0],
+                self.context["info"]["img_size"][1],
+            ),
+            dtype="uint8",
+        )
+
+        segmentation = {}
+
+        for slice_idx in self.context["slices"]:
+            # check if LV manual segmentation has been previously saved
+            if (session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz").exists():
+                # load segmentations
+                self.logger.info(
+                    "Manual LV segmentation previously saved for slice: " + str(slice_idx) + ", loading mask..."
+                )
+                npzfile = np.load(
+                    session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz", allow_pickle=True
+                )
+
+                mask_3c[slice_idx] = npzfile["mask_3c"]
+                segmentation[slice_idx] = npzfile["segmentation"]
+                segmentation[slice_idx] = segmentation[slice_idx].item()
+
+                # if there is no epicardial border defined, mark this slice to be removed in the dataframe
+                if segmentation[slice_idx]["epicardium"].size == 0:
+                    self.context["data"].loc[
+                        self.context["data"]["slice_integer"] == slice_idx, "to_be_removed"
+                    ] = True
+
+            else:
+                # manual LV segmentation
+                self.logger.info("Manual LV segmentation for slice: " + str(slice_idx))
+                self.logger.info("Tissue block segmentation")
+                segmentation[slice_idx], thr_mask[slice_idx] = manual_tissue_segmentation(
+                    mask_3c[slice_idx],
+                    self.context["average_images"][slice_idx],
+                    prelim_ha[slice_idx],
+                    prelim_md[slice_idx],
+                    100,
+                    self.settings,
+                    self.context["colormaps"],
+                    slice_idx,
+                    self.context["slices"],
+                )
+
+            # define the final mask_3c
+            # We assume that the nodes were defined left to right
+            poly = np.concatenate(
+                [segmentation[slice_idx]["endocardium"], segmentation[slice_idx]["epicardium"][::-1]]
+            )
+            mask_3c[slice_idx] = get_mask_from_poly(poly, mask_3c[slice_idx].shape) * thr_mask[slice_idx]
+
+            np.savez_compressed(
+                session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz",
+                mask_3c=mask_3c[slice_idx],
+                segmentation=segmentation[slice_idx],
             )
 
         # Export segmentation to context

@@ -30,7 +30,7 @@ from extensions.initial_setup import initial_setup
 from extensions.metrics.metrics import Metrics
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
-from extensions.segmentation.heart_segmentation import HeartSegmentation
+from extensions.segmentation.heart_segmentation import HeartSegmentation, TissueSegmentation
 from extensions.select_outliers.select_outliers import SelectOutliers
 from extensions.tensor_fittings.tensor_fittings import TensorFit
 from extensions.u_net_segmentation import get_average_images
@@ -107,7 +107,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # DWIs registration
     # =========================================================
-    if settings["ex_vivo"]:
+    if False and settings["ex_vivo"]:  # This is to use the in-vivo registration that does run until the end
         logger.info("Ex-vivo mode is True. Using ex-vivo registration.")
         context = {"data": data, "info": info}
         RegistrationExVivo(context, settings, logger).run()
@@ -164,7 +164,10 @@ for current_folder in all_to_be_analysed_folders:
     # Heart segmentation
     # =========================================================
     context = {"data": data, "info": info, "average_images": average_images, "slices": slices, "colormaps": colormaps}
-    HeartSegmentation(context, settings, logger).run()
+    if not settings["tissue_block"]:
+        HeartSegmentation(context, settings, logger).run()
+    else:
+        TissueSegmentation(context, settings, logger).run()
     data = context["data"]
     info = context["info"]
     slices = context["slices"]
