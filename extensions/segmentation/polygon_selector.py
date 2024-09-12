@@ -728,6 +728,7 @@ class OpenPolygonSelectorSpline(_SelectorWidget):
 
         if self._selection_completed:
             self.onselect(self.verts)
+            self._draw_polygon()
 
     def onmove(self, event):
         """Cursor move event handler and validator."""
@@ -803,7 +804,6 @@ class OpenPolygonSelectorSpline(_SelectorWidget):
         elif len(self._xys) > 3 and event.key == self._state_modifier_keys.get("select"):
             self._selection_completed = True
             self.onselect(self.verts)
-            self, _xys = self._xys[:-1]
             if self._draw_box and self._box is None:
                 self._add_box()
             self._draw_polygon()
