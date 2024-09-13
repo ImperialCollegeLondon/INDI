@@ -120,6 +120,10 @@ for current_folder in all_to_be_analysed_folders:
         reg_mask = context["reg_mask"]
         registration_image_data = None
         ref_images = context["ref_images"]
+        dti["snr"] = context["snr"]
+        snr_b0_lv = context["snr_b0_lv"]
+        noise = context["noise"]
+        info = context["info"]
 
     else:
         data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
@@ -249,7 +253,10 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Get SNR maps
     # =========================================================
-    [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
+    if not settings["ex_vivo"]:  # SNR maps for ex-vivo are calculated in the registration step
+        [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(
+            data, mask_3c, average_images, slices, settings, logger, info
+        )
 
     # =========================================================
     # complex averaging
