@@ -103,9 +103,10 @@ This is required to ensure code quality and style before committing code changes
 
 ### Hello world example
 
-We are going to post-process a synthetic phantom dataset. You can download the dataset from here:
+We are going to post-process a synthetic phantom dataset with non-rigid distortions. Please unzip [the phantom data](docs/test_phantom_cdti_dicoms.zip) to a folder. The `test_phantom_dcti_dicoms` folder contains a subfolder named `diffusion_images` with the cdti simulated scan. The DICOM files contains diffusion weighted images with periodic non-rigid distortions as a typical in-vivo scan.
+
 >[!NOTE]
-> coming soon...
+> work in progress.
 
 ### Processing your own data
 
