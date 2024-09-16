@@ -408,7 +408,8 @@ class RegistrationExVivo(ExtensionBase):
                         "diffusion_direction_original": diffusion_directions_original,
                     }
                 ),
-            ]
+            ],
+            ignore_index=True,
         )
 
     def _update_reg_rigid_df(self, registered_images, slice_idx, indices):
