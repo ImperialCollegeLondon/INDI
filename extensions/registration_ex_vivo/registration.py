@@ -104,30 +104,33 @@ class RegistrationExVivo(ExtensionBase):
             {"image": [], "slice_integer": [], "diff_config": [], "diffusion_direction": [], "b_value_original": []}
         )
 
-        for slice_idx in data["slice_integer"].unique():
-            images = data[data["slice_integer"] == slice_idx]["image"].values
+        for slice_idx in tqdm(data["slice_integer"].unique(), desc="Registering slices", position=0, leave=True):
+            # table with all the data for the current slice
+            c_table = data[data["slice_integer"] == slice_idx]
+
+            images = c_table["image"].values
             phase_images = None
             if self.settings["complex_data"]:
                 phase_images = data[data["slice_integer"] == slice_idx]["image_phase"].values
 
             # Get reference image
             ref_images[slice_idx] = {}
-            c_table = data[data["slice_integer"] == slice_idx]
             ref_images[slice_idx]["image"] = c_table.loc[
                 data["b_value"] == np.sort(c_table["b_value"])[0], "image"
             ].values[0]
 
+            # indices of the different diffusion configurations
             indices = c_table["diff_config"].values
-            self.logger.info(f"Rigid registering slice {slice_idx}")
-            reg_file_reference = os.path.join(
-                self.settings["session"], "image_registration_reference_slice_" + str(slice_idx).zfill(2) + ".npz"
+
+            # self.logger.info(f"Rigid registering slice {slice_idx}")
+            reg_file_path = os.path.join(
+                self.settings["session"], "image_registration_slice_" + str(slice_idx).zfill(2) + ".npz"
             )
 
             # check if the reference images have been saved already
-            if os.path.exists(reg_file_reference):
-                self.logger.info("Saved registration images found for slice " + str(slice_idx).zfill(2))
-                save_path = reg_file_reference
-                npzfile = np.load(save_path, allow_pickle=True)
+            if os.path.exists(reg_file_path):
+                # self.logger.info("Saved registration images found for slice " + str(slice_idx).zfill(2))
+                npzfile = np.load(reg_file_path, allow_pickle=True)
                 # this is saved as a dictionary where it should be a numpy archive
                 try:
                     reg_images[slice_idx] = npzfile["img_post_reg"]
@@ -145,9 +148,9 @@ class RegistrationExVivo(ExtensionBase):
 
                     continue
                 except KeyError:
-                    self.logger.info("No registered images found for slice " + str(slice_idx).zfill(2))
-
-            self.logger.info("No saved registration image found for slice " + str(slice_idx).zfill(2))
+                    # self.logger.info("No saved registration images found for slice " + str(slice_idx).zfill(2))
+                    pass
+            # self.logger.info("No saved registration image found for slice " + str(slice_idx).zfill(2))
 
             assert len(images) == len(indices)
 
@@ -204,7 +207,7 @@ class RegistrationExVivo(ExtensionBase):
             # save the rigid registered images for later use in calculating SNR
             self._update_reg_rigid_df(reg_rigid_images, slice_idx, indices)
 
-            self.logger.info(f"BSpline registering slice {slice_idx}")
+            # self.logger.info(f"BSpline registering slice {slice_idx}")
             registered_images = self._register_itk(
                 ref_images[slice_idx]["image"],
                 average_images,
@@ -241,14 +244,14 @@ class RegistrationExVivo(ExtensionBase):
                 reg_images[slice_idx] = np.array(mag_list) * np.exp(1j * np.array(phase_list))
 
             np.savez(
-                reg_file_reference,
+                reg_file_path,
                 img_post_reg=reg_images[slice_idx],
                 ref_images=ref_images[slice_idx]["image"],
                 average_images=average_images,
                 reg_rigid=reg_rigid_images,
                 indices=indices,
             )
-            self.logger.info(f"Saved registered images for slice {slice_idx}")
+            # self.logger.info(f"Saved registered images for slice {slice_idx}")
 
             self._update_reg_df(
                 [np.abs(reg_images[slice_idx][i]) for i in range(len(reg_images[slice_idx]))],
@@ -288,7 +291,7 @@ class RegistrationExVivo(ExtensionBase):
 
     def _register_itk(self, ref_image, images, phase_images, mask, indices, recipe):
         ref_image = itk.GetImageFromArray(np.array(ref_image, order="F", dtype=np.float32))
-        mask = itk.GetImageFromArray(mask)
+        mask = itk.GetImageFromArray(np.array(mask, order="F", dtype=np.uint8))
 
         # Denoise the images ?
         parameter_object = itk.ParameterObject.New()
@@ -339,14 +342,16 @@ class RegistrationExVivo(ExtensionBase):
         # registered_images = Parallel(n_jobs=-1)(
         #     delayed(register)(i) for i in tqdm(range(1, len(images)), desc="Registering images")
         # )
-        registered_images = [register(i) for i in tqdm(range(0, len(images)), desc="Registering images")]
+        registered_images = [
+            register(i) for i in tqdm(range(0, len(images)), desc="Non-rigid reg images", position=2, leave=False)
+        ]
         return registered_images
 
     def _register_stackreg(self, ref_image, images, phase_images, indices):
         sr = StackReg(StackReg.TRANSLATION)
         registered_images = []
 
-        for i in tqdm(range(0, len(images)), desc="Registering images"):
+        for i in tqdm(range(0, len(images)), desc="Rigid reg images", position=1, leave=False):
             mov_image = images[i]
 
             if self.settings["complex_data"]:
