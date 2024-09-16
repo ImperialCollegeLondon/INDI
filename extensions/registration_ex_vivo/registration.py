@@ -284,6 +284,7 @@ class RegistrationExVivo(ExtensionBase):
 
         self.context["data"] = self.data_reg
         self.context["ref_images"] = ref_images
+        self.settings["complex_data"] = False
 
     def _register_itk(self, ref_image, images, phase_images, mask, indices, recipe):
         ref_image = itk.GetImageFromArray(np.array(ref_image, order="F", dtype=np.float32))
