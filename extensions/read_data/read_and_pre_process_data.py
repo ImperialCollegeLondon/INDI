@@ -1062,7 +1062,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     # =========================================================
     # display all DWIs in a montage
     # =========================================================
-    if settings["debug"]:
+    if settings["debug"] and not settings["ex_vivo"]:
         create_2d_montage_from_database(
             data,
             "b_value_original",
@@ -1206,7 +1206,8 @@ def read_and_process_dicoms(
     info, data = check_global_info(data, info, logger)
     # adjust pixel values to the correct scale, and interpolate if images small
     data = scale_dicom_pixel_values(data)
-    data, info = interpolate_dicom_pixel_values(data, info, logger, image_type="mag")
+    if not settings["ex_vivo"]:  # don't interpolate for ex-vivo
+        data, info = interpolate_dicom_pixel_values(data, info, logger, image_type="mag")
 
     # replace the nan directions with (0.0, 0.0, 0.0)
     data = tweak_directions(data)
@@ -1220,7 +1221,8 @@ def read_and_process_dicoms(
         info_phase, data_phase = check_global_info(data_phase, info_phase, logger)
         # adjust pixel values to the correct scale, and interpolate if images small
         data_phase = scale_dicom_pixel_values(data_phase)
-        data_phase, info_phase = interpolate_dicom_pixel_values(data_phase, info_phase, logger, image_type="phase")
+        if not settings["ex_vivo"]:  # don't interpolate for ex-vivo
+            data_phase, info_phase = interpolate_dicom_pixel_values(data_phase, info_phase, logger, image_type="phase")
         data_phase = tweak_directions(data_phase)
 
         # check if the magnitude and phase tables match

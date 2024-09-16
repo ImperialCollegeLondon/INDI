@@ -13,7 +13,8 @@ import matplotlib
 import pyautogui
 
 from extensions.complex_averaging import complex_averaging
-from extensions.crop.crop import Crop
+
+# from extensions.crop.crop import Crop
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
@@ -30,8 +31,9 @@ from extensions.initial_setup import initial_setup
 from extensions.metrics.metrics import Metrics
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
+from extensions.rotation.rotation import Rotation
 from extensions.segmentation.heart_segmentation import HeartSegmentation
-from extensions.select_outliers.select_outliers import SelectOutliers
+from extensions.select_outliers.select_outliers import SelectOutliers  # , manual_image_removal
 from extensions.tensor_fittings.tensor_fittings import TensorFit
 from extensions.u_net_segmentation import get_average_images
 
@@ -94,6 +96,8 @@ for current_folder in all_to_be_analysed_folders:
         logger.info("Anonymisation of data only mode is True. Stopping here.")
         continue
 
+    # for i, image in enumerate(data["image"]):
+    #     plt.imsave(os.path.join(settings["debug_folder"], f"{i:02d}.png"), image, cmap="gray")
     # =========================================================
     # Crop data
     # =========================================================
@@ -104,6 +108,7 @@ for current_folder in all_to_be_analysed_folders:
         data = context["data"]
         slices = context["slices"]
         info = context["info"]
+
 
     # =========================================================
     # DWIs registration
@@ -124,6 +129,18 @@ for current_folder in all_to_be_analysed_folders:
     if settings["workflow_mode"] == "reg":
         logger.info("Registration only mode is True. Stopping here.")
         continue
+
+    # =========================================================
+    # Rotation if ex-vivo
+    # =========================================================
+    if settings["ex_vivo"] and settings["rotate"]:
+        logger.info("Ex-vivo rotation is True")
+        context = {"data": data, "info": info, "slices": slices}
+        Rotation(context, settings, logger).run()
+        data = context["data"]
+        slices = context["slices"]
+        info = context["info"]
+        # data, slices, info = rotate_data(data, slices, info, settings, logger)
 
     # =========================================================
     # Remove outliers (pre-segmentation)
