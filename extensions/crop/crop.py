@@ -37,8 +37,8 @@ class ThreeDSelector:
         self.update()
 
     def select_side(self, eclick, erelease):
-        self.slice = [eclick.xdata, erelease.xdata]
-        self.col = [eclick.ydata, erelease.ydata]
+        self.col = [eclick.xdata, erelease.xdata]
+        self.slice = [eclick.ydata, erelease.ydata]
         self.update()
 
     def select_top(self, eclick, erelease):
@@ -195,9 +195,9 @@ def manual_crop(image):
     }
 
     img_plots = {
-        "top": axs[2].imshow(image[:, :, nz // 2], cmap="gray"),
-        "side": axs[1].imshow(image[:, ny // 2, :], cmap="gray"),
-        "front": axs[0].imshow(image[nx // 2, :, :], cmap="gray"),
+        "top": axs[2].imshow(image[:, :, nz // 2], cmap="gray", aspect='auto', extent=(0, ny, 0, nx)),
+        "side": axs[1].imshow(image[:, ny // 2, :], cmap="gray", aspect='auto', extent=(0, nz, 0, nx)),
+        "front": axs[0].imshow(image[nx // 2, :, :], cmap="gray", aspect='auto', extent=(0, nz, 0, ny)),
     }
 
     axs[0].set_title("Front view")
@@ -273,8 +273,8 @@ class Crop(ExtensionBase):
         info = self.context["info"]
         images = []
         for slice in self.context["slices"]:
-            ref_image = data[(data["index"] == 0) & (data["slice_integer"] == slice)]["image"].values[0]
-            images.append(ref_image)
+            ref_image = np.stack(data[(data["slice_integer"] == slice)]["image"].values)
+            images.append(np.mean(ref_image, axis=0))
 
         image = np.stack(images, axis=0)
 
@@ -289,19 +289,23 @@ class Crop(ExtensionBase):
         else:
             self.logger.info("Select the ROI for cropping")
             slice, row, col = manual_crop(image)
-            self.slice = [int(slice[0]), int(slice[1])]
-            self.row = [int(row[0]), int(row[1])]
-            self.col = [int(col[0]), int(col[1])]
+            self.slice = [int(np.floor(slice[0])), int(np.ceil(slice[1]))]
+            self.row = [int(np.floor(row[0])), int(np.ceil(row[1]))]
+            self.col = [int(np.floor(col[0])), int(np.ceil(col[1]))]
 
         self.logger.info(f"ROI: {self.slice}, {self.row}, {self.col}")
 
         # crop the data
         data["image"] = data["image"].apply(lambda x: x[self.row[0] : self.row[1], self.col[0] : self.col[1]])
         slices = self.context["slices"][self.slice[0] : self.slice[1]]
+        data = data[data['slice_integer'].isin(slices)]
+
         self._save_crop()
 
-        info["n_slices"] = self.slice[1] - self.slice[0]
+        # info["n_slices"] = self.slice[1] - self.slice[0]
         info["img_size"] = (self.row[1] - self.row[0], self.col[1] - self.col[0])
+
+        self.logger.info(f"Slices after cropping: n={len(slices)}, {slices}")
 
         self.context["data"], self.context["slices"], self.context["info"] = data, slices, info
 
