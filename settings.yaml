@@ -25,7 +25,7 @@ registration_extra_debug: False
 # ========================================================================================
 # none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid
 # elastix_groupwise (not working well at the moment)
-registration: quick_rigid
+registration: elastix_non_rigid
 # fast, slow
 registration_speed: fast
 # best, groupwise

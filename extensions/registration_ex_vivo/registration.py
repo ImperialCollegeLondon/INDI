@@ -37,7 +37,7 @@ def plot_ref_images(image_mean, slice_idx: int, ref_image: NDArray, contour, set
     plt.savefig(
         os.path.join(
             settings["debug_folder"],
-            "reference_images_for_registration_slice_" + str(slice_idx).zfill(2) + ".png",
+            "reg_reference_image_slice_" + str(slice_idx).zfill(2) + ".png",
         ),
         dpi=200,
         bbox_inches="tight",
@@ -53,7 +53,7 @@ def plot_ref_images(image_mean, slice_idx: int, ref_image: NDArray, contour, set
     plt.plot(contour[:, 0], contour[:, 1], "r")
     plt.axis("off")
     plt.savefig(
-        os.path.join(settings["debug_folder"], "registration_masks_slice_" + str(slice_idx).zfill(2) + ".png"),
+        os.path.join(settings["debug_folder"], "reg_mask_slice_" + str(slice_idx).zfill(2) + ".png"),
         dpi=200,
         bbox_inches="tight",
         transparent=False,
@@ -178,7 +178,7 @@ class RegistrationExVivo(ExtensionBase):
 
                 plt.imsave(
                     self.debug_folder / f"reg_rigid_image_{slice_idx:06d}.png",  # noqa
-                    np.hstack((pre_reg_mag_stack_mean, post_reg_mag_stack_mean)),
+                    np.hstack((pre_reg_mag_stack_mean, post_reg_mag_stack_mean)).repeat(5, axis=0).repeat(5, axis=1),
                     cmap="Greys_r",
                 )
 
@@ -231,7 +231,7 @@ class RegistrationExVivo(ExtensionBase):
 
                 plt.imsave(
                     self.debug_folder / f"reg_elastix_image_{slice_idx:06d}.png",  # noqa
-                    np.hstack((pre_reg_mag_stack_mean, post_reg_mag_stack_mean)),
+                    np.hstack((pre_reg_mag_stack_mean, post_reg_mag_stack_mean)).repeat(5, axis=0).repeat(5, axis=1),
                     cmap="Greys_r",
                 )
 
@@ -260,15 +260,9 @@ class RegistrationExVivo(ExtensionBase):
             )
 
             if self.settings["debug"]:
-                plt.imsave(
-                    self.debug_folder / f"reg_image_{slice_idx:06d}_000.png",  # noqa
-                    np.abs(reg_images[slice_idx][0]),
-                    cmap="Greys_r",
+                plot_ref_images(
+                    np.mean(average_images, axis=0), slice_idx, ref_images[slice_idx]["image"], contour, self.settings
                 )
-
-            plot_ref_images(
-                np.mean(average_images, axis=0), slice_idx, ref_images[slice_idx]["image"], contour, self.settings
-            )
 
         self.logger.info("Registration Completed")
         self.logger.info("Calculating SNR maps")
