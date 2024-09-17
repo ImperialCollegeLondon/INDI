@@ -262,23 +262,24 @@ class ExternalSegmentation(ExtensionBase):
 
         session = pathlib.Path(self.settings["session"])
 
-        output_path_code = "outputPath = '" + self.settings["session"] + "'"
+        if not (session / "average_images-label.nrrd").exists():
+            output_path_code = "outputPath = '" + self.settings["session"] + "'"
 
-        script = output_path_code + python_code
+            script = output_path_code + python_code
 
-        self.logger.info("Opening Slicer for manual segmentation")
-        self.logger.info("Segment the LV and press Ctrl+Shift+s (Cmd+Shift+s) and close Slicer once done")
+            self.logger.info("Opening Slicer for manual segmentation")
+            self.logger.info("Segment the LV and press Ctrl+Shift+s (Cmd+Shift+s) and close Slicer once done")
 
-        nrrd.write((session / "average_images.nrrd").as_posix(), self.context["average_images"])
-        print((session / "average_images.nrrd").as_posix())
-        subprocess.run(
-            [
-                "/Applications/Slicer.app/Contents/MacOS/Slicer",
-                (session / "average_images.nrrd").as_posix(),
-                "--python-code",
-                script,
-            ]
-        )
+            nrrd.write((session / "average_images.nrrd").as_posix(), self.context["average_images"])
+            print((session / "average_images.nrrd").as_posix())
+            subprocess.run(
+                [
+                    "/Applications/Slicer.app/Contents/MacOS/Slicer",
+                    (session / "average_images.nrrd").as_posix(),
+                    "--python-code",
+                    script,
+                ]
+            )
 
         mask_3c = nrrd.read((session / "average_images-label.nrrd").as_posix())[0]
 
