@@ -1,6 +1,8 @@
 import pathlib
+import subprocess
 
 import cv2 as cv
+import nrrd
 import numpy as np
 
 from extensions.extension_base import ExtensionBase
@@ -231,3 +233,67 @@ class HeartSegmentation(ExtensionBase):
         self.context["mask_3c"] = mask_3c
 
         self.logger.info("Heart Segmentation Completed")
+
+
+python_code = """
+
+
+def exportLabelmap():
+    segmentationNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentationNode")
+    referenceVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
+    labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+    slicer.modules.segmentations.logic().ExportVisibleSegmentsToLabelmapNode(segmentationNode, labelmapVolumeNode, referenceVolumeNode)
+    filepath = outputPath + "/" + referenceVolumeNode.GetName() + "-label.nrrd"
+    slicer.util.saveNode(labelmapVolumeNode, filepath)
+    slicer.mrmlScene.RemoveNode(labelmapVolumeNode.GetDisplayNode().GetColorNode())
+    slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
+    slicer.util.delayDisplay("Segmentation saved to " + filepath)
+
+shortcut = qt.QShortcut(slicer.util.mainWindow())
+shortcut.setKey(qt.QKeySequence("Ctrl+Shift+s"))
+shortcut.connect( "activated()", exportLabelmap)
+
+"""
+
+
+class ExternalSegmentation(ExtensionBase):
+    def run(self) -> None:
+        self.logger.info("Running Heart Segmentation")
+
+        session = pathlib.Path(self.settings["session"])
+
+        output_path_code = "outputPath = '" + self.settings["session"] + "'"
+
+        script = output_path_code + python_code
+
+        self.logger.info("Opening Slicer for manual segmentation")
+        self.logger.info("Segment the LV and press Ctrl+Shift+s (Cmd+Shift+s) and close Slicer once done")
+
+        nrrd.write((session / "average_images.nrrd").as_posix(), self.context["average_images"])
+        print((session / "average_images.nrrd").as_posix())
+        subprocess.run(
+            [
+                "/Applications/Slicer.app/Contents/MacOS/Slicer",
+                (session / "average_images.nrrd").as_posix(),
+                "--python-code",
+                script,
+            ]
+        )
+
+        mask_3c = nrrd.read((session / "average_images-label.nrrd").as_posix())[0]
+
+        self.context["mask_3c"] = mask_3c
+
+        segmentation = {}
+
+        for slice_idx in self.context["slices"]:
+            segmentation[slice_idx] = {}
+
+            epi_contour, endo_contour = get_sa_contours(mask_3c[slice_idx])
+
+            segmentation[slice_idx]["epicardium"] = epi_contour
+            segmentation[slice_idx]["endocardium"] = endo_contour
+            segmentation[slice_idx]["anterior_ip"] = np.zeros(2)
+            segmentation[slice_idx]["inferior_ip"] = np.zeros(2)
+
+        self.context["segmentation"] = segmentation
