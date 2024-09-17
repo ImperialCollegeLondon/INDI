@@ -172,9 +172,16 @@ class RegistrationExVivo(ExtensionBase):
                     post_reg_mag_stack_mean = np.mean(np.array(mag_list), axis=0)
                 else:
                     # average of stack pre- and post-registration
-                    pre_reg_mag_stack_mean = np.mean(np.stack(images, axis=0), axis=0)
-                    mag_list, phase_list, diff_config_idx_list = map(list, zip(*registered_images))
-                    post_reg_mag_stack_mean = np.mean(np.array(mag_list), axis=0)
+                    mag = np.stack(images, axis=0)
+                    phase = np.stack(phase_images, axis=0)
+                    real_mean = np.mean(mag * np.cos(phase), axis=0)
+                    imag_mean = np.mean(mag * np.sin(phase), axis=0)
+                    pre_reg_mag_stack_mean = np.sqrt(np.square(real_mean) + np.square(imag_mean))
+
+                    real_list, imag_list, diff_config_idx_list = map(list, zip(*registered_images))
+                    post_reg_mag_stack_mean = np.mean(
+                        np.sqrt(np.square(np.stack(real_list)) + np.square(np.stack(imag_list))), axis=0
+                    )
 
                 plt.imsave(
                     self.debug_folder / f"reg_rigid_image_{slice_idx:06d}.png",  # noqa
@@ -184,9 +191,11 @@ class RegistrationExVivo(ExtensionBase):
 
             # Averaging the repetitions
             average_images = []
-            phase_images = []
+            # phase_images = []
             reg_rigid_images = []
+            post_averaging_indices = []
             for index in np.unique(indices):
+                post_averaging_indices.append(index)
                 if self.settings["complex_data"]:
                     registered_images_index = [
                         (img_real, img_imag) for img_real, img_imag, idx in registered_images if idx == index
@@ -194,11 +203,10 @@ class RegistrationExVivo(ExtensionBase):
                     average_image_real = np.mean([img[0] for img in registered_images_index], axis=0)
                     average_image_imag = np.mean([img[1] for img in registered_images_index], axis=0)
                     mag_list_real = [img[0] for img in registered_images_index]
-                    mag_list_imag = [img[1] for img in registered_images_index]
-                    mag = np.sqrt(np.square(mag_list_real) + np.square(mag_list_imag))
+                    # mag = np.sqrt(np.square(np.stack(mag_list_real)) + np.square(np.stack(mag_list_imag)))
                     reg_rigid_images += [mag[i] for i in range(len(mag_list_real))]
                     average_images.append(np.sqrt(np.square(average_image_real) + np.square(average_image_imag)))
-                    phase_images.append(np.arctan2(average_image_imag, average_image_real))
+                    # phase_images.append(np.arctan2(average_image_imag, average_image_real))
                 else:
                     registered_images_index = [img for img, idx in registered_images if idx == index]
                     average_images.append(np.mean(np.stack(registered_images_index), axis=0))
@@ -211,23 +219,14 @@ class RegistrationExVivo(ExtensionBase):
             registered_images = self._register_itk(
                 ref_images[slice_idx]["image"],
                 average_images,
-                phase_images,
                 registration_mask,
-                indices,
                 self.code_path / "extensions" / "image_registration_recipes" / "Elastix_bspline.txt",
             )
 
             if self.settings["debug"]:
-                if not self.settings["complex_data"]:
-                    # averaged image stack pre- and post-registration
-                    pre_reg_mag_stack_mean = np.mean(np.stack(average_images, axis=0), axis=0)
-                    mag_list, diff_config_idx_list = map(list, zip(*registered_images))
-                    post_reg_mag_stack_mean = np.mean(np.array(mag_list), axis=0)
-                else:
-                    # average of stack pre- and post-registration
-                    pre_reg_mag_stack_mean = np.mean(np.stack(images, axis=0), axis=0)
-                    mag_list, phase_list, diff_config_idx_list = map(list, zip(*registered_images))
-                    post_reg_mag_stack_mean = np.mean(np.stack(mag_list, axis=0), axis=0)
+                # average of stack pre- and post-registration
+                pre_reg_mag_stack_mean = np.copy(post_reg_mag_stack_mean)
+                post_reg_mag_stack_mean = np.mean(np.stack(registered_images, axis=0), axis=0)
 
                 plt.imsave(
                     self.debug_folder / f"reg_elastix_image_{slice_idx:06d}.png",  # noqa
@@ -236,12 +235,7 @@ class RegistrationExVivo(ExtensionBase):
                 )
 
             # get the arrays
-            if not self.settings["complex_data"]:
-                mag_list, diff_config_idx_list = map(list, zip(*registered_images))
-                reg_images[slice_idx] = np.array(mag_list)
-            else:
-                mag_list, phase_list, diff_config_idx_list = map(list, zip(*registered_images))
-                reg_images[slice_idx] = np.array(mag_list) * np.exp(1j * np.array(phase_list))
+            reg_images[slice_idx] = np.array(registered_images)
 
             np.savez(
                 reg_file_path,
@@ -283,7 +277,7 @@ class RegistrationExVivo(ExtensionBase):
         self.context["ref_images"] = ref_images
         self.settings["complex_data"] = False
 
-    def _register_itk(self, ref_image, images, phase_images, mask, indices, recipe):
+    def _register_itk(self, ref_image, images, mask, recipe):
         ref_image = itk.GetImageFromArray(np.array(ref_image, order="F", dtype=np.float32))
         mask = itk.GetImageFromArray(np.array(mask, order="F", dtype=np.uint8))
 
@@ -296,31 +290,34 @@ class RegistrationExVivo(ExtensionBase):
 
             if self.settings["complex_data"]:
                 # Array must be in Fortran order
-                img_reg, transform = itk.elastix_registration_method(
+                img_reg, _ = itk.elastix_registration_method(
                     ref_image,
                     itk.GetImageFromArray(np.array(mov_image, order="F", dtype=np.float32)),
                     parameter_object=parameter_object,
                     log_to_console=False,
                     fixed_mask=mask,
                 )
-                mov_image_real = mov_image * np.cos(phase_images[i])
-                mov_image_imag = mov_image * np.sin(phase_images[i])
-
-                img_reg_real = itk.transformix_filter(
-                    itk.GetImageFromArray(np.array(mov_image_real, order="F", dtype=np.float32)),
-                    transform,
-                )
-
-                img_reg_imag = itk.transformix_filter(
-                    itk.GetImageFromArray(np.array(mov_image_imag, order="F", dtype=np.float32)),
-                    transform,
-                )
-
-                img_reg_real = itk.GetArrayFromImage(img_reg_real)
-                img_reg_imag = itk.GetArrayFromImage(img_reg_imag)
+                # mov_image_real = mov_image * np.cos(phase_images[i])
+                # mov_image_imag = mov_image * np.sin(phase_images[i])
+                #
+                # img_reg_real = itk.transformix_filter(
+                #     itk.GetImageFromArray(np.array(mov_image_real, order="F", dtype=np.float32)),
+                #     transform,
+                # )
+                #
+                # img_reg_imag = itk.transformix_filter(
+                #     itk.GetImageFromArray(np.array(mov_image_imag, order="F", dtype=np.float32)),
+                #     transform,
+                # )
+                #
+                # img_reg_real = itk.GetArrayFromImage(img_reg_real)
+                # img_reg_imag = itk.GetArrayFromImage(img_reg_imag)
 
                 # For some reason the registration is flipped (ITK uses Fortan order)
-                return img_reg_real.T, img_reg_imag.T, indices[i]
+
+                img_reg = itk.GetArrayFromImage(img_reg)
+
+                return img_reg.T
             else:
                 img_reg, _ = itk.elastix_registration_method(
                     ref_image,
@@ -331,7 +328,7 @@ class RegistrationExVivo(ExtensionBase):
                 )
                 img_reg = itk.GetArrayFromImage(img_reg)
                 img_reg[img_reg < 0] = 0
-                return img_reg.T, indices[i]
+                return img_reg.T
 
         # registered_images = Parallel(n_jobs=-1)(
         #     delayed(register)(i) for i in tqdm(range(1, len(images)), desc="Registering images")
