@@ -201,7 +201,6 @@ def get_data_from_dicoms(
     elif dicom_type == 1:
         header_table.sort_values(by=["AcquisitionDateTime"], inplace=True)
 
-    print(header_table)
     # reset index
     header_table.reset_index(drop=True, inplace=True)
 
@@ -257,7 +256,7 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
                 rows = []
                 for val in unique_vals:
                     temp = json.loads(val)
-                    temp = [f"{i:.{decimal_places}f}" for i in temp]
+                    temp = [f"{i:.{decimal_places}f}" for i in temp]  # noqa
                     rows.append(temp)
 
                 def equalLists(lists):

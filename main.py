@@ -13,8 +13,7 @@ import matplotlib
 import pyautogui
 
 from extensions.complex_averaging import complex_averaging
-
-# from extensions.crop.crop import Crop
+from extensions.crop.crop import Crop
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
@@ -108,7 +107,6 @@ for current_folder in all_to_be_analysed_folders:
         data = context["data"]
         slices = context["slices"]
         info = context["info"]
-
 
     # =========================================================
     # DWIs registration

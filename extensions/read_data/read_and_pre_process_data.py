@@ -1494,13 +1494,14 @@ def list_files(data_type: str, logger: logging, settings: dict) -> Tuple[str, Li
                 if os.path.isdir(os.path.join(settings["dicom_folder"], f, "pdata"))
             ]
 
-            if (
-                os.path.exists(os.path.join(list_bruker[0], "pdata/2"))
-                or os.path.exists(os.path.join(list_bruker[0], "pdata/3"))
-                or os.path.exists(os.path.join(list_bruker[0], "pdata/phase"))
-            ):
-                settings["complex_data"] = True
+            if list_bruker:
+                if (
+                    os.path.exists(os.path.join(list_bruker[0], "pdata/2"))
+                    or os.path.exists(os.path.join(list_bruker[0], "pdata/3"))
+                    or os.path.exists(os.path.join(list_bruker[0], "pdata/phase"))
+                ):
+                    settings["complex_data"] = True
 
-            data_type = "bruker"
+                data_type = "bruker"
 
     return data_type, list_dicoms, list_dicoms_phase, list_nii, list_bruker
