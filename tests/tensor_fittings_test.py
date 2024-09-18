@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from extensions.tensor_fittings import dipy_tensor_fit
+from extensions.tensor_fittings.tensor_fittings import dipy_tensor_fit
 
 
 def test_dipy_tensor_fit():

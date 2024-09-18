@@ -14,7 +14,7 @@ from extensions.segmentation.manual_segmentation import (
     plot_manual_lv_segmentation,
 )
 from extensions.segmentation.polygon_selector import spline_interpolate_contour
-from extensions.tensor_fittings import dipy_tensor_fit
+from extensions.tensor_fittings.tensor_fittings import dipy_tensor_fit
 
 # Ideas
 # Use a dynamically set tool for segmentation.
@@ -30,10 +30,10 @@ def get_premliminary_ha_md_maps(slices, average_images, data, info, settings, lo
     session = pathlib.Path(settings["session"])
     # check if LV manual segmentation has been previously saved
     # if not calculate a prelim HA map
-    prelim_ha = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
-    prelim_md = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
+    prelim_ha = np.zeros((info["n_slices"], info["img_size"][0], info["img_size"][1]))
+    prelim_md = np.zeros((info["n_slices"], info["img_size"][0], info["img_size"][1]))
     # mask is all ones here for now.
-    thr_mask = np.ones((n_slices, info["img_size"][0], info["img_size"][1]))
+    thr_mask = np.ones((info["n_slices"], info["img_size"][0], info["img_size"][1]))
     # loop over the slices
     for slice_idx in slices:
         if not (session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz").exists():
@@ -93,7 +93,7 @@ class HeartSegmentation(ExtensionBase):
 
         mask_3c = np.zeros(
             (
-                n_slices,
+                self.context["info"]["n_slices"],
                 self.context["info"]["img_size"][0],
                 self.context["info"]["img_size"][1],
             ),
@@ -101,7 +101,7 @@ class HeartSegmentation(ExtensionBase):
         )
         thr_mask = np.ones(
             (
-                n_slices,
+                self.context["info"]["n_slices"],
                 self.context["info"]["img_size"][0],
                 self.context["info"]["img_size"][1],
             ),

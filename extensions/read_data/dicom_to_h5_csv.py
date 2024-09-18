@@ -6,6 +6,7 @@ Python script to convert DICOM files to HDF5 (pixel array), and CSV files with m
 """
 
 import copy
+import json
 import logging
 import os
 import sys
@@ -15,6 +16,7 @@ import pandas as pd
 import pydicom
 import scipy
 import yaml
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from extensions.extensions import mag_to_rad, rad_to_mag
@@ -199,6 +201,7 @@ def get_data_from_dicoms(
     elif dicom_type == 1:
         header_table.sort_values(by=["AcquisitionDateTime"], inplace=True)
 
+    print(header_table)
     # reset index
     header_table.reset_index(drop=True, inplace=True)
 
@@ -246,14 +249,35 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
         if is_unique(data["temp"]):
             header_info[field] = data[field].values[0]
         else:
-            logger.error("Field " + field + " is not unique in table.")
-            sys.exit()
+            if field == "image_orientation_patient":
+                # check if different values are different just in rounding errors
+                decimal_places = 3
+                unique_vals = data["temp"].unique()
+
+                rows = []
+                for val in unique_vals:
+                    temp = json.loads(val)
+                    temp = [f"{i:.{decimal_places}f}" for i in temp]
+                    rows.append(temp)
+
+                def equalLists(lists):
+                    return not lists or all(lists[0] == b for b in lists[1:])
+
+                if equalLists(rows):
+                    header_info[field] = data[field].values[0]
+                else:
+                    logger.error("Field " + field + " is not unique in table.")
+                    sys.exit()
+            else:
+                logger.error("Field " + field + " is not unique in table.")
+                sys.exit()
 
     # merge header info into info
     info = {**info, **header_info}
 
     # remove temp column
-    data = data.drop("temp", axis=1)
+    if "temp" in data.columns:  # field_list is empty in ex-vivo scans
+        data = data.drop("temp", axis=1)
 
     return info, data
 
@@ -563,11 +587,13 @@ def read_all_dicom_files(
     -------
 
     """
-    # loop through all DICOM files
-    list_of_dictionaries = []
-    for idx, file_name in enumerate(tqdm(dicom_files, desc="Reading DICOMs")):
-        # read current DICOM
-        c_dicom_header = pydicom.dcmread(open(file_name, "rb"))
+
+    # list_of_dictionaries = [[dict() for _ in range(n_images_per_file)] for _ in range(len(dicom_files))]
+
+    def read_file(file_name):
+        list_of_dictionaries = [dict() for _ in range(n_images_per_file)]
+        with open(file_name, "rb") as f:
+            c_dicom_header = pydicom.dcmread(f)
 
         for frame_idx in range(n_images_per_file):
             # collect pixel values
@@ -606,7 +632,8 @@ def read_all_dicom_files(
 
                 c_dict = copy.deepcopy(c_dict_general)
 
-                list_of_dictionaries.append(c_dict)
+                # list_of_dictionaries[idx][frame_idx] = c_dict
+                list_of_dictionaries[frame_idx] = c_dict
 
             # ====================================
             # enhanced dicom format
@@ -639,10 +666,18 @@ def read_all_dicom_files(
                 # fields from the general one)
                 c_dict = {**c_dict_general, **c_dict}
 
-                list_of_dictionaries.append(c_dict)
+                # list_of_dictionaries[idx][frame_idx] = c_dict
+                list_of_dictionaries[frame_idx] = c_dict
 
+        return list_of_dictionaries
+
+    # loop through all DICOM files
+
+    list_of_dictionaries = Parallel(n_jobs=-1)(
+        delayed(read_file)(file_name) for file_name in tqdm(dicom_files, desc="Reading DICOMs")
+    )
     # create dataframe from list_of_dictionaries
-    header_table = pd.DataFrame(list_of_dictionaries)
+    header_table = pd.DataFrame([x for xs in list_of_dictionaries for x in xs])
 
     return header_table
 
