@@ -195,9 +195,9 @@ def manual_crop(image):
     }
 
     img_plots = {
-        "top": axs[2].imshow(image[:, :, nz // 2], cmap="gray", aspect='auto', extent=(0, ny, 0, nx)),
-        "side": axs[1].imshow(image[:, ny // 2, :], cmap="gray", aspect='auto', extent=(0, nz, 0, nx)),
-        "front": axs[0].imshow(image[nx // 2, :, :], cmap="gray", aspect='auto', extent=(0, nz, 0, ny)),
+        "top": axs[2].imshow(image[:, :, nz // 2], cmap="gray", aspect="auto", extent=(0, ny, 0, nx)),
+        "side": axs[1].imshow(image[:, ny // 2, :], cmap="gray", aspect="auto", extent=(0, nz, 0, nx)),
+        "front": axs[0].imshow(image[nx // 2, :, :], cmap="gray", aspect="auto", extent=(0, nz, 0, ny)),
     }
 
     axs[0].set_title("Front view")
@@ -298,7 +298,7 @@ class Crop(ExtensionBase):
         # crop the data
         data["image"] = data["image"].apply(lambda x: x[self.row[0] : self.row[1], self.col[0] : self.col[1]])
         slices = self.context["slices"][self.slice[0] : self.slice[1]]
-        data = data[data['slice_integer'].isin(slices)]
+        data = data[data["slice_integer"].isin(slices)]
 
         self._save_crop()
 

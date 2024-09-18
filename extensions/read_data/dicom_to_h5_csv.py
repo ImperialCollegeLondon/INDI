@@ -671,8 +671,12 @@ def read_all_dicom_files(
         return list_of_dictionaries
 
     # loop through all DICOM files
-
-    list_of_dictionaries = Parallel(n_jobs=-1)(
+    # if more than 1000 images, then parallelise the reading
+    if len(dicom_files * n_images_per_file) > 1000:
+        n_jobs = -1
+    else:
+        n_jobs = 1
+    list_of_dictionaries = Parallel(n_jobs=n_jobs)(
         delayed(read_file)(file_name) for file_name in tqdm(dicom_files, desc="Reading DICOMs")
     )
     # create dataframe from list_of_dictionaries

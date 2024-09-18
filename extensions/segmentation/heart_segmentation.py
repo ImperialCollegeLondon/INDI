@@ -26,7 +26,7 @@ def get_premliminary_ha_md_maps(slices, average_images, data, info, settings, lo
     # Preliminary HA map
     # =========================================================
 
-    n_slices = len(slices)
+    # n_slices = len(slices)
     session = pathlib.Path(settings["session"])
     # check if LV manual segmentation has been previously saved
     # if not calculate a prelim HA map
