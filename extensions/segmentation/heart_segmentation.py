@@ -4,6 +4,7 @@ import subprocess
 import cv2 as cv
 import nrrd
 import numpy as np
+import pandas as pd
 
 from extensions.extension_base import ExtensionBase
 from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
@@ -247,6 +248,12 @@ def exportLabelmap():
     slicer.util.saveNode(labelmapVolumeNode, filepath)
     slicer.mrmlScene.RemoveNode(labelmapVolumeNode.GetDisplayNode().GetColorNode())
     slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
+
+    points = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsNode")
+    for i, p in enumerate(points):
+        fname = outputPath + "/insertion_point_" + str(i+1) + ".csv"
+        slicer.modules.markups.logic().ExportControlPointsToCSV(p, fname)
+
     slicer.util.delayDisplay("Segmentation saved to " + filepath)
 
 shortcut = qt.QShortcut(slicer.util.mainWindow())
@@ -285,6 +292,15 @@ class ExternalSegmentation(ExtensionBase):
 
         self.context["mask_3c"] = mask_3c
 
+        points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
+        points_numpy = []
+        for p in points:
+            points_numpy.append(np.asarray([p["s"][0], p["p"][0]]))
+
+        if len(points_numpy) == 0:
+            self.logger.info("No insertion points found")
+            points_numpy = [np.zeros((2)), np.zeros((2))]
+
         segmentation = {}
 
         for slice_idx in self.context["slices"]:
@@ -294,7 +310,7 @@ class ExternalSegmentation(ExtensionBase):
 
             segmentation[slice_idx]["epicardium"] = epi_contour
             segmentation[slice_idx]["endocardium"] = endo_contour
-            segmentation[slice_idx]["anterior_ip"] = np.zeros(2)
-            segmentation[slice_idx]["inferior_ip"] = np.zeros(2)
+            segmentation[slice_idx]["anterior_ip"] = points_numpy[0]
+            segmentation[slice_idx]["inferior_ip"] = points_numpy[1]
 
         self.context["segmentation"] = segmentation
