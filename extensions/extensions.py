@@ -2052,7 +2052,7 @@ def remove_slices(
     original_n_slices = len(slices)
 
     # slices is going to be a list of all the integers
-    slices = data.slice_integer.unique()
+    slices = data.slice_integer.unique().astype(int)
 
     # remove slices from segmentation
     deepcopy_segmentation = copy.deepcopy(segmentation)

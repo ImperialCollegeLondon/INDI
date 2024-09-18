@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
+from extensions.image_registration import get_registration_mask
 
 
 def rotate_vector(vector: NDArray, angle: Number, axis: str) -> NDArray:
@@ -46,81 +47,90 @@ def plot_rotation(image: NDArray, image_rotated: NDArray, index, angle: int, axi
 
     fig.suptitle(f"Rotated image {index} by {angle} degrees around the {axis} axis")
     fig.savefig(os.path.join(settings["debug_folder"], f"rotation_{index}_{angle}_{axis}.png"))
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 class Rotation(ExtensionBase):
     def run(self) -> None:
-        data = self.context["data"]
-        # get the rotation angle
-        angle = self.settings["rotation_angle"]
-        if angle == 90:
-            k = 1
-        elif angle == 180:
-            k = 2
-        elif angle == -90:
-            k = -1
-        else:
-            raise ValueError(f"Angle {angle} is not supported.")
-        # get the axis
-        axis = self.settings["rotation_axis"]
+        if self.settings["rotate"]:
+            data = self.context["data"]
+            ref_images = self.context["ref_images"]
+            ref_images_array = np.stack([ref_images[i]["image"] for i in self.context["slices"]], axis=0)
 
-        data_rotated = pd.DataFrame(
-            dict(image=[], slice_integer=[], b_value=[], diffusion_direction=[], image_position=[])
-        )
-        average_images = []
-        slices = self.context["slices"]
-        print(slices)
-        print(data)
-        # Build the images
-        for index in tqdm(data["index"].unique(), desc="Rotating images"):
-            img = [
-                np.asarray(data[(data["slice_integer"] == i) & (data["index"] == index)]["image"])[0] for i in slices
-            ]
-            image = np.stack(img, axis=0)
-            average_images.append(image)
+            # get the rotation angle
+            angle = self.settings["rotation_angle"]
+            if angle == 90:
+                k = 1
+            elif angle == 180:
+                k = 2
+            elif angle == -90:
+                k = -1
+            else:
+                raise ValueError(f"Angle {angle} is not supported.")
+            # get the axis
+            axis = self.settings["rotation_axis"]
 
-            # rotate the image
-            if axis == "z":
-                image_rotated = np.rot90(image, k=k, axes=(0, 1))
-            elif axis == "y":
-                image_rotated = np.rot90(image, k=k, axes=(0, 2))
-            elif axis == "x":
-                image_rotated = np.rot90(image, k=k, axes=(1, 2))
-
-            diffusion_direction = rotate_vector(
-                data[data["index"] == index]["diffusion_direction"].values[0], angle, axis
+            data_rotated = pd.DataFrame(
+                dict(image=[], slice_integer=[], b_value=[], diffusion_direction=[], image_position=[])
             )
-            # this is wrong, we need to get the image spacing on the new plane
-            # only true if the resolution is isotropic
-            image_position = [
-                (0.0, 0.0, i * self.context["info"]["slice_thickness"]) for i in range(image_rotated.shape[0])
-            ]
-            b_value = data[data["index"] == index]["b_value"].values[0]
+            average_images = []
+            slices = self.context["slices"]
 
-            data_rotated = pd.concat(
-                [
-                    data_rotated,
-                    pd.DataFrame(
-                        dict(
-                            image=[image_rotated[i, :, :] for i in range(image_rotated.shape[0])],
-                            b_value=[b_value for _ in range(image_rotated.shape[0])],
-                            diffusion_direction=[diffusion_direction for _ in range(image_rotated.shape[0])],
-                            image_position=image_position,
-                            slice_integer=np.arange(image_rotated.shape[0], dtype=int),
-                        )
-                    ),
+            # Build the images
+            for index in tqdm(data["index"].unique(), desc="Rotating images"):
+                img = [
+                    np.asarray(data[(data["slice_integer"] == i) & (data["index"] == index)]["image"])[0]
+                    for i in slices
                 ]
-            )
+                image = np.stack(img, axis=0)
+                average_images.append(image)
 
-            # plot the rotation
-            if self.settings["debug"]:
-                plot_rotation(image, image_rotated, index, angle, axis, self.settings)
+                # rotate the image
+                if axis == "z":
+                    image_rotated = np.rot90(image, k=k, axes=(0, 1))
+                    ref_images_array = np.rot90(ref_images_array, k=k, axes=(0, 1))
+                elif axis == "y":
+                    image_rotated = np.rot90(image, k=k, axes=(0, 2))
+                    ref_images_array = np.rot90(ref_images_array, k=k, axes=(0, 2))
+                elif axis == "x":
+                    image_rotated = np.rot90(image, k=k, axes=(1, 2))
+                    ref_images_array = np.rot90(ref_images_array, k=k, axes=(1, 2))
 
-        self.context["info"]["img_size"] = image_rotated.shape[1:]
-        self.context["info"]["n_slices"] = image_rotated.shape[0]
+                diffusion_direction = rotate_vector(
+                    data[data["index"] == index]["diffusion_direction"].values[0], angle, axis
+                )
+                # this is wrong, we need to get the image spacing on the new plane
+                # only true if the resolution is isotropic
+                image_position = [
+                    (0.0, 0.0, i * self.context["info"]["slice_thickness"]) for i in range(image_rotated.shape[0])
+                ]
+                b_value = data[data["index"] == index]["b_value"].values[0]
 
-        self.logger.info(f"Rotated the image by {angle} degrees around the {axis} axis.")
+                data_rotated = pd.concat(
+                    [
+                        data_rotated,
+                        pd.DataFrame(
+                            dict(
+                                image=[image_rotated[i, :, :] for i in range(image_rotated.shape[0])],
+                                b_value=[b_value for _ in range(image_rotated.shape[0])],
+                                diffusion_direction=[diffusion_direction for _ in range(image_rotated.shape[0])],
+                                image_position=image_position,
+                                slice_integer=np.arange(image_rotated.shape[0], dtype=int),
+                            )
+                        ),
+                    ]
+                )
 
-        self.context["data"] = data_rotated
-        self.context["slices"] = np.arange(image_rotated.shape[0], dtype=int)
+                # plot the rotation
+                if self.settings["debug"]:
+                    plot_rotation(image, image_rotated, index, angle, axis, self.settings)
+
+            self.context["info"]["img_size"] = image_rotated.shape[1:]
+            self.context["info"]["n_slices"] = image_rotated.shape[0]
+            self.context["reg_mask"], _ = get_registration_mask(self.context["info"], self.settings)
+            self.context["ref_images"] = {i: {"image": ref_images_array[i]} for i in range(len(ref_images_array))}
+            self.logger.info(f"Rotated the image by {angle} degrees around the {axis} axis.")
+
+            self.context["data"] = data_rotated
+            self.context["slices"] = np.arange(image_rotated.shape[0], dtype=int)

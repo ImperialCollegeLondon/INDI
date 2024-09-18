@@ -102,7 +102,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # DWIs registration
     # =========================================================
-    if settings["ex_vivo"]:
+    if False and settings["ex_vivo"]:
         logger.info("Ex-vivo mode is True. Using ex-vivo registration.")
         context = {"data": data, "info": info}
         RegistrationExVivo(context, settings, logger).run()
@@ -124,10 +124,12 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     if settings["ex_vivo"] and settings["rotate"]:
         logger.info("Ex-vivo rotation is True")
-        context = {"data": data, "info": info, "slices": slices}
+        context = {"data": data, "info": info, "slices": slices, "ref_images": ref_images}
         Rotation(context, settings, logger).run()
         data = context["data"]
         slices = context["slices"]
+        reg_mask = context["reg_mask"]
+        ref_images = context["ref_images"]
         info = context["info"]
         # data, slices, info = rotate_data(data, slices, info, settings, logger)
 
