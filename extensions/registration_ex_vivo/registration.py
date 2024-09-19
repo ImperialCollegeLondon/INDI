@@ -322,31 +322,26 @@ class RegistrationExVivo(ExtensionBase):
         self.settings["complex_data"] = False
 
     def _register_itk(self, ref_image, images, mask, recipe):
-        ref_image = itk.GetImageFromArray(np.array(ref_image, order="F", dtype=np.float32))
-        mask = itk.GetImageFromArray(np.array(mask, order="F", dtype=np.uint8))
+        ref_image = itk.GetImageFromArray(np.array(ref_image, dtype=np.float32))
+        mask = itk.GetImageFromArray(np.array(mask, dtype=np.uint8))
 
-        # TODO do we need the Fortran order here?
-
-        # Denoise the images ?
         parameter_object = itk.ParameterObject.New()
         parameter_object.AddParameterFile(recipe.as_posix())
 
         def register(i):
             mov_image = images[i]
 
-            # Array must be in Fortran order
             img_reg, _ = itk.elastix_registration_method(
                 ref_image,
-                itk.GetImageFromArray(np.array(mov_image, order="F", dtype=np.float32)),
+                itk.GetImageFromArray(np.array(mov_image, dtype=np.float32)),
                 parameter_object=parameter_object,
                 log_to_console=False,
                 fixed_mask=mask,
             )
 
-            # For some reason the registration is flipped (ITK uses Fortan order)
             img_reg = itk.GetArrayFromImage(img_reg)
 
-            return img_reg.T
+            return img_reg
 
         registered_images = [
             register(i) for i in tqdm(range(0, len(images)), desc="Non-rigid reg images", position=2, leave=False)
