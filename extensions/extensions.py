@@ -854,6 +854,7 @@ def get_snr_maps(
     for slice_idx in slices:
         # dataframe for each slice
         current_entries = data.loc[data["slice_integer"] == slice_idx].copy()
+
         # how many diffusion configs do we have for this slice?
         current_entries["diffusion_direction"] = [tuple(lst_in) for lst_in in current_entries["diffusion_direction"]]
         diffusion_configs_table = (
@@ -891,36 +892,38 @@ def get_snr_maps(
                 snr[slice_idx][key_string] = np.divide(np.mean(img_stack, axis=0), std_array)
                 noise[slice_idx][key_string] = std_array
 
-                if round(row["b_value_original"]) == 0:
-                    snr_values = snr[slice_idx][key_string]
-                    snr_b0_lv[slice_idx] = {}
-                    snr_b0_lv[slice_idx]["median"] = np.nanmedian(snr_values[mask_3c[slice_idx] == 1])
-                    snr_b0_lv[slice_idx]["iqr"] = [
-                        np.nanpercentile(snr_values[mask_3c[slice_idx] == 1], 25),
-                        np.nanpercentile(snr_values[mask_3c[slice_idx] == 1], 75),
-                    ]
+                if not settings["ex_vivo"]:
+                    if round(row["b_value_original"]) == 0:
+                        snr_values = snr[slice_idx][key_string]
+                        snr_b0_lv[slice_idx] = {}
+                        snr_b0_lv[slice_idx]["median"] = np.nanmedian(snr_values[mask_3c[slice_idx] == 1])
+                        snr_b0_lv[slice_idx]["iqr"] = [
+                            np.nanpercentile(snr_values[mask_3c[slice_idx] == 1], 25),
+                            np.nanpercentile(snr_values[mask_3c[slice_idx] == 1], 75),
+                        ]
 
-    # we can only store these values if we have b0 data
-    if bool(snr_b0_lv):
-        # add to logger mean SNR for each slice for b0
-        info["LV SNR b0"] = {}
-        for slice_idx in slices:
-            if slice_idx in snr_b0_lv:
-                logger.debug(
-                    "LV SNR for slice "
-                    + str(slice_idx).zfill(2)
-                    + " b0 images = "
-                    + "%.2f" % snr_b0_lv[slice_idx]["median"]
-                    + " ["
-                    + "%.2f" % snr_b0_lv[slice_idx]["iqr"][0]
-                    + ", "
-                    + "%.2f" % snr_b0_lv[slice_idx]["iqr"][1]
-                    + "]"
-                )
-            else:
-                logger.debug(
-                    "LV SNR for slice " + str(slice_idx).zfill(2) + " b0 images = " + "Not enough repetitions."
-                )
+    if not settings["ex_vivo"]:
+        # we can only store these values if we have b0 data
+        if bool(snr_b0_lv):
+            # add to logger mean SNR for each slice for b0
+            info["LV SNR b0"] = {}
+            for slice_idx in slices:
+                if slice_idx in snr_b0_lv:
+                    logger.debug(
+                        "LV SNR for slice "
+                        + str(slice_idx).zfill(2)
+                        + " b0 images = "
+                        + "%.2f" % snr_b0_lv[slice_idx]["median"]
+                        + " ["
+                        + "%.2f" % snr_b0_lv[slice_idx]["iqr"][0]
+                        + ", "
+                        + "%.2f" % snr_b0_lv[slice_idx]["iqr"][1]
+                        + "]"
+                    )
+                else:
+                    logger.debug(
+                        "LV SNR for slice " + str(slice_idx).zfill(2) + " b0 images = " + "Not enough repetitions."
+                    )
 
     if settings["debug"]:
         for slice_idx in slices:
@@ -930,7 +933,8 @@ def get_snr_maps(
                 plt.figure(figsize=(3 * len(snr[slice_idx]), 3))
                 for idx, key in enumerate(snr[slice_idx]):
                     plt.subplot(1, len(snr[slice_idx]), idx + 1)
-                    plt.imshow(average_images[slice_idx], cmap="Greys_r")
+                    if average_images is not None:
+                        plt.imshow(average_images[slice_idx], cmap="Greys_r")
                     plt.imshow(snr[slice_idx][key], vmin=0, vmax=20, cmap="magma", alpha=alphas_whole_heart)
                     plt.axis("off")
                     plt.title(key, fontsize=7)
@@ -2053,6 +2057,7 @@ def remove_slices(
 
     # slices is going to be a list of all the integers
     slices = data.slice_integer.unique()
+    slices = [int(i) for i in slices]
 
     # remove slices from segmentation
     deepcopy_segmentation = copy.deepcopy(segmentation)

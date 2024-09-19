@@ -69,8 +69,8 @@ def rotate_data(
     average_images = []
 
     # Build the images
-    for index in data["index"].unique():
-        img = [data[(data["slice_integer"] == i) & (data["index"] == index)]["image"].values for i in slices]
+    for index in data["diff_config"].unique():
+        img = [data[(data["slice_integer"] == i) & (data["diff_config"] == index)]["image"].values for i in slices]
         for i in range(len(img)):
             if len(img[i]) > 1:
                 img[i] = np.mean(img[i], axis=0)  # check for normalization and complex images
@@ -90,11 +90,13 @@ def rotate_data(
         if settings["debug"]:
             plot_rotation(image, image_rotated, index, angle, axis, settings)
 
-        diffusion_direction = rotate_vector(data[data["index"] == index]["diffusion_direction"].values[0], angle, axis)
+        diffusion_direction = rotate_vector(
+            data[data["diff_config"] == index]["diffusion_direction"].values[0], angle, axis
+        )
         # this is wrong, we need to get the image spacing on the new plane
         # only true if the resolution is isotropic
         image_position = [(0.0, 0.0, i * data["slice_thickness"][0]) for i in range(image_rotated.shape[0])]
-        b_value = data[data["index"] == index]["b_value"].values[0]
+        b_value = data[data["diff_config"] == index]["b_value"].values[0]
 
         data_rotated = pd.concat(
             [

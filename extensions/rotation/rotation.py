@@ -73,9 +73,10 @@ class Rotation(ExtensionBase):
         print(slices)
         print(data)
         # Build the images
-        for index in tqdm(data["index"].unique(), desc="Rotating images"):
+        for index in tqdm(data["diff_config"].unique(), desc="Rotating images"):
             img = [
-                np.asarray(data[(data["slice_integer"] == i) & (data["index"] == index)]["image"])[0] for i in slices
+                np.asarray(data[(data["slice_integer"] == i) & (data["diff_config"] == index)]["image"])[0]
+                for i in slices
             ]
             image = np.stack(img, axis=0)
             average_images.append(image)
@@ -89,14 +90,14 @@ class Rotation(ExtensionBase):
                 image_rotated = np.rot90(image, k=k, axes=(1, 2))
 
             diffusion_direction = rotate_vector(
-                data[data["index"] == index]["diffusion_direction"].values[0], angle, axis
+                data[data["diff_config"] == index]["diffusion_direction"].values[0], angle, axis
             )
             # this is wrong, we need to get the image spacing on the new plane
             # only true if the resolution is isotropic
             image_position = [
                 (0.0, 0.0, i * self.context["info"]["slice_thickness"]) for i in range(image_rotated.shape[0])
             ]
-            b_value = data[data["index"] == index]["b_value"].values[0]
+            b_value = data[data["diff_config"] == index]["b_value"].values[0]
 
             data_rotated = pd.concat(
                 [
