@@ -1,5 +1,6 @@
 import os
 import pathlib
+import sys
 from typing import Dict
 
 import itk
@@ -221,30 +222,40 @@ class RegistrationExVivo(ExtensionBase):
 
             # self.logger.info(f"BSpline registering slice {slice_idx}")
 
-            # =========================================
-            # non-rigid registration
-            # =========================================
-            registered_images = self._register_itk(
-                ref_images[slice_idx]["image"],
-                average_images,
-                registration_mask,
-                self.code_path / "extensions" / "image_registration_recipes" / "Elastix_bspline.txt",
-            )
+            if self.settings["ex_vivo_registration"] == "rigid":
+                # only doing rigid registration
+                reg_images[slice_idx] = average_images
 
-            # debug mean images pre and post non-rigid registration
-            if self.settings["debug"]:
-                # average of stack pre- and post-registration
-                pre_reg_mag_stack_mean = np.copy(post_reg_mag_stack_mean)
-                post_reg_mag_stack_mean = np.mean(np.stack(registered_images, axis=0), axis=0)
-
-                plt.imsave(
-                    self.debug_folder / f"reg_elastix_image_{slice_idx:06d}.png",  # noqa
-                    np.hstack((pre_reg_mag_stack_mean, post_reg_mag_stack_mean)).repeat(5, axis=0).repeat(5, axis=1),
-                    cmap="Greys_r",
+            elif self.settings["ex_vivo_registration"] == "non-rigid":
+                # =========================================
+                # non-rigid registration
+                # =========================================
+                registered_images = self._register_itk(
+                    ref_images[slice_idx]["image"],
+                    average_images,
+                    registration_mask,
+                    self.code_path / "extensions" / "image_registration_recipes" / "Elastix_bspline_ex_vivo.txt",
                 )
 
-            # get the arrays
-            reg_images[slice_idx] = np.array(registered_images)
+                # debug mean images pre and post non-rigid registration
+                if self.settings["debug"]:
+                    # average of stack pre- and post-registration
+                    pre_reg_mag_stack_mean = np.copy(post_reg_mag_stack_mean)
+                    post_reg_mag_stack_mean = np.mean(np.stack(registered_images, axis=0), axis=0)
+
+                    plt.imsave(
+                        self.debug_folder / f"reg_elastix_image_{slice_idx:06d}.png",  # noqa
+                        np.hstack((pre_reg_mag_stack_mean, post_reg_mag_stack_mean))
+                        .repeat(5, axis=0)
+                        .repeat(5, axis=1),
+                        cmap="Greys_r",
+                    )
+
+                # get the arrays
+                reg_images[slice_idx] = np.array(registered_images)
+            else:
+                self.logger.error("Ex-vivo registration option error! " + self.settings["ex_vivo_registration"])
+                sys.exit()
 
             np.savez(
                 reg_file_path,
@@ -271,7 +282,7 @@ class RegistrationExVivo(ExtensionBase):
 
         # Calculate SNR maps
         mask_3c = np.ones(
-            (len(slices), self.context["info"]["img_size"][0], self.context["info"]["img_size"][1]), dtype="uint8"
+            (max(slices) + 1, self.context["info"]["img_size"][0], self.context["info"]["img_size"][1]), dtype="uint8"
         )
         self.context["snr"], self.context["noise"], self.context["snr_b0_lv"], self.context["info"] = get_snr_maps(
             self.reg_rigid_df, mask_3c, None, slices, self.settings, self.logger, self.context["info"]
