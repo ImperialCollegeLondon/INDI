@@ -535,7 +535,6 @@ def load_bruker(paths: List[Path], phase_data_present: bool) -> Tuple[pd.DataFra
     images_phase = []
 
     for idx, path in enumerate(tqdm(paths)):
-        print(path)
         (
             order,
             images,
