@@ -99,10 +99,8 @@ def crop_images(
     temp_val = list(first_corner)
     info["crop_corner"] = [int(i) for i in temp_val]
 
-    print(slices)
     # crop the diffusion images from the table
     for slice_idx in slices:
-        print(slice_idx)
         c_data = data[data.slice_integer == slice_idx].copy()
         background_mask = np.copy(mask_3c[slice_idx])
         background_mask[background_mask > 0] = 1

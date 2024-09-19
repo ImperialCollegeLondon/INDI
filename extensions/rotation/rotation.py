@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
+from extensions.image_registration import get_registration_mask
 
 
 def rotate_vector(vector: NDArray, angle: Number, axis: str) -> NDArray:
@@ -54,17 +55,17 @@ class Rotation(ExtensionBase):
     def run(self) -> None:
         if self.settings["rotate"]:
             data = self.context["data"]
-            # ref_images = self.context["ref_images"]
-            # ref_images_array = np.stack([ref_images[i]["image"] for i in self.context["slices"]], axis=0)
+            ref_images = self.context["ref_images"]
+            ref_images_array = np.stack([ref_images[i]["image"] for i in self.context["slices"]], axis=0)
 
             # get the rotation angle
             angle = self.settings["rotation_angle"]
             if angle == 90:
-                k = 1
+                rot_k = 1
             elif angle == 180:
-                k = 2
+                rot_k = 2
             elif angle == -90:
-                k = -1
+                rot_k = -1
             else:
                 raise ValueError(f"Angle {angle} is not supported.")
             # get the axis
@@ -76,7 +77,8 @@ class Rotation(ExtensionBase):
             average_images = []
             slices = self.context["slices"]
             data["slice_integer"] = data["slice_integer"].apply(int)
-            print(data)
+
+            self.rotate_snr(axis, rot_k)
 
             # Build the images
             for index in tqdm(data["diff_config"].unique(), desc="Rotating images"):
@@ -93,14 +95,14 @@ class Rotation(ExtensionBase):
 
                 # rotate the image
                 if axis == "z":
-                    image_rotated = np.rot90(image, k=k, axes=(0, 1))
-                    # ref_images_array = np.rot90(ref_images_array, k=k, axes=(0, 1))
+                    image_rotated = np.rot90(image, k=rot_k, axes=(0, 1))
+                    ref_images_array = np.rot90(ref_images_array, k=rot_k, axes=(0, 1))
                 elif axis == "y":
-                    image_rotated = np.rot90(image, k=k, axes=(0, 2))
-                    # ref_images_array = np.rot90(ref_images_array, k=k, axes=(0, 2))
+                    image_rotated = np.rot90(image, k=rot_k, axes=(0, 2))
+                    ref_images_array = np.rot90(ref_images_array, k=rot_k, axes=(0, 2))
                 elif axis == "x":
-                    image_rotated = np.rot90(image, k=k, axes=(1, 2))
-                    # ref_images_array = np.rot90(ref_images_array, k=k, axes=(1, 2))
+                    image_rotated = np.rot90(image, k=rot_k, axes=(1, 2))
+                    ref_images_array = np.rot90(ref_images_array, k=rot_k, axes=(1, 2))
 
                 diffusion_direction = rotate_vector(
                     data[data["diff_config"] == index]["diffusion_direction"].values[0], angle, axis
@@ -134,8 +136,8 @@ class Rotation(ExtensionBase):
 
             self.context["info"]["img_size"] = image_rotated.shape[1:]
             self.context["info"]["n_slices"] = image_rotated.shape[0]
-            # self.context["reg_mask"], _ = get_registration_mask(self.context["info"], self.settings)
-            # self.context["ref_images"] = {i: {"image": ref_images_array[i]} for i in range(len(ref_images_array))}
+            self.context["reg_mask"], _ = get_registration_mask(self.context["info"], self.settings)
+            self.context["ref_images"] = {i: {"image": ref_images_array[i]} for i in range(len(ref_images_array))}
             self.logger.info(f"Rotated the image by {angle} degrees around the {axis} axis.")
 
             data_rotated["diffusion_direction"] = data_rotated["diffusion_direction"].apply(tuple)
@@ -144,3 +146,38 @@ class Rotation(ExtensionBase):
 
             self.context["data"] = data_rotated
             self.context["slices"] = np.arange(image_rotated.shape[0], dtype=int)
+
+    def rotate_snr(self, axis, rot_k):
+        slices = self.context["slices"]
+        dti = self.context["dti"]
+
+        snr = {}
+
+        for i in slices:
+            for k in dti["snr"][i]:
+                snr[k] = {}
+
+        for i in slices:
+            for k in dti["snr"][i]:
+                snr[k][i] = dti["snr"][i][k]
+
+        for k in snr:
+            s = list(sorted(snr[k].items()))
+            snr[k] = [ss[1] for ss in s]
+        snr = pd.DataFrame(snr)
+
+        snr_arrays = {}
+        for key in snr:
+            snr_image = np.stack([snr[key].values[i] for i in range(len(snr[key]))])
+            if axis == "z":
+                snr_arrays[key] = np.rot90(snr_image, k=rot_k, axes=(0, 1))
+            elif axis == "y":
+                snr_arrays[key] = np.rot90(snr_image, k=rot_k, axes=(0, 2))
+            elif axis == "x":
+                snr_arrays[key] = np.rot90(snr_image, k=rot_k, axes=(1, 2))
+
+        snr = {}
+        for i in range(len(snr_arrays[key])):
+            snr[i] = {k: snr_arrays[k][i, ...] for k in snr_arrays.keys()}
+
+        self.context["dti"]["snr"] = snr
