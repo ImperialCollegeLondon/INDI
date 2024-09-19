@@ -330,18 +330,22 @@ class RegistrationExVivo(ExtensionBase):
 
         def register(i):
             mov_image = images[i]
+            try:
+                # Array must be in Fortran order
+                img_reg, _ = itk.elastix_registration_method(
+                    ref_image,
+                    itk.GetImageFromArray(np.array(mov_image, order="F", dtype=np.float32)),
+                    parameter_object=parameter_object,
+                    log_to_console=False,
+                    fixed_mask=mask,
+                )
 
-            img_reg, _ = itk.elastix_registration_method(
-                ref_image,
-                itk.GetImageFromArray(np.array(mov_image, dtype=np.float32)),
-                parameter_object=parameter_object,
-                log_to_console=False,
-                fixed_mask=mask,
-            )
-
-            img_reg = itk.GetArrayFromImage(img_reg)
-
-            return img_reg
+                # For some reason the registration is flipped (ITK uses Fortan order)
+                img_reg = itk.GetArrayFromImage(img_reg)
+            except RuntimeError:
+                self.logger.error("Error registering image")
+                return mov_image
+            return img_reg.T
 
         registered_images = [
             register(i) for i in tqdm(range(0, len(images)), desc="Non-rigid reg images", position=2, leave=False)
