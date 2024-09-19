@@ -21,7 +21,7 @@ debug: True
 registration_extra_debug: False
 
 # ========================================================================================
-# IMAGE REGISTRATION
+# IMAGE REGISTRATION (in-vivo only)
 # ========================================================================================
 # none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid
 # elastix_groupwise (not working well at the moment)
@@ -77,8 +77,8 @@ registration_mask_scale: 1.0
 # ========================================================================================
 # True, False
 ex_vivo: True
-# rigid, non-rigid
-ex_vivo_registration: non-rigid
+# none, rigid, non_rigid
+ex_vivo_registration: non_rigid
 
 # ========================================================================================
 # AI MODELS

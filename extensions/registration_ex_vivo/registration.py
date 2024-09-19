@@ -162,38 +162,63 @@ class RegistrationExVivo(ExtensionBase):
 
             assert len(images) == len(indices)
 
-            # =========================================
-            # rigid registration
-            # =========================================
-            registered_images = self._register_stackreg(ref_images[slice_idx]["image"], images, phase_images, indices)
+            if self.settings["ex_vivo_registration"] in {"none"}:
+                # =========================================
+                # no registration
+                # =========================================
+                registered_images = []
+                for i in range(len(images)):
+                    if self.settings["complex_data"]:
+                        image_real = images[i] * np.cos(phase_images[i])
+                        image_imag = images[i] * np.sin(phase_images[i])
+                        registered_images.append((image_real, image_imag, indices[i]))
+                    else:
+                        registered_images.append((images[i], indices[i]))
 
-            # debug mean images pre and post rigid registration
+            elif self.settings["ex_vivo_registration"] in {"rigid", "non_rigid"}:
+                # =========================================
+                # rigid registration
+                # =========================================
+                registered_images = self._register_stackreg(
+                    ref_images[slice_idx]["image"], images, phase_images, indices
+                )
+
+            # debug registration line profiles
             if self.settings["debug"]:
                 if not self.settings["complex_data"]:
                     # average of stack pre- and post-registration
-                    pre_reg_mag_stack_mean = np.mean(np.stack(images, axis=0), axis=0)
+                    # pre_reg_mag_stack_mean = np.mean(np.stack(images, axis=0), axis=0)
+                    pre_reg_mag_stack = np.stack(images, axis=0)
                     mag_list, diff_config_idx_list = map(list, zip(*registered_images))
-                    post_reg_mag_stack_mean = np.mean(np.array(mag_list), axis=0)
+                    # post_reg_mag_stack_mean = np.mean(np.array(mag_list), axis=0)
+                    post_reg_mag_stack = np.array(mag_list)
                 else:
                     # average of stack pre- and post-registration
                     mag = np.stack(images, axis=0)
                     phase = np.stack(phase_images, axis=0)
-                    real_mean = np.mean(mag * np.cos(phase), axis=0)
-                    imag_mean = np.mean(mag * np.sin(phase), axis=0)
-                    pre_reg_mag_stack_mean = np.sqrt(np.square(real_mean) + np.square(imag_mean))
+                    # real_mean = np.mean(mag * np.cos(phase), axis=0)
+                    real = mag * np.cos(phase)
+                    # imag_mean = np.mean(mag * np.sin(phase), axis=0)
+                    imag = mag * np.sin(phase)
+                    # pre_reg_mag_stack_mean = np.sqrt(np.square(real_mean) + np.square(imag_mean))
+                    pre_reg_mag_stack = np.sqrt(np.square(real) + np.square(imag))
 
                     real_list, imag_list, diff_config_idx_list = map(list, zip(*registered_images))
-                    real_mean_post = np.mean(np.stack(real_list), axis=0)
-                    imag_mean_post = np.mean(np.stack(imag_list), axis=0)
-                    post_reg_mag_stack_mean = np.sqrt(np.square(real_mean_post) + np.square(imag_mean_post))
+                    # real_mean_post = np.mean(np.stack(real_list), axis=0)
+                    real_post = np.stack(real_list)
+                    # imag_mean_post = np.mean(np.stack(imag_list), axis=0)
+                    imag_post = np.stack(imag_list)
+                    # post_reg_mag_stack_mean = np.sqrt(np.square(real_mean_post) + np.square(imag_mean_post))
+                    post_reg_mag_stack = np.sqrt(np.square(real_post) + np.square(imag_post))
 
-                plt.imsave(
-                    self.debug_folder / f"reg_rigid_image_{slice_idx:06d}.png",  # noqa
-                    np.hstack((pre_reg_mag_stack_mean, post_reg_mag_stack_mean)).repeat(5, axis=0).repeat(5, axis=1),
-                    cmap="Greys_r",
-                )
+                file_string = "reg_01_line_profiles_slice"
+                self.get_stack_line_profiles(pre_reg_mag_stack, post_reg_mag_stack, file_string, slice_idx)
 
-            # Averaging the repetitions and storing the rigi registered images for SNR calculation
+            else:
+                self.logger.error("Ex-vivo registration option error: " + self.settings["ex_vivo_registration"])
+                sys.exit()
+
+            # Averaging the repetitions and storing the rigid registered images for SNR calculation
             average_images = []
             rigid_reg_images = []
             post_averaging_indices = []
@@ -220,13 +245,18 @@ class RegistrationExVivo(ExtensionBase):
             # save the rigid registered images for later use in calculating SNR
             self._update_reg_rigid_df(rigid_reg_images, slice_idx, indices, lower_b_value_index)
 
-            # self.logger.info(f"BSpline registering slice {slice_idx}")
-
-            if self.settings["ex_vivo_registration"] == "rigid":
+            if self.settings["ex_vivo_registration"] in {"none", "rigid"}:
                 # only doing rigid registration
                 reg_images[slice_idx] = average_images
 
-            elif self.settings["ex_vivo_registration"] == "non-rigid":
+                if self.settings["debug"]:
+                    # average of stack pre- and post-registration
+                    pre_reg_mag_stack = np.array(average_images)
+                    post_reg_mag_stack = np.array(average_images)
+                    file_string = "reg_02_line_profiles_slice"
+                    self.get_stack_line_profiles(pre_reg_mag_stack, post_reg_mag_stack, file_string, slice_idx)
+
+            elif self.settings["ex_vivo_registration"] == "non_rigid":
                 # =========================================
                 # non-rigid registration
                 # =========================================
@@ -240,16 +270,10 @@ class RegistrationExVivo(ExtensionBase):
                 # debug mean images pre and post non-rigid registration
                 if self.settings["debug"]:
                     # average of stack pre- and post-registration
-                    pre_reg_mag_stack_mean = np.copy(post_reg_mag_stack_mean)
-                    post_reg_mag_stack_mean = np.mean(np.stack(registered_images, axis=0), axis=0)
-
-                    plt.imsave(
-                        self.debug_folder / f"reg_elastix_image_{slice_idx:06d}.png",  # noqa
-                        np.hstack((pre_reg_mag_stack_mean, post_reg_mag_stack_mean))
-                        .repeat(5, axis=0)
-                        .repeat(5, axis=1),
-                        cmap="Greys_r",
-                    )
+                    pre_reg_mag_stack = np.array(average_images)
+                    post_reg_mag_stack = np.stack(registered_images, axis=0)
+                    file_string = "reg_02_line_profiles_slice"
+                    self.get_stack_line_profiles(pre_reg_mag_stack, post_reg_mag_stack, file_string, slice_idx)
 
                 # get the arrays
                 reg_images[slice_idx] = np.array(registered_images)
@@ -434,3 +458,52 @@ class RegistrationExVivo(ExtensionBase):
             ],
             ignore_index=True,
         )
+
+    def get_stack_line_profiles(self, pre_stack, post_stack, file_string, slice_idx):
+        x_center, y_center = [
+            np.round(np.shape(pre_stack)[1] * 0.5),
+            np.round(np.shape(pre_stack)[2] * 0.5),
+        ]
+
+        # store the line profiles for the images before and after registration
+        store_h_lp_pre = pre_stack[:, int(x_center - 1) : int(x_center + 2) :, :]
+        store_h_lp_pre = np.mean(store_h_lp_pre, axis=1)
+
+        store_h_lp_post = post_stack[:, int(x_center - 1) : int(x_center + 2) :, :]
+        store_h_lp_post = np.mean(store_h_lp_post, axis=1)
+
+        store_v_lp_pre = pre_stack[:, :, int(y_center - 1) : int(y_center + 2)]
+        store_v_lp_pre = np.mean(store_v_lp_pre, axis=2)
+
+        store_v_lp_post = post_stack[:, :, int(y_center - 1) : int(y_center + 2)]
+        store_v_lp_post = np.mean(store_v_lp_post, axis=2)
+
+        plt.figure(figsize=(5, 5))
+        plt.subplot(2, 2, 1)
+        plt.imshow(store_h_lp_pre, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("horizontal pre", fontsize=7)
+        plt.subplot(2, 2, 3)
+        plt.imshow(store_v_lp_pre, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("vertical pre", fontsize=7)
+        plt.subplot(2, 2, 2)
+        plt.imshow(store_h_lp_post, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("horizontal post", fontsize=7)
+        plt.subplot(2, 2, 4)
+        plt.imshow(store_v_lp_post, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("vertical post", fontsize=7)
+        plt.tight_layout(pad=1.0)
+        plt.savefig(
+            os.path.join(
+                self.settings["results"],
+                "results_b",
+                file_string + "_" + str(slice_idx).zfill(2) + ".png",
+            ),
+            dpi=200,
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()

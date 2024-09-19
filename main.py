@@ -112,7 +112,7 @@ for current_folder in all_to_be_analysed_folders:
     # DWIs registration
     # =========================================================
     if settings["ex_vivo"]:
-        logger.info("Ex-vivo: Using ex-vivo registration.")
+        logger.info("Ex-vivo: Using ex-vivo registration: " + settings["ex_vivo_registration"])
         context = {"data": data, "info": info}
         RegistrationExVivo(context, settings, logger).run()
         data = context["data"]
