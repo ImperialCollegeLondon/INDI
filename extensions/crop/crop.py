@@ -55,8 +55,8 @@ class ThreeDSelector:
             self.img_plots["front"].set_alpha(0.5)
 
     def callback_top_vertical(self, pos):
-        self.img_plots["side"].set_data(self.img[:, int(pos), :])
-        self.lines["front"]["vertical"].pos = pos
+        self.img_plots["side"].set_data(np.flipud(self.img[:, int(pos), :]))
+        self.lines["front"]["horizontal"].pos = pos
         if self.row[0] < pos < self.row[1]:
             self.img_plots["side"].set_alpha(1)
         else:
@@ -71,15 +71,15 @@ class ThreeDSelector:
             self.img_plots["front"].set_alpha(0.5)
 
     def callback_side_vertical(self, pos):
-        self.img_plots["top"].set_data(self.img[:, :, int(pos)])
-        self.lines["front"]["horizontal"].pos = pos
+        self.img_plots["top"].set_data(np.flipud(self.img[:, :, int(pos)]))
+        self.lines["front"]["vertical"].pos = pos
         if self.col[0] < pos < self.col[1]:
             self.img_plots["top"].set_alpha(1)
         else:
             self.img_plots["top"].set_alpha(0.5)
 
     def callback_front_horizontal(self, pos):
-        self.img_plots["side"].set_data(self.img[:, int(pos), :])
+        self.img_plots["side"].set_data(np.flipud(self.img[:, int(pos), :]))
         self.lines["top"]["vertical"].pos = pos
         if self.row[0] < pos < self.row[1]:
             self.img_plots["side"].set_alpha(1)
@@ -87,7 +87,7 @@ class ThreeDSelector:
             self.img_plots["side"].set_alpha(0.5)
 
     def callback_front_vertical(self, pos):
-        self.img_plots["top"].set_data(self.img[:, :, int(pos)])
+        self.img_plots["top"].set_data(np.flipud(self.img[:, :, int(pos)]))
         self.lines["side"]["vertical"].pos = pos
         if self.col[0] < pos < self.col[1]:
             self.img_plots["top"].set_alpha(1)
@@ -186,7 +186,9 @@ def manual_crop(image):
     fig, axs = plt.subplots(1, 3, figsize=(10, 5))
 
     rect_props = dict(fill=False, linestyle="-", edgecolor="orange")
-    line_props = dict(color="r", linestyle="--")
+    line_props_blue = dict(color="#209CDF", linestyle="--")
+    line_props_pink = dict(color="#DF209C", linestyle="--")
+    line_props_green = dict(color="#9CDF20", linestyle="--")
 
     lines = {
         "top": {"vertical": None, "horizontal": None},
@@ -195,13 +197,18 @@ def manual_crop(image):
     }
 
     img_plots = {
-        "top": axs[2].imshow(image[:, :, nz // 2], cmap="gray", aspect="auto", extent=(0, ny, 0, nx)),
-        "side": axs[1].imshow(image[:, ny // 2, :], cmap="gray", aspect="auto", extent=(0, nz, 0, nx)),
+        "top": axs[2].imshow(np.flipud(image[:, :, nz // 2]), cmap="gray", aspect="auto", extent=(0, ny, 0, nx)),
+        "side": axs[1].imshow(np.flipud(image[:, ny // 2, :]), cmap="gray", aspect="auto", extent=(0, nz, 0, nx)),
         "front": axs[0].imshow(image[nx // 2, :, :], cmap="gray", aspect="auto", extent=(0, nz, 0, ny)),
     }
 
     axs[0].set_title("Front view")
-    axs[0].axis("off")
+    for axis in ["top", "bottom", "left", "right"]:
+        axs[0].spines[axis].set_linewidth(4)
+        axs[0].spines[axis].set_color("#209CDF")
+    axs[0].set_xticks([])
+    axs[0].set_yticks([])
+
     front_rect = RectangleSelector(
         axs[0],
         roi.select_front,
@@ -211,29 +218,45 @@ def manual_crop(image):
     )
 
     hline = LineSelector(
-        axs[0], ny // 2, "horizontal", roi.callback_front_horizontal, interactive=True, props=line_props
+        axs[0], ny // 2, "horizontal", roi.callback_front_horizontal, interactive=True, props=line_props_pink
     )
-    vline = LineSelector(axs[0], nz // 2, "vertical", roi.callback_front_vertical, interactive=True, props=line_props)
+    vline = LineSelector(
+        axs[0], nz // 2, "vertical", roi.callback_front_vertical, interactive=True, props=line_props_green
+    )
     lines["front"]["horizontal"] = hline
     lines["front"]["vertical"] = vline
 
     axs[1].set_title("Side view")
-    axs[1].axis("off")
+    for axis in ["top", "bottom", "left", "right"]:
+        axs[1].spines[axis].set_linewidth(4)
+        axs[1].spines[axis].set_color("#DF209C")
+    axs[1].set_xticks([])
+    axs[1].set_yticks([])
+
     side_rect = RectangleSelector(axs[1], roi.select_side, interactive=True, props=rect_props, button=1)
     hline = LineSelector(
-        axs[1], nx // 2, "horizontal", roi.callback_side_horizontal, interactive=True, props=line_props
+        axs[1], nx // 2, "horizontal", roi.callback_side_horizontal, interactive=True, props=line_props_blue
     )
-    vline = LineSelector(axs[1], nz // 2, "vertical", roi.callback_side_vertical, interactive=True, props=line_props)
+    vline = LineSelector(
+        axs[1], nz // 2, "vertical", roi.callback_side_vertical, interactive=True, props=line_props_green
+    )
     lines["side"]["horizontal"] = hline
     lines["side"]["vertical"] = vline
 
     axs[2].set_title("Top view")
-    axs[2].axis("off")
+    for axis in ["top", "bottom", "left", "right"]:
+        axs[2].spines[axis].set_linewidth(4)
+        axs[2].spines[axis].set_color("#9CDF20")
+    axs[2].set_xticks([])
+    axs[2].set_yticks([])
+
     top_rect = RectangleSelector(axs[2], roi.select_top, interactive=True, props=rect_props, button=1)
     hline = LineSelector(
-        axs[2], nx // 2, "horizontal", roi.callback_top_horizontal, interactive=True, props=line_props
+        axs[2], nx // 2, "horizontal", roi.callback_top_horizontal, interactive=True, props=line_props_blue
     )
-    vline = LineSelector(axs[2], ny // 2, "vertical", roi.callback_top_vertical, interactive=True, props=line_props)
+    vline = LineSelector(
+        axs[2], ny // 2, "vertical", roi.callback_top_vertical, interactive=True, props=line_props_pink
+    )
     lines["top"]["horizontal"] = hline
     lines["top"]["vertical"] = vline
 
