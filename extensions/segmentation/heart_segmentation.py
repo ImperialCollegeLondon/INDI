@@ -313,9 +313,9 @@ class ExternalSegmentation(ExtensionBase):
 
         u_fine = np.linspace(0, 1, len(self.context["slices"]))
         for p in points:
-            arr = np.stack([p["l"].values, p["s"].values, p["p"].values], axis=0)
+            arr = np.stack([p["s"].values, p["p"].values, p["l"].values], axis=0)
 
-            tck, u = splprep(arr)
+            tck, _ = splprep(arr)
             x_fine, y_fine, _ = splev(u_fine, tck)
             points_interp.append([x_fine, y_fine])
 
