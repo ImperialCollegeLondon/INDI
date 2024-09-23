@@ -17,7 +17,7 @@ def rotate_vector(vector: NDArray, angle: Number, axis: str) -> NDArray:
     if axis == "z":
         matrix = np.array([[np.cos(angle), -np.sin(angle), 0], [np.sin(angle), np.cos(angle), 0], [0, 0, 1]])
     elif axis == "y":
-        matrix = np.array([[np.cos(angle), 0, np.sin(angle)], [0, 1, 0], [-np.sin(angle), 0, np.cos(angle)]])
+        matrix = np.array([[np.cos(angle), 0, -np.sin(angle)], [0, 1, 0], [np.sin(angle), 0, np.cos(angle)]])
     elif axis == "x":
         matrix = np.array([[1, 0, 0], [0, np.cos(angle), -np.sin(angle)], [0, np.sin(angle), np.cos(angle)]])
     return np.dot(matrix, vector)
@@ -80,10 +80,11 @@ class Rotation(ExtensionBase):
 
             self.rotate_snr(axis, rot_k)
 
-            # Build the images
+            # Build the rotated images
             for index in tqdm(data["diff_config"].unique(), desc="Rotating images"):
                 # print(data[(data["slice_integer"] == 0) & (data["diff_config"] == index)]["image"][0])
 
+                # get the volume for the current diffusion configuration
                 img = [
                     np.asarray(data[(data["slice_integer"] == i) & (data["diff_config"] == index)]["image"])
                     for i in slices
@@ -97,21 +98,38 @@ class Rotation(ExtensionBase):
                 if axis == "z":
                     image_rotated = np.rot90(image, k=rot_k, axes=(0, 1))
                     ref_images_array = np.rot90(ref_images_array, k=rot_k, axes=(0, 1))
+
+                    # collect image positions
+                    image_positions = []
+                    for key_, name_ in self.context["info"]["integer_to_image_positions"].items():
+                        image_positions.append(name_)
+                    # calculate distances between slices
+                    spacing_z = [
+                        np.sqrt(
+                            (image_positions[i][0] - image_positions[i + 1][0]) ** 2
+                            + (image_positions[i][1] - image_positions[i + 1][1]) ** 2
+                            + (image_positions[i][2] - image_positions[i + 1][2]) ** 2
+                        )
+                        for i in range(len(image_positions) - 1)
+                    ]
+                    spacing_z.insert(0, 0)
+                    spacing_z = np.cumsum(np.array(spacing_z))
+                    new_slice_spacing = int(np.mean(np.diff(spacing_z)))
                 elif axis == "y":
                     image_rotated = np.rot90(image, k=rot_k, axes=(0, 2))
                     ref_images_array = np.rot90(ref_images_array, k=rot_k, axes=(0, 2))
+                    new_slice_spacing = self.context["info"]["pixel_spacing"][0]
                 elif axis == "x":
                     image_rotated = np.rot90(image, k=rot_k, axes=(1, 2))
                     ref_images_array = np.rot90(ref_images_array, k=rot_k, axes=(1, 2))
+                    new_slice_spacing = self.context["info"]["pixel_spacing"][1]
 
                 diffusion_direction = rotate_vector(
                     data[data["diff_config"] == index]["diffusion_direction"].values[0], angle, axis
                 )
                 # this is wrong, we need to get the image spacing on the new plane
                 # only true if the resolution is isotropic
-                image_position = [
-                    (0.0, 0.0, i * self.context["info"]["slice_thickness"]) for i in range(image_rotated.shape[0])
-                ]
+                image_position = [(0.0, 0.0, i * new_slice_spacing) for i in range(image_rotated.shape[0])]
                 b_value = data[data["diff_config"] == index]["b_value"].values[0]
 
                 data_rotated = pd.concat(

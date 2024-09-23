@@ -37,9 +37,9 @@ registration_reference_method: best
 # True, False
 rotate: True
 # 90, -90, 180
-rotation_angle: -90
+rotation_angle: 90
 # z, y, x
-rotation_axis: z
+rotation_axis: y
 
 # ========================================================================================
 # TENSOR FITTING
@@ -78,7 +78,7 @@ registration_mask_scale: 1.0
 # True, False
 ex_vivo: True
 # none, rigid, non_rigid
-ex_vivo_registration: non_rigid
+ex_vivo_registration: none
 
 # ========================================================================================
 # AI MODELS
