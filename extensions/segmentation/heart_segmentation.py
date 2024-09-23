@@ -5,6 +5,7 @@ import cv2 as cv
 import nrrd
 import numpy as np
 import pandas as pd
+from scipy.interpolate import splev, splprep
 
 from extensions.extension_base import ExtensionBase
 from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
@@ -270,6 +271,15 @@ class ExternalSegmentation(ExtensionBase):
         session = pathlib.Path(self.settings["session"])
 
         if not (session / "average_images-label.nrrd").exists():
+            prelim_ha, prelim_md = get_premliminary_ha_md_maps(
+                self.context["slices"],
+                self.context["average_images"],
+                self.context["data"],
+                self.context["info"],
+                self.settings,
+                self.logger,
+            )
+
             output_path_code = "outputPath = '" + self.settings["session"] + "'"
 
             script = output_path_code + python_code
@@ -278,39 +288,47 @@ class ExternalSegmentation(ExtensionBase):
             self.logger.info("Segment the LV and press Ctrl+Shift+s (Cmd+Shift+s) and close Slicer once done")
 
             nrrd.write((session / "average_images.nrrd").as_posix(), self.context["average_images"])
-            print((session / "average_images.nrrd").as_posix())
+            nrrd.write((session / "HA_map.nrrd").as_posix(), prelim_ha)
+
             subprocess.run(
                 [
                     "/Applications/Slicer.app/Contents/MacOS/Slicer",
                     (session / "average_images.nrrd").as_posix(),
+                    (session / "HA_map.nrrd").as_posix(),
                     "--python-code",
                     script,
                 ]
             )
 
-        mask_3c = nrrd.read((session / "average_images-label.nrrd").as_posix())[0]
+        mask_3c, _ = nrrd.read((session / "average_images-label.nrrd").as_posix())
 
-        self.context["mask_3c"] = mask_3c
+        self.context["mask_3c"] = 1 * (mask_3c == 1)
+        self.context["mask_rv"] = 1 * (mask_3c == 2)
 
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
-        points_numpy = []
-        for p in points:
-            points_numpy.append(np.asarray([p["s"][0], p["p"][0]]))
 
-        if len(points_numpy) == 0:
-            self.logger.info("No insertion points found")
-            points_numpy = [np.zeros((2)), np.zeros((2))]
+        assert len(points) == 2, "More than two intersection points detected"
+
+        points_interp = []
+
+        u_fine = np.linspace(0, 1, len(self.context["slices"]))
+        for p in points:
+            arr = np.stack([p["l"].values, p["s"].values, p["p"].values], axis=0)
+
+            tck, u = splprep(arr)
+            x_fine, y_fine, _ = splev(u_fine, tck)
+            points_interp.append([x_fine, y_fine])
 
         segmentation = {}
 
-        for slice_idx in self.context["slices"]:
+        for i, slice_idx in enumerate(self.context["slices"]):
             segmentation[slice_idx] = {}
 
             epi_contour, endo_contour = get_sa_contours(mask_3c[slice_idx])
 
             segmentation[slice_idx]["epicardium"] = epi_contour
             segmentation[slice_idx]["endocardium"] = endo_contour
-            segmentation[slice_idx]["anterior_ip"] = points_numpy[0]
-            segmentation[slice_idx]["inferior_ip"] = points_numpy[1]
+            segmentation[slice_idx]["anterior_ip"] = np.asarray([points_interp[0][0][i], points_interp[0][1][i]])
+            segmentation[slice_idx]["inferior_ip"] = np.asarray([points_interp[1][0][i], points_interp[1][1][i]])
 
         self.context["segmentation"] = segmentation
