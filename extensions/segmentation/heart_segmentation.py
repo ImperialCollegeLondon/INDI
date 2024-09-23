@@ -302,8 +302,8 @@ class ExternalSegmentation(ExtensionBase):
 
         mask_3c, _ = nrrd.read((session / "average_images-label.nrrd").as_posix())
 
-        self.context["mask_3c"] = 1 * (mask_3c == 1)
-        self.context["mask_rv"] = 1 * (mask_3c == 2)
+        self.context["mask_3c"] = 1.0 * (mask_3c == 1)
+        self.context["mask_rv"] = 1.0 * (mask_3c == 2)
 
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
 
@@ -324,7 +324,7 @@ class ExternalSegmentation(ExtensionBase):
         for i, slice_idx in enumerate(self.context["slices"]):
             segmentation[slice_idx] = {}
 
-            epi_contour, endo_contour = get_sa_contours(mask_3c[slice_idx])
+            epi_contour, endo_contour = get_sa_contours(self.context["mask_3c"][slice_idx])
 
             segmentation[slice_idx]["epicardium"] = epi_contour
             segmentation[slice_idx]["endocardium"] = endo_contour
