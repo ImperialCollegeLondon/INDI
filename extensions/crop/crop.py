@@ -316,7 +316,7 @@ class Crop(ExtensionBase):
             self.row = [int(np.floor(row[0])), int(np.ceil(row[1]))]
             self.col = [int(np.floor(col[0])), int(np.ceil(col[1]))]
 
-        self.logger.info(f"ROI: {self.slice}, {self.row}, {self.col}")
+        # self.logger.info(f"ROI: {self.slice}, {self.row}, {self.col}")
 
         # crop the data
         data["image"] = data["image"].apply(lambda x: x[self.row[0] : self.row[1], self.col[0] : self.col[1]])
@@ -328,7 +328,7 @@ class Crop(ExtensionBase):
         # info["n_slices"] = self.slice[1] - self.slice[0]
         info["img_size"] = (self.row[1] - self.row[0], self.col[1] - self.col[0])
 
-        self.logger.info(f"Slices after cropping: n={len(slices)}, {slices}")
+        self.logger.info(f"Slices after cropping: n = {len(slices)}: [{min(slices)} - {max(slices)}]")
 
         self.context["data"], self.context["slices"], self.context["info"] = data, slices, info
 

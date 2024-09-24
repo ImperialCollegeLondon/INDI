@@ -28,7 +28,7 @@ def plot_rotation(images: NDArray, images_rotated: NDArray, angle: int, axis: st
     nz_pre, nx_pre, ny_pre = images.shape
     nz_post, nx_post, ny_post = images_rotated.shape
 
-    fig = plt.figure(layout="constrained", figsize=(10, 5))
+    fig = plt.figure(layout="constrained", figsize=(10, 10))
 
     # Make two subfigures, left ones more narrow than right ones:
     sfigs = fig.subfigures(1, 2, width_ratios=[1, 1])
@@ -41,18 +41,18 @@ def plot_rotation(images: NDArray, images_rotated: NDArray, angle: int, axis: st
     rax = sfigs[1].subplots(3, 1)
     sfigs[1].suptitle("Post-rotation")
 
-    lax[0].imshow(images[nz_pre // 2, :, :], cmap="gray")
+    lax[0].imshow(images[nz_pre // 2, :, :], cmap="gray", aspect="auto")
     lax[0].axis("off")
-    lax[1].imshow(images[:, nx_pre // 2, :], cmap="gray")
+    lax[1].imshow(images[:, nx_pre // 2, :], cmap="gray", aspect="auto")
     lax[1].axis("off")
-    lax[2].imshow(images[:, :, ny_pre // 2], cmap="gray")
+    lax[2].imshow(images[:, :, ny_pre // 2], cmap="gray", aspect="auto")
     lax[2].axis("off")
 
-    rax[0].imshow(images_rotated[nz_post // 2, :, :], cmap="gray")
+    rax[0].imshow(images_rotated[nz_post // 2, :, :], cmap="gray", aspect="auto")
     rax[0].axis("off")
-    rax[1].imshow(images_rotated[:, nx_post // 2, :], cmap="gray")
+    rax[1].imshow(images_rotated[:, nx_post // 2, :], cmap="gray", aspect="auto")
     rax[1].axis("off")
-    rax[2].imshow(images_rotated[:, :, ny_post // 2], cmap="gray")
+    rax[2].imshow(images_rotated[:, :, ny_post // 2], cmap="gray", aspect="auto")
     rax[2].axis("off")
 
     fig.suptitle(f"Rotation by {angle} degrees around the {axis} axis")
