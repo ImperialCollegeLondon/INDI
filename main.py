@@ -29,7 +29,7 @@ from extensions.extensions import (
 from extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
-from extensions.metrics.metrics import Metrics
+from extensions.metrics.metrics import Metrics, MetricsRV
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.rotation.rotation import Rotation
@@ -197,7 +197,7 @@ for current_folder in all_to_be_analysed_folders:
     slices = context["slices"]
     segmentation = context["segmentation"]
     mask_3c = context["mask_3c"]
-
+    mask_rv = context["mask_rv"]
     # =========================================================
     # Remove non segmented slices
     # =========================================================
@@ -313,6 +313,19 @@ for current_folder in all_to_be_analysed_folders:
     dti = context["dti"]
     info = context["info"]
 
+    # RV Metrics/Maps
+    context = {
+        "data": data,
+        "info": info,
+        "slices": slices,
+        "dti": dti,
+        "segmentation": segmentation,
+        "mask_3c": mask_3c,
+        "average_images": average_images,
+    }
+    MetricsRV(context, settings, logger).run()
+    dti = context["dti"]
+    info = context["info"]
     # =========================================================
     # Plot main results and save data
     # =========================================================

@@ -343,6 +343,7 @@ def get_cardiac_coordinates_short_axis(
     dti: dict,
     average_images: NDArray,
     info: dict,
+    ventricle="LV",
 ) -> [dict, dict]:
     """
     Function to calculate the local cardiac coordinates for a short-axis plane
@@ -465,7 +466,7 @@ def get_cardiac_coordinates_short_axis(
             plt.savefig(
                 os.path.join(
                     settings["debug_folder"],
-                    "cardiac_coordinates_slice_" + str(slice_idx).zfill(2) + ".png",
+                    f"{ventricle}_cardiac_coordinates_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
                 dpi=200,
                 pad_inches=0,
@@ -480,7 +481,7 @@ def get_cardiac_coordinates_short_axis(
         # deep copy.
         lcc = copy.deepcopy(local_cardiac_coordinates)
         if settings["debug"]:
-            save_vtk_file(lcc, {}, maps, info, "cardiac_coordinates", settings["debug_folder"])
+            save_vtk_file(lcc, {}, maps, info, f"cardiac_coordinates_{ventricle}", settings["debug_folder"])
 
     return local_cardiac_coordinates, lv_centres, phi_matrix
 
@@ -641,7 +642,14 @@ def mag_to_rad(img: NDArray, max_value: int = 4096) -> NDArray:
 
 
 def get_ha_line_profiles(
-    HA: NDArray, lv_centres: dict, slices: NDArray, mask_3c: NDArray, segmentation: dict, settings: dict, info: dict
+    HA: NDArray,
+    lv_centres: dict,
+    slices: NDArray,
+    mask_3c: NDArray,
+    segmentation: dict,
+    settings: dict,
+    info: dict,
+    ventricle="LV",
 ) -> [dict, dict]:
     """
     Get the HA line profiles and also Wall Thickness
@@ -768,7 +776,7 @@ def get_ha_line_profiles(
             os.path.join(
                 settings["results"],
                 "results_b",
-                "HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
+                f"{ventricle}_HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             pad_inches=0,
