@@ -14,6 +14,8 @@ import pyautogui
 
 from extensions.complex_averaging import complex_averaging
 from extensions.crop.crop import Crop
+
+# from extensions.crop.crop import Crop
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
@@ -139,11 +141,14 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     if settings["ex_vivo"] and settings["rotate"]:
         logger.info("Ex-vivo rotation is True")
-        context = {"data": data, "info": info, "slices": slices}
+        context = {"data": data, "info": info, "slices": slices, "ref_images": ref_images, "dti": dti}
         Rotation(context, settings, logger).run()
         data = context["data"]
         slices = context["slices"]
+        reg_mask = context["reg_mask"]
+        ref_images = context["ref_images"]
         info = context["info"]
+        dti = context["dti"]
         # data, slices, info = rotate_data(data, slices, info, settings, logger)
 
     # =========================================================
