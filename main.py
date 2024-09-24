@@ -216,10 +216,11 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # crop the images to the region around the segmented area only
     # use the same crop for all slices and then pad with 3 pixels on all sides
-    dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
+    dti, data, mask_3c, mask_rv, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
         dti,
         data,
         mask_3c,
+        mask_rv,
         reg_mask,
         segmentation,
         slices,
@@ -328,7 +329,7 @@ for current_folder in all_to_be_analysed_folders:
         "slices": slices,
         "dti": dti,
         "segmentation": segmentation,
-        "mask_3c": mask_3c,
+        "mask_rv": mask_rv,
         "average_images": average_images,
     }
     MetricsRV(context, settings, logger).run()

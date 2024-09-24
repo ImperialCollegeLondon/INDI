@@ -12,6 +12,7 @@ def crop_images(
     dti: dict,
     data: pd.DataFrame,
     mask_3c: NDArray,
+    mask_rv: NDArray,
     reg_mask: NDArray,
     segmentation: dict,
     slices: NDArray,
@@ -51,7 +52,7 @@ def crop_images(
     crop_mask: logical mask with the crop.
     """
 
-    global_crop_mask = sum(mask_3c[i] for i in range(mask_3c.shape[0]))
+    global_crop_mask = sum((mask_3c[i] == 1) | (mask_rv[i] == 1) for i in range(mask_3c.shape[0]))
     crop_mask = global_crop_mask != 0
 
     # pad mask but beware of not going out of the FOV limits
@@ -67,6 +68,7 @@ def crop_images(
 
     # crop the heart mask, registration mask and average images
     mask_3c = mask_3c[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
+    mask_rv = mask_rv[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     reg_mask = reg_mask[np.ix_(crop_mask.any(1), crop_mask.any(0))]
     average_images = average_images[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     for slice_str in slices:
@@ -135,7 +137,7 @@ def crop_images(
     # record the crop positions in the info dictionary
     dti["crop_mask"] = crop_mask
 
-    return dti, data, mask_3c, reg_mask, segmentation, average_images, ref_images, info, crop_mask
+    return dti, data, mask_3c, mask_rv, reg_mask, segmentation, average_images, ref_images, info, crop_mask
 
 
 def record_image_registration(
@@ -353,6 +355,7 @@ def crop_fov(
     dti: dict,
     data: pd.DataFrame,
     mask_3c: NDArray,
+    mask_rv: NDArray,
     reg_mask: NDArray,
     segmentation: dict,
     slices: NDArray,
@@ -394,10 +397,11 @@ def crop_fov(
     crop_mask: logical mask with the crop.
 
     """
-    dti, data, mask_3c, reg_mask, segmentation, average_images, ref_images, info, crop_mask = crop_images(
+    dti, data, mask_3c, mask_rv, reg_mask, segmentation, average_images, ref_images, info, crop_mask = crop_images(
         dti,
         data,
         mask_3c,
+        mask_rv,
         reg_mask,
         segmentation,
         slices,
@@ -451,4 +455,4 @@ def crop_fov(
                 )
             ]
 
-    return dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask
+    return dti, data, mask_3c, mask_rv, reg_mask, segmentation, average_images, info, crop_mask

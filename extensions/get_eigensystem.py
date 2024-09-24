@@ -195,7 +195,7 @@ def get_negative_eigenvalues_map(
             os.path.join(
                 settings["results"],
                 "results_b",
-                f"negative_eigenvalues_slice_{ventricle}" + str(slice_idx).zfill(2) + ".png",
+                f"negative_eigenvalues_slice_{ventricle}_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             pad_inches=0,
