@@ -13,7 +13,8 @@ from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
 from extensions.extensions import get_snr_maps
-from extensions.image_registration import get_registration_mask
+
+# from extensions.image_registration import get_registration_mask
 
 
 def plot_ref_images(image_mean, slice_idx: int, ref_image: NDArray, contour, settings: Dict):
@@ -38,6 +39,7 @@ def plot_ref_images(image_mean, slice_idx: int, ref_image: NDArray, contour, set
     plt.savefig(
         os.path.join(
             settings["debug_folder"],
+            "registration",
             "reg_reference_image_slice_" + str(slice_idx).zfill(2) + ".png",
         ),
         dpi=200,
@@ -48,29 +50,37 @@ def plot_ref_images(image_mean, slice_idx: int, ref_image: NDArray, contour, set
     plt.close()
 
     # plot registration mask
-
-    plt.figure(figsize=(5, 5))
-    plt.imshow(image_mean, cmap="Greys_r")
-    plt.plot(contour[:, 0], contour[:, 1], "r")
-    plt.axis("off")
-    plt.savefig(
-        os.path.join(settings["debug_folder"], "reg_mask_slice_" + str(slice_idx).zfill(2) + ".png"),
-        dpi=200,
-        bbox_inches="tight",
-        transparent=False,
-    )
-    plt.close()
+    if contour:
+        plt.figure(figsize=(5, 5))
+        plt.imshow(image_mean, cmap="Greys_r")
+        plt.plot(contour[:, 0], contour[:, 1], "r")
+        plt.axis("off")
+        plt.savefig(
+            os.path.join(
+                settings["debug_folder"], "registration", "reg_mask_slice_" + str(slice_idx).zfill(2) + ".png"
+            ),
+            dpi=200,
+            bbox_inches="tight",
+            transparent=False,
+        )
+        plt.close()
 
 
 class RegistrationExVivo(ExtensionBase):
     def __init__(self, context, settings, logger):
         ExtensionBase.__init__(self, context, settings, logger)
 
-        self.code_path = pathlib.Path(self.settings["code_path"])
-        self.debug_folder = pathlib.Path(self.settings["debug_folder"])
+        self.code_path = pathlib.Path(self.settings["code_path"])  # create folder for all ex-vivo registration images
+
+        debug_reg_path = os.path.join(self.settings["debug_folder"], "registration")
+        if not os.path.exists(debug_reg_path):
+            os.makedirs(debug_reg_path)
 
     def run(self):
-        registration_mask, contour = get_registration_mask(self.context["info"], self.settings)
+        # using entire image for registration
+        # registration_mask, contour = get_registration_mask(self.context["info"], self.settings)
+        registration_mask = np.ones(self.context["info"]["img_size"])
+        contour = None
         self.context["reg_mask"] = registration_mask
         self.context["contour"] = contour
 
