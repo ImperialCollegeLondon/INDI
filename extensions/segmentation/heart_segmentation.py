@@ -241,14 +241,12 @@ python_code = """
 
 
 def exportLabelmap():
-    segmentationNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentationNode")
-    referenceVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
-    labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-    slicer.modules.segmentations.logic().ExportVisibleSegmentsToLabelmapNode(segmentationNode, labelmapVolumeNode, referenceVolumeNode)
+
     filepath = outputPath + "/label.seg.nrrd"
-    slicer.util.saveNode(labelmapVolumeNode, filepath)
-    slicer.mrmlScene.RemoveNode(labelmapVolumeNode.GetDisplayNode().GetColorNode())
-    slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
+    segmentationNode = getNode('vtkMRMLSegmentationNode1')
+    storageNode = segmentationNode.CreateDefaultStorageNode()
+    storageNode.SetFileName(filepath)
+    storageNode.WriteData(segmentationNode)
 
     points = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsNode")
     for i, p in enumerate(points):
@@ -302,11 +300,13 @@ class ExternalSegmentation(ExtensionBase):
                 ]
             )
 
-        mask_3c, header = nrrd.read((session / "label.seg.nrrd").as_posix())
+        mask_3c, _ = nrrd.read((session / "label.seg.nrrd").as_posix())
         # mask_3c, header = nrrd.read((session / "Segmentation.seg.nrrd").as_posix())
 
-        self.context["mask_3c"] = 1.0 * (mask_3c == 1)
-        self.context["mask_rv"] = 1.0 * (mask_3c == 2)
+        assert mask_3c.shape[0] == 2, "Segment both the LV and RV, both including the septum"
+
+        self.context["mask_3c"] = mask_3c[0, ...]
+        self.context["mask_rv"] = mask_3c[1, ...]
 
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
 
