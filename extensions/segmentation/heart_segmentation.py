@@ -1,7 +1,11 @@
 import pathlib
+import subprocess
 
 import cv2 as cv
+import nrrd
 import numpy as np
+import pandas as pd
+from scipy.interpolate import splev, splprep
 
 from extensions.extension_base import ExtensionBase
 from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
@@ -231,3 +235,103 @@ class HeartSegmentation(ExtensionBase):
         self.context["mask_3c"] = mask_3c
 
         self.logger.info("Heart Segmentation Completed")
+
+
+python_code = """
+
+
+def exportLabelmap():
+
+    filepath = outputPath + "/label.seg.nrrd"
+    segmentationNode = getNode('vtkMRMLSegmentationNode1')
+    storageNode = segmentationNode.CreateDefaultStorageNode()
+    storageNode.SetFileName(filepath)
+    storageNode.WriteData(segmentationNode)
+
+    points = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsNode")
+    for i, p in enumerate(points):
+        fname = outputPath + "/insertion_point_" + str(i+1) + ".csv"
+        slicer.modules.markups.logic().ExportControlPointsToCSV(p, fname)
+
+    slicer.util.delayDisplay("Segmentation saved to " + filepath)
+
+shortcut = qt.QShortcut(slicer.util.mainWindow())
+shortcut.setKey(qt.QKeySequence("Ctrl+Shift+s"))
+shortcut.connect( "activated()", exportLabelmap)
+
+"""
+
+
+class ExternalSegmentation(ExtensionBase):
+    def run(self) -> None:
+        self.logger.info("Running Heart Segmentation")
+
+        session = pathlib.Path(self.settings["session"])
+
+        if not (session / "label.seg.nrrd").exists():
+            prelim_ha, prelim_md = get_premliminary_ha_md_maps(
+                self.context["slices"],
+                self.context["average_images"],
+                self.context["data"],
+                self.context["info"],
+                self.settings,
+                self.logger,
+            )
+
+            output_path_code = "outputPath = '" + self.settings["session"] + "'"
+
+            script = output_path_code + python_code
+
+            self.logger.info("Opening Slicer for manual segmentation")
+            self.logger.info("Segment the LV and press Ctrl+Shift+s (Cmd+Shift+s) and close Slicer once done")
+
+            nrrd.write((session / "average_images.nrrd").as_posix(), self.context["average_images"])
+            nrrd.write((session / "MD_map.nrrd").as_posix(), prelim_md)
+            nrrd.write((session / "HA_map.nrrd").as_posix(), prelim_ha)
+
+            subprocess.run(
+                [
+                    "/Applications/Slicer.app/Contents/MacOS/Slicer",
+                    (session / "average_images.nrrd").as_posix(),
+                    (session / "MD_map.nrrd").as_posix(),
+                    (session / "HA_map.nrrd").as_posix(),
+                    "--python-code",
+                    script,
+                ]
+            )
+
+        mask_3c, _ = nrrd.read((session / "label.seg.nrrd").as_posix())
+        # mask_3c, header = nrrd.read((session / "Segmentation.seg.nrrd").as_posix())
+
+        assert mask_3c.shape[0] == 2, "Segment both the LV and RV, both including the septum"
+
+        self.context["mask_3c"] = mask_3c[0, ...]
+        self.context["mask_rv"] = mask_3c[1, ...]
+
+        points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
+
+        assert len(points) == 2, "No intersection points selected"
+
+        points_interp = []
+
+        u_fine = np.linspace(0, 1, len(self.context["slices"]))
+        for p in points:
+            arr = np.stack([p["s"].values, p["p"].values, p["l"].values], axis=0)
+
+            tck, _ = splprep(arr)
+            x_fine, y_fine, _ = splev(u_fine, tck)
+            points_interp.append([x_fine, y_fine])
+
+        segmentation = {}
+
+        for i, slice_idx in enumerate(self.context["slices"]):
+            segmentation[slice_idx] = {}
+
+            epi_contour, endo_contour = get_sa_contours(self.context["mask_3c"][slice_idx])
+
+            segmentation[slice_idx]["epicardium"] = epi_contour
+            segmentation[slice_idx]["endocardium"] = endo_contour
+            segmentation[slice_idx]["anterior_ip"] = np.asarray([points_interp[0][0][i], points_interp[0][1][i]])
+            segmentation[slice_idx]["inferior_ip"] = np.asarray([points_interp[1][0][i], points_interp[1][1][i]])
+
+        self.context["segmentation"] = segmentation
