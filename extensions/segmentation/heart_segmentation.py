@@ -245,7 +245,7 @@ def exportLabelmap():
     referenceVolumeNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLScalarVolumeNode")
     labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
     slicer.modules.segmentations.logic().ExportVisibleSegmentsToLabelmapNode(segmentationNode, labelmapVolumeNode, referenceVolumeNode)
-    filepath = outputPath + "/" + referenceVolumeNode.GetName() + "-label.nrrd"
+    filepath = outputPath + "/label.seg.nrrd"
     slicer.util.saveNode(labelmapVolumeNode, filepath)
     slicer.mrmlScene.RemoveNode(labelmapVolumeNode.GetDisplayNode().GetColorNode())
     slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
@@ -270,7 +270,7 @@ class ExternalSegmentation(ExtensionBase):
 
         session = pathlib.Path(self.settings["session"])
 
-        if not (session / "average_images-label.nrrd").exists():
+        if not (session / "label.seg.nrrd").exists():
             prelim_ha, prelim_md = get_premliminary_ha_md_maps(
                 self.context["slices"],
                 self.context["average_images"],
@@ -288,26 +288,29 @@ class ExternalSegmentation(ExtensionBase):
             self.logger.info("Segment the LV and press Ctrl+Shift+s (Cmd+Shift+s) and close Slicer once done")
 
             nrrd.write((session / "average_images.nrrd").as_posix(), self.context["average_images"])
+            nrrd.write((session / "MD_map.nrrd").as_posix(), prelim_md)
             nrrd.write((session / "HA_map.nrrd").as_posix(), prelim_ha)
 
             subprocess.run(
                 [
                     "/Applications/Slicer.app/Contents/MacOS/Slicer",
                     (session / "average_images.nrrd").as_posix(),
+                    (session / "MD_map.nrrd").as_posix(),
                     (session / "HA_map.nrrd").as_posix(),
                     "--python-code",
                     script,
                 ]
             )
 
-        mask_3c, _ = nrrd.read((session / "average_images-label.nrrd").as_posix())
+        mask_3c, header = nrrd.read((session / "label.seg.nrrd").as_posix())
+        # mask_3c, header = nrrd.read((session / "Segmentation.seg.nrrd").as_posix())
 
         self.context["mask_3c"] = 1.0 * (mask_3c == 1)
         self.context["mask_rv"] = 1.0 * (mask_3c == 2)
 
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
 
-        assert len(points) == 2, "More than two intersection points detected"
+        assert len(points) == 2, "No intersection points selected"
 
         points_interp = []
 
