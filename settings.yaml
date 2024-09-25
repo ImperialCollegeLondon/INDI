@@ -51,9 +51,9 @@ remove_outliers_with_ai: False
 # ========================================================================================
 # MISC
 # ========================================================================================
-# float in msec
+# (STEAM only) float in msec
 assumed_rr_interval: 1000
-# float in msec
+# (STEAM only) float in msec
 calculated_real_b0: 29
 # remove slices when reading data
 remove_slices: []
@@ -69,9 +69,9 @@ registration_mask_scale: 1.0
 ex_vivo: False
 
 # ========================================================================================
-# AI MODELS
+# AI MODELS (EXPERIMENTAL)
 # ========================================================================================
-# SEGMENTATION
+# SEGMENTATION (STEAM only)
 # ========================================================================================
 # True, False
 u_net_segmentation: True
