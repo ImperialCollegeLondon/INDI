@@ -2,6 +2,7 @@ import pathlib
 
 import cv2 as cv
 import numpy as np
+from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
 from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
@@ -110,13 +111,13 @@ class HeartSegmentation(ExtensionBase):
 
         segmentation = {}
 
-        for slice_idx in self.context["slices"]:
+        for slice_idx in tqdm(self.context["slices"], desc="Segmentation slices:"):
             # check if LV manual segmentation has been previously saved
             if (session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz").exists():
-                # load segmentations
-                self.logger.info(
-                    "Manual LV segmentation previously saved for slice: " + str(slice_idx) + ", loading mask..."
-                )
+                # # load segmentations
+                # self.logger.info(
+                #     "Manual LV segmentation previously saved for slice: " + str(slice_idx) + ", loading mask..."
+                # )
                 npzfile = np.load(
                     session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz", allow_pickle=True
                 )
@@ -133,7 +134,7 @@ class HeartSegmentation(ExtensionBase):
 
             else:
                 # manual LV segmentation
-                self.logger.info("Manual LV segmentation for slice: " + str(slice_idx))
+                # self.logger.info("Manual LV segmentation for slice: " + str(slice_idx))
                 segmentation[slice_idx], thr_mask[slice_idx] = manual_lv_segmentation(
                     mask_3c[slice_idx],
                     self.context["average_images"][slice_idx],

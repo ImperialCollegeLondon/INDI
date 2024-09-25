@@ -321,7 +321,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Cleanup before the next folder
     # =========================================================
-    logger.info("Cleaning up before the next folder")
+    logger.info("Cleaning up...")
     del (
         average_images,
         crop_mask,
