@@ -320,6 +320,10 @@ class Crop(ExtensionBase):
 
         # crop the data
         data["image"] = data["image"].apply(lambda x: x[self.row[0] : self.row[1], self.col[0] : self.col[1]])
+        if self.settings["complex_data"]:
+            data["image_phase"] = data["image_phase"].apply(
+                lambda x: x[self.row[0] : self.row[1], self.col[0] : self.col[1]]
+            )
         slices = self.context["slices"][self.slice[0] : self.slice[1]]
         data = data[data["slice_integer"].isin(slices)]
 
