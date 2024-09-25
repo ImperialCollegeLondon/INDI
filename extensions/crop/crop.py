@@ -331,7 +331,7 @@ class Crop(ExtensionBase):
 
         # info["n_slices"] = self.slice[1] - self.slice[0]
         info["img_size"] = (self.row[1] - self.row[0], self.col[1] - self.col[0])
-
+        info["n_slices"] = len(slices)
         self.logger.info(f"Slices after cropping: n={len(slices)}, {slices}")
 
         self.context["data"], self.context["slices"], self.context["info"] = data, slices, info
