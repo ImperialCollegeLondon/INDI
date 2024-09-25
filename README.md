@@ -18,7 +18,8 @@ Post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 ## Introduction
 
 This software is a post-processing pipeline designed for in-vivo cardiac diffusion tensor imaging.
-It currently accepts Siemens and Philips diffusion weighted DICOM data, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). It also supports both STEAM and SE data.
+It currently accepts Siemens and Philips diffusion weighted DICOM data, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). 
+It also supports both STEAM and SE data.
 
 After the data is loaded, the pipeline performs the following steps:
 
@@ -26,11 +27,12 @@ After the data is loaded, the pipeline performs the following steps:
 - Image curation
 - Tensor fitting
 - Segmentation
-- Results export
+- Export results
 
-![alt text](assets/images/summary_figure.png)
+![workflow](assets/images/summary_figure.png)
 
-INDI runs from the command line, and when processing a dataset for the first time, INDI will require user input (pop-up matplotlib windows) which will be saved for future runs.
+INDI runs from the command line, and when processing a dataset for the first time, 
+INDI will require user input (pop-up matplotlib windows) which will be saved for future runs.
 
 For more details:
 
@@ -40,26 +42,36 @@ See [YAML settings](docs/YAML_settings.md) for run configuration details.
 
 ## Installation
 
-Software has been tested on macOS Sonoma with python 3.10.
+Software has been tested on: 
+- macOS 15.0 with python 3.12
+- Ubuntu 22.04 with python 3.12
+- Windows 11 with python 3.12
 
 ### Installation in macOS (Intel and Apple silicon) with pip
 
-Install the python environment:
+Install [homebrew](https://brew.sh/).
 
+With homebrew install python 3.12:
 ```bash
-python -m venv .venv
+brew install python@3.12
+```
+
+Also install imagemagick:
+```bash
+brew install imagemagick
+```
+
+Download or clone the INDI repository. 
+
+Install the python environment in the INDI root directory:
+```bash
+python@3.12 -m venv .venv
 source .venv/bin/activate
 pip install -U pip setuptools wheel pip-tools
 pip install -r requirements.txt
 ```
 
-You also need ImageMagick installed. You can install it with [Homebrew](https://brew.sh/):
-
-```bash
-brew install imagemagick
-```
-
-### Installation cross platform (Mac, Win & Linux) with conda
+### Installation cross-platform (Mac, Win & Linux) with conda
 
 Install miniforge:
 [Miniforge](https://github.com/conda-forge/miniforge)
@@ -71,7 +83,6 @@ conda env create -f environment-cpu.yml
 ```
 
 Or alternatively, if you have a CUDA compatible GPU for Win or Linux:
-
 ```bash
 conda env create -f environment-gpu.yml
 ```
@@ -101,12 +112,12 @@ This is required to ensure code quality and style before committing code changes
 >[!NOTE]
 > Youtube video coming soon...
 
-### Hello world example
+In the video above we are going to post-process a synthetic phantom dataset with non-rigid distortions. 
+Please unzip [the phantom data](docs/test_phantom_cdti_dicoms.zip) to a folder.
 
-We are going to post-process a synthetic phantom dataset with non-rigid distortions. Please unzip [the phantom data](docs/test_phantom_cdti_dicoms.zip) to a folder. The `test_phantom_dcti_dicoms` folder contains a subfolder named `diffusion_images` with the cdti simulated scan. The DICOM files contains diffusion weighted images with periodic non-rigid distortions as a typical in-vivo scan.
-
->[!NOTE]
-> work in progress.
+The `test_phantom_dcti_dicoms` folder contains a subfolder named `diffusion_images` with the cdti simulated scan. 
+The DICOM files contains noisy diffusion weighted images with periodic non-rigid distortions,
+simulating a typical in-vivo scan.
 
 ### Processing your own data
 
@@ -116,4 +127,5 @@ Then run:
 
 ```python main_script.py <data_path>```
 
-Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the diffusion weighted images inside.
+Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the 
+diffusion weighted images inside.
