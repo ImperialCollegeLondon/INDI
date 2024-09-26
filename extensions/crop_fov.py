@@ -52,7 +52,10 @@ def crop_images(
     crop_mask: logical mask with the crop.
     """
 
-    global_crop_mask = sum((mask_3c[i] == 1) | (mask_rv[i] == 1) for i in range(mask_3c.shape[0]))
+    if settings["RV-segmented"]:
+        global_crop_mask = sum((mask_3c[i] == 1) | (mask_rv[i] == 1) for i in range(mask_3c.shape[0]))
+    else:
+        global_crop_mask = sum(mask_3c[i] == 1 for i in range(mask_3c.shape[0]))
     crop_mask = global_crop_mask != 0
 
     # pad mask but beware of not going out of the FOV limits
@@ -68,7 +71,9 @@ def crop_images(
 
     # crop the heart mask, registration mask and average images
     mask_3c = mask_3c[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
-    mask_rv = mask_rv[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
+    if settings["RV-segmented"]:
+        mask_rv = mask_rv[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
+
     reg_mask = reg_mask[np.ix_(crop_mask.any(1), crop_mask.any(0))]
     average_images = average_images[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     for slice_str in slices:

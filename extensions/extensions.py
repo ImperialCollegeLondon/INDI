@@ -1367,71 +1367,72 @@ def plot_results_maps(
     params["abs_E2A"]["mask"] = mask_3c
 
     # RV parameters
-    params["FA-RV"] = {}
-    params["FA-RV"]["var_name"] = "fa-rv"
-    params["FA-RV"]["vmin_max"] = [0, 1]
-    params["FA-RV"]["cmap"] = colormaps["FA"]
-    params["FA-RV"]["hist_color"] = colors[0]
-    params["FA-RV"]["title"] = "Fractional anisotropy"
-    params["FA-RV"]["units"] = "[]"
-    params["FA-RV"]["scale"] = 1
-    params["FA-RV"]["abs"] = False
-    params["FA-RV"]["mask"] = mask_rv
+    if settings["RV-segmented"]:
+        params["FA-RV"] = {}
+        params["FA-RV"]["var_name"] = "fa-rv"
+        params["FA-RV"]["vmin_max"] = [0, 1]
+        params["FA-RV"]["cmap"] = colormaps["FA"]
+        params["FA-RV"]["hist_color"] = colors[0]
+        params["FA-RV"]["title"] = "Fractional anisotropy"
+        params["FA-RV"]["units"] = "[]"
+        params["FA-RV"]["scale"] = 1
+        params["FA-RV"]["abs"] = False
+        params["FA-RV"]["mask"] = mask_rv
 
-    params["MD-RV"] = {}
-    params["MD-RV"]["var_name"] = "md-rv"
-    params["MD-RV"]["vmin_max"] = [0, 2]
-    params["MD-RV"]["cmap"] = colormaps["MD"]
-    params["MD-RV"]["hist_color"] = colors[1]
-    params["MD-RV"]["title"] = "Mean diffusivity"
-    params["MD-RV"]["units"] = "10^{-3} mm^2s^{-1}"
-    params["MD-RV"]["scale"] = 1000
-    params["MD-RV"]["abs"] = False
-    params["MD-RV"]["mask"] = mask_rv
+        params["MD-RV"] = {}
+        params["MD-RV"]["var_name"] = "md-rv"
+        params["MD-RV"]["vmin_max"] = [0, 2]
+        params["MD-RV"]["cmap"] = colormaps["MD"]
+        params["MD-RV"]["hist_color"] = colors[1]
+        params["MD-RV"]["title"] = "Mean diffusivity"
+        params["MD-RV"]["units"] = "10^{-3} mm^2s^{-1}"
+        params["MD-RV"]["scale"] = 1000
+        params["MD-RV"]["abs"] = False
+        params["MD-RV"]["mask"] = mask_rv
 
-    params["HA-RV"] = {}
-    params["HA-RV"]["var_name"] = "ha-rv"
-    params["HA-RV"]["vmin_max"] = [-90, 90]
-    params["HA-RV"]["cmap"] = colormaps["HA"]
-    params["HA-RV"]["hist_color"] = colors[2]
-    params["HA-RV"]["title"] = "Helix angle"
-    params["HA-RV"]["units"] = "degrees"
-    params["HA-RV"]["scale"] = 1
-    params["HA-RV"]["abs"] = False
-    params["HA-RV"]["mask"] = mask_rv
+        params["HA-RV"] = {}
+        params["HA-RV"]["var_name"] = "ha-rv"
+        params["HA-RV"]["vmin_max"] = [-90, 90]
+        params["HA-RV"]["cmap"] = colormaps["HA"]
+        params["HA-RV"]["hist_color"] = colors[2]
+        params["HA-RV"]["title"] = "Helix angle"
+        params["HA-RV"]["units"] = "degrees"
+        params["HA-RV"]["scale"] = 1
+        params["HA-RV"]["abs"] = False
+        params["HA-RV"]["mask"] = mask_rv
 
-    params["TA-RV"] = {}
-    params["TA-RV"]["var_name"] = "ta-rv"
-    params["TA-RV"]["vmin_max"] = [-90, 90]
-    params["TA-RV"]["cmap"] = "twilight_shifted"
-    params["TA-RV"]["hist_color"] = colors[5]
-    params["TA-RV"]["title"] = "Transverse angle"
-    params["TA-RV"]["units"] = "degrees"
-    params["TA-RV"]["scale"] = 1
-    params["TA-RV"]["abs"] = False
-    params["TA-RV"]["mask"] = mask_rv
+        params["TA-RV"] = {}
+        params["TA-RV"]["var_name"] = "ta-rv"
+        params["TA-RV"]["vmin_max"] = [-90, 90]
+        params["TA-RV"]["cmap"] = "twilight_shifted"
+        params["TA-RV"]["hist_color"] = colors[5]
+        params["TA-RV"]["title"] = "Transverse angle"
+        params["TA-RV"]["units"] = "degrees"
+        params["TA-RV"]["scale"] = 1
+        params["TA-RV"]["abs"] = False
+        params["TA-RV"]["mask"] = mask_rv
 
-    params["E2A-RV"] = {}
-    params["E2A-RV"]["var_name"] = "e2a-rv"
-    params["E2A-RV"]["vmin_max"] = [-90, 90]
-    params["E2A-RV"]["cmap"] = "twilight_shifted"
-    params["E2A-RV"]["hist_color"] = colors[4]
-    params["E2A-RV"]["title"] = "Sheetlet angle"
-    params["E2A-RV"]["units"] = "degrees"
-    params["E2A-RV"]["scale"] = 1
-    params["E2A-RV"]["abs"] = False
-    params["E2A-RV"]["mask"] = mask_rv
+        params["E2A-RV"] = {}
+        params["E2A-RV"]["var_name"] = "e2a-rv"
+        params["E2A-RV"]["vmin_max"] = [-90, 90]
+        params["E2A-RV"]["cmap"] = "twilight_shifted"
+        params["E2A-RV"]["hist_color"] = colors[4]
+        params["E2A-RV"]["title"] = "Sheetlet angle"
+        params["E2A-RV"]["units"] = "degrees"
+        params["E2A-RV"]["scale"] = 1
+        params["E2A-RV"]["abs"] = False
+        params["E2A-RV"]["mask"] = mask_rv
 
-    params["abs_E2A-RV"] = {}
-    params["abs_E2A-RV"]["var_name"] = "e2a-rv"
-    params["abs_E2A-RV"]["vmin_max"] = [0, 90]
-    params["abs_E2A-RV"]["cmap"] = colormaps["abs_E2A"]
-    params["abs_E2A-RV"]["hist_color"] = colors[3]
-    params["abs_E2A-RV"]["title"] = "Absolute sheetlet angle"
-    params["abs_E2A-RV"]["units"] = "degrees"
-    params["abs_E2A-RV"]["scale"] = 1
-    params["abs_E2A-RV"]["abs"] = True
-    params["abs_E2A-RV"]["mask"] = mask_rv
+        params["abs_E2A-RV"] = {}
+        params["abs_E2A-RV"]["var_name"] = "e2a-rv"
+        params["abs_E2A-RV"]["vmin_max"] = [0, 90]
+        params["abs_E2A-RV"]["cmap"] = colormaps["abs_E2A"]
+        params["abs_E2A-RV"]["hist_color"] = colors[3]
+        params["abs_E2A-RV"]["title"] = "Absolute sheetlet angle"
+        params["abs_E2A-RV"]["units"] = "degrees"
+        params["abs_E2A-RV"]["scale"] = 1
+        params["abs_E2A-RV"]["abs"] = True
+        params["abs_E2A-RV"]["mask"] = mask_rv
 
     for i, slice_idx in enumerate(slices):
         for param in params:
@@ -1823,10 +1824,6 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
     dti["abs_e2a"] = np.abs(dti["e2a"])
     dti["abs_ta"] = np.abs(dti["ta"])
     dti["md_1e3"] = dti["md"] * 1000
-    dti["abs_e2a-rv"] = np.abs(dti["e2a-rv"])
-    dti["abs_ta-rv"] = np.abs(dti["ta-rv"])
-    dti["md_1e3-rv"] = dti["md-rv"] * 1000
-
     var_list = [
         "fa",
         "md_1e3",
@@ -1835,13 +1832,6 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
         "ta",
         "abs_e2a",
         "abs_ta",
-        "fa-rv",
-        "md_1e3-rv",
-        "ha-rv",
-        "e2a-rv",
-        "ta-rv",
-        "abs_e2a-rv",
-        "abs_ta-rv",
     ]
     str_list = [
         "FA",
@@ -1851,14 +1841,30 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
         "TA",
         "|E2A|",
         "|TA|",
-        "RV FA",
-        "RV MD",
-        "RV HA",
-        "RV E2A",
-        "RV TA",
-        "RV |E2A|",
-        "RV |TA|",
     ]
+
+    if settings["RV-segmented"]:
+        dti["abs_e2a-rv"] = np.abs(dti["e2a-rv"])
+        dti["abs_ta-rv"] = np.abs(dti["ta-rv"])
+        dti["md_1e3-rv"] = dti["md-rv"] * 1000
+        var_list = var_list + [
+            "fa-rv",
+            "md_1e3-rv",
+            "ha-rv",
+            "e2a-rv",
+            "ta-rv",
+            "abs_e2a-rv",
+            "abs_ta-rv",
+        ]
+        str_list = str_list + [
+            "RV FA",
+            "RV MD",
+            "RV HA",
+            "RV E2A",
+            "RV TA",
+            "RV |E2A|",
+            "RV |TA|",
+        ]
     # global values
     table_global = []
     table_global.append(["Global"] + [np.nan] * 7)

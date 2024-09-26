@@ -322,19 +322,20 @@ for current_folder in all_to_be_analysed_folders:
     dti = context["dti"]
     info = context["info"]
 
-    # RV Metrics/Maps
-    context = {
-        "data": data,
-        "info": info,
-        "slices": slices,
-        "dti": dti,
-        "segmentation": segmentation,
-        "mask_rv": mask_rv,
-        "average_images": average_images,
-    }
-    MetricsRV(context, settings, logger).run()
-    dti = context["dti"]
-    info = context["info"]
+    if settings["RV-segmented"]:
+        # RV Metrics/Maps
+        context = {
+            "data": data,
+            "info": info,
+            "slices": slices,
+            "dti": dti,
+            "segmentation": segmentation,
+            "mask_rv": mask_rv,
+            "average_images": average_images,
+        }
+        MetricsRV(context, settings, logger).run()
+        dti = context["dti"]
+        info = context["info"]
     # =========================================================
     # Plot main results and save data
     # =========================================================

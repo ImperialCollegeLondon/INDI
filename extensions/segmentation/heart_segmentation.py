@@ -302,13 +302,34 @@ class ExternalSegmentation(ExtensionBase):
                 ]
             )
 
-        mask_3c, _ = nrrd.read((session / "label.seg.nrrd").as_posix())
-        # mask_3c, header = nrrd.read((session / "Segmentation.seg.nrrd").as_posix())
+        seg_mask, _ = nrrd.read((session / "label.seg.nrrd").as_posix())
 
-        assert mask_3c.shape[0] == 2, "Segment both the LV and RV, both including the septum"
+        if seg_mask.ndim == 4:
+            assert seg_mask.shape[0] == 2, "Segment both the LV and RV, both including the septum"
 
-        self.context["mask_3c"] = mask_3c[0, ...]
-        self.context["mask_rv"] = mask_3c[1, ...]
+            # eliminate slices with no segmentation
+            mask = np.any(seg_mask[0, ...], axis=(1, 2))
+            self.context["slices"] = np.asarray(self.context["slices"])[mask]
+            self.context["info"]["n_slices"] = len(self.context["slices"])
+
+            self.context["mask_3c"] = seg_mask[0, mask, :, :]
+
+            # eliminate slices with no segmentation
+            mask = np.any(seg_mask[1, ...], axis=(1, 2))
+            self.context["mask_rv"] = seg_mask[1, mask, :, :]
+
+            self.settings["RV-segmented"] = True
+            self.logger.info("RV segmentation detected")
+
+        else:
+            # eliminate slices with no segmentation
+            mask = np.any(seg_mask, axis=(1, 2))
+            self.context["slices"] = np.asarray(self.context["slices"])[mask]
+            self.context["info"]["n_slices"] = len(self.context["slices"])
+            self.context["mask_3c"] = seg_mask[mask, ...]
+            self.context["mask_rv"] = None
+            self.settings["RV-segmented"] = False
+            self.logger.info("No RV segmentation detected")
 
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
 
@@ -336,4 +357,6 @@ class ExternalSegmentation(ExtensionBase):
             segmentation[slice_idx]["anterior_ip"] = np.asarray([points_interp[0][0][i], points_interp[0][1][i]])
             segmentation[slice_idx]["inferior_ip"] = np.asarray([points_interp[1][0][i], points_interp[1][1][i]])
 
+        # remove slices not segmented
+        self.context["data"] = self.context["data"][self.context["data"]["slice_integer"].isin(self.context["slices"])]
         self.context["segmentation"] = segmentation

@@ -35,7 +35,7 @@ registration_reference_method: best
 # ROTATION
 # ========================================================================================
 # True, False
-rotate: False
+rotate: True
 # 90, -90, 180 (positive angles --> left-handed rotation)
 rotation_angle: 90
 # z, y, x
