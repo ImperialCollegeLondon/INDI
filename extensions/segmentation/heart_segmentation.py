@@ -285,9 +285,11 @@ class ExternalSegmentation(ExtensionBase):
             self.logger.info("Opening Slicer for manual segmentation")
             self.logger.info("Segment the LV and press Ctrl+Shift+s (Cmd+Shift+s) and close Slicer once done")
 
-            nrrd.write((session / "average_images.nrrd").as_posix(), self.context["average_images"])
-            nrrd.write((session / "MD_map.nrrd").as_posix(), prelim_md)
-            nrrd.write((session / "HA_map.nrrd").as_posix(), prelim_ha)
+            nrrd.write(
+                (session / "average_images.nrrd").as_posix(), self.context["average_images"][self.context["slices"]]
+            )
+            nrrd.write((session / "MD_map.nrrd").as_posix(), prelim_md[self.context["slices"]])
+            nrrd.write((session / "HA_map.nrrd").as_posix(), prelim_ha[self.context["slices"]])
 
             subprocess.run(
                 [
@@ -327,7 +329,7 @@ class ExternalSegmentation(ExtensionBase):
         for i, slice_idx in enumerate(self.context["slices"]):
             segmentation[slice_idx] = {}
 
-            epi_contour, endo_contour = get_sa_contours(self.context["mask_3c"][slice_idx])
+            epi_contour, endo_contour = get_sa_contours(self.context["mask_3c"][i])
 
             segmentation[slice_idx]["epicardium"] = epi_contour
             segmentation[slice_idx]["endocardium"] = endo_contour

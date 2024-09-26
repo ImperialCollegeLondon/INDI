@@ -338,7 +338,9 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Plot main results and save data
     # =========================================================
-    export_results(data, dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps, logger)
+    export_results(
+        data, dti, info, settings, mask_3c, mask_rv, slices, average_images, segmentation, colormaps, logger
+    )
 
     # =========================================================
     # Cleanup before the next folder

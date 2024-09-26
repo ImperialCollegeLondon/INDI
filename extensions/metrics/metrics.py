@@ -103,9 +103,9 @@ class MetricsRV(ExtensionBase):
         # =========================================================
         # Get HA line profiles
         # =========================================================
-        dti["ha_line_profiles-rv"], dti["wall_thickness-rv"] = get_ha_line_profiles(
-            dti["ha-rv"], rv_centres, slices, mask_3c, segmentation, self.settings, info, "RV"
-        )
+        # dti["ha_line_profiles-rv"], dti["wall_thickness-rv"] = get_ha_line_profiles(
+        #     dti["ha-rv"], rv_centres, slices, mask_3c, segmentation, self.settings, info, "RV"
+        # )
 
         self.context["dti"] = dti
         self.context["info"] = info

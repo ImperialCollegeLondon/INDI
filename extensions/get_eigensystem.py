@@ -70,15 +70,15 @@ def plot_eigenvector_maps(eigenvectors, average_images, mask_3c, slices, setting
     # plot the eigenvectors
     direction_str = ["x", "y", "z"]
     order_str = ["tertiary", "secondary", "primary"]
-    for slice_idx in slices:
-        alphas_whole_heart = np.copy(mask_3c[slice_idx])
+    for ii, slice_idx in enumerate(slices):
+        alphas_whole_heart = np.copy(mask_3c[ii])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
         fig, ax = plt.subplots(3, 3)
         for idx, eig_order in enumerate(range(2, -1, -1)):
             for direction in range(3):
-                ax[idx, direction].imshow(average_images[slice_idx], cmap="Greys_r")
+                ax[idx, direction].imshow(average_images[ii], cmap="Greys_r")
                 i = ax[idx, direction].imshow(
-                    eigenvectors[slice_idx, :, :, direction, eig_order],
+                    eigenvectors[ii, :, :, direction, eig_order],
                     vmin=-1,
                     vmax=1,
                     alpha=alphas_whole_heart,
@@ -166,23 +166,23 @@ def get_negative_eigenvalues_map(
     background_mask = np.copy(mask_3c)
     background_mask[background_mask > 0] = 1
     negative_eig_map = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
-    for slice_idx in slices:
-        eig_1 = eigenvalues[slice_idx, :, :, 0] < 0
-        eig_2 = eigenvalues[slice_idx, :, :, 1] < 0
-        eig_3 = eigenvalues[slice_idx, :, :, 2] < 0
-        eig_1 = eig_1.astype(int) * background_mask[slice_idx]
-        eig_2 = eig_2.astype(int) * background_mask[slice_idx]
-        eig_3 = eig_3.astype(int) * background_mask[slice_idx]
+    for i, slice_idx in enumerate(slices):
+        eig_1 = eigenvalues[i, :, :, 0] < 0
+        eig_2 = eigenvalues[i, :, :, 1] < 0
+        eig_3 = eigenvalues[i, :, :, 2] < 0
+        eig_1 = eig_1.astype(int) * background_mask[i]
+        eig_2 = eig_2.astype(int) * background_mask[i]
+        eig_3 = eig_3.astype(int) * background_mask[i]
 
-        negative_eig_map[slice_idx] = eig_1 + eig_2 + eig_3
+        negative_eig_map[i] = eig_1 + eig_2 + eig_3
 
     cmap = matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("Set3").colors[1:4])
-    for slice_idx in slices:
-        alphas = np.copy(negative_eig_map[slice_idx])
+    for i, slice_idx in enumerate(slices):
+        alphas = np.copy(negative_eig_map[i])
         alphas[alphas > 0.1] = 1
         plt.figure(figsize=(5, 5))
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(negative_eig_map[slice_idx], alpha=alphas, vmin=1, vmax=3, cmap=cmap)
+        plt.imshow(average_images[i], cmap="Greys_r")
+        plt.imshow(negative_eig_map[i], alpha=alphas, vmin=1, vmax=3, cmap=cmap)
         cbar = plt.colorbar(fraction=0.046, pad=0.04)
         cbar.ax.tick_params(labelsize=5)
         cbar.set_ticks([4 / 3, 2, 8 / 3])

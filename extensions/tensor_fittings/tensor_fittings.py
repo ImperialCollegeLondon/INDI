@@ -140,50 +140,50 @@ def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray
     vmin = tensor_mean - 3 * tensor_std
     vmax = tensor_mean + 3 * tensor_std
 
-    for slice_idx in slices:
-        alphas_whole_heart = np.copy(mask_3c[slice_idx])
+    for i, slice_idx in enumerate(slices):
+        alphas_whole_heart = np.copy(mask_3c[i])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
 
         # imshow the tensor
         plt.figure(figsize=(15, 15))
         plt.subplot(3, 3, 1)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 0, 0], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(average_images[i], cmap="Greys_r")
+        plt.imshow(D[i, :, :, 0, 0], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxx")
 
         plt.subplot(3, 3, 5)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 1, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(average_images[i], cmap="Greys_r")
+        plt.imshow(D[i, :, :, 1, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dyy")
 
         plt.subplot(3, 3, 9)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 2, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(average_images[i], cmap="Greys_r")
+        plt.imshow(D[i, :, :, 2, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.title("Dzz")
         plt.axis("off")
 
         plt.subplot(3, 3, 2)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 0, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(average_images[i], cmap="Greys_r")
+        plt.imshow(D[i, :, :, 0, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxy")
 
         plt.subplot(3, 3, 3)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 0, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(average_images[i], cmap="Greys_r")
+        plt.imshow(D[i, :, :, 0, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxz")
 
         plt.subplot(3, 3, 6)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 1, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(average_images[i], cmap="Greys_r")
+        plt.imshow(D[i, :, :, 1, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.title("Dyz")
         plt.axis("off")
@@ -255,7 +255,7 @@ class TensorFit(ExtensionBase):
 
         # I need to do this per slice, because gtab might differ from slice to slice
         info["tensor fitting sigma"] = {}
-        for slice_idx in slices:
+        for i, slice_idx in enumerate(slices):
             current_entries = data.loc[data["slice_integer"] == slice_idx]
 
             # remove any images that have been marked to be removed
@@ -287,8 +287,8 @@ class TensorFit(ExtensionBase):
                 tenmodel = dti.TensorModel(gtab, fit_method=self.method, return_S0_hat=True)
 
             tenfit = tenmodel.fit(image_data)
-            tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
-            s0[..., slice_idx] = np.squeeze(tenfit.S0_hat)
+            tensor[..., i] = np.squeeze(tenfit.quadratic_form)
+            s0[..., i] = np.squeeze(tenfit.S0_hat)
 
             # t1 = time.time()
             # total = t1 - t0
@@ -302,19 +302,19 @@ class TensorFit(ExtensionBase):
                     res = np.abs(image_data - s_est)
 
                     # estimate res in the myocardium per diffusion image
-                    myo_pxs = np.flatnonzero(myo_mask[slice_idx])
+                    myo_pxs = np.flatnonzero(myo_mask[i])
                     res_img = np.squeeze(np.reshape(res, [res.shape[0] * res.shape[1], res.shape[2], res.shape[3]]))
                     res_img = np.nanmean(res_img[myo_pxs, :], axis=0)
-                    residuals_img[slice_idx] = res_img
+                    residuals_img[i] = res_img
                     # estimate res per voxel
                     res_map = np.nanmean(np.squeeze(res), axis=2)
-                    residuals_map[slice_idx] = res_map
+                    residuals_map[i] = res_map
 
                     z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
 
                     if self.settings["debug"]:
                         plot_residuals_plot(res_img, slice_idx, self.settings, prefix="")
-                        plot_residuals_map(res_map, average_images, mask_3c, slice_idx, self.settings, prefix="")
+                        plot_residuals_map(res_map, average_images, mask_3c, i, self.settings, prefix="")
 
                 else:
                     residuals_img = []

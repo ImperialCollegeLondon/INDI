@@ -28,8 +28,8 @@ def get_fa_md(eigv: NDArray, info, mask_3c, slices, logger) -> tuple[NDArray, ND
     # get mean and std of dti["md"] and dti["fa"] in the myocardium
     var_names = ["MD", "FA"]
     for var in var_names:
-        for slice_idx in slices:
-            vals = eval(var.lower())[slice_idx][mask_3c[slice_idx] == 1]
+        for i, slice_idx in enumerate(slices):
+            vals = eval(var.lower())[i][mask_3c[i] == 1]
             if var == "MD":
                 vals = 1e3 * vals
             logger.debug(
