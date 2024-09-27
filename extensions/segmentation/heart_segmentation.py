@@ -2,6 +2,7 @@ import pathlib
 
 import cv2 as cv
 import numpy as np
+from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
 from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
@@ -26,14 +27,14 @@ def get_premliminary_ha_md_maps(slices, average_images, data, info, settings, lo
     # Preliminary HA map
     # =========================================================
 
-    n_slices = len(slices)
+    # n_slices = len(slices)
     session = pathlib.Path(settings["session"])
     # check if LV manual segmentation has been previously saved
     # if not calculate a prelim HA map
-    prelim_ha = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
-    prelim_md = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
+    prelim_ha = np.zeros((info["n_slices"], info["img_size"][0], info["img_size"][1]))
+    prelim_md = np.zeros((info["n_slices"], info["img_size"][0], info["img_size"][1]))
     # mask is all ones here for now.
-    thr_mask = np.ones((n_slices, info["img_size"][0], info["img_size"][1]))
+    thr_mask = np.ones((info["n_slices"], info["img_size"][0], info["img_size"][1]))
     # loop over the slices
     for slice_idx in slices:
         if not (session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz").exists():
@@ -93,7 +94,7 @@ class HeartSegmentation(ExtensionBase):
 
         mask_3c = np.zeros(
             (
-                n_slices,
+                self.context["info"]["n_slices"],
                 self.context["info"]["img_size"][0],
                 self.context["info"]["img_size"][1],
             ),
@@ -101,7 +102,7 @@ class HeartSegmentation(ExtensionBase):
         )
         thr_mask = np.ones(
             (
-                n_slices,
+                self.context["info"]["n_slices"],
                 self.context["info"]["img_size"][0],
                 self.context["info"]["img_size"][1],
             ),
@@ -110,13 +111,13 @@ class HeartSegmentation(ExtensionBase):
 
         segmentation = {}
 
-        for slice_idx in self.context["slices"]:
+        for slice_idx in tqdm(self.context["slices"], desc="Segmentation slices:"):
             # check if LV manual segmentation has been previously saved
             if (session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz").exists():
-                # load segmentations
-                self.logger.info(
-                    "Manual LV segmentation previously saved for slice: " + str(slice_idx) + ", loading mask..."
-                )
+                # # load segmentations
+                # self.logger.info(
+                #     "Manual LV segmentation previously saved for slice: " + str(slice_idx) + ", loading mask..."
+                # )
                 npzfile = np.load(
                     session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz", allow_pickle=True
                 )
@@ -133,7 +134,7 @@ class HeartSegmentation(ExtensionBase):
 
             else:
                 # manual LV segmentation
-                self.logger.info("Manual LV segmentation for slice: " + str(slice_idx))
+                # self.logger.info("Manual LV segmentation for slice: " + str(slice_idx))
                 segmentation[slice_idx], thr_mask[slice_idx] = manual_lv_segmentation(
                     mask_3c[slice_idx],
                     self.context["average_images"][slice_idx],

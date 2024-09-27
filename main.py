@@ -13,6 +13,7 @@ import matplotlib
 import pyautogui
 
 from extensions.complex_averaging import complex_averaging
+from extensions.crop.crop import Crop
 
 # from extensions.crop.crop import Crop
 from extensions.crop_fov import crop_fov, record_image_registration
@@ -101,23 +102,29 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Crop data
     # =========================================================
-    # if settings["ex_vivo"]:
-    #     logger.info("Cropping data to the region of interest")
-    #     context = {"data": data, "slices": slices, "info": info}
-    #     Crop(context, settings, logger).run()
-    #     data = context["data"]
-    #     slices = context["slices"]
-    #     info = context["info"]
+    if settings["ex_vivo"]:
+        logger.info("Ex-vivo: Cropping data to the region of interest")
+        context = {"data": data, "slices": slices, "info": info}
+        Crop(context, settings, logger).run()
+        data = context["data"]
+        slices = context["slices"]
+        info = context["info"]
 
     # =========================================================
     # DWIs registration
     # =========================================================
     if settings["ex_vivo"]:
-        logger.info("Ex-vivo mode is True. Using ex-vivo registration.")
+        logger.info("Ex-vivo: Using ex-vivo registration: " + settings["ex_vivo_registration"])
         context = {"data": data, "info": info}
         RegistrationExVivo(context, settings, logger).run()
         data = context["data"]
         reg_mask = context["reg_mask"]
+        registration_image_data = None
+        ref_images = context["ref_images"]
+        dti["snr"] = context["snr"]
+        snr_b0_lv = context["snr_b0_lv"]
+        noise = context["noise"]
+        info = context["info"]
 
     else:
         data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
@@ -134,11 +141,14 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     if settings["ex_vivo"] and settings["rotate"]:
         logger.info("Ex-vivo rotation is True")
-        context = {"data": data, "info": info, "slices": slices}
+        context = {"data": data, "info": info, "slices": slices, "ref_images": ref_images, "dti": dti}
         Rotation(context, settings, logger).run()
         data = context["data"]
         slices = context["slices"]
+        reg_mask = context["reg_mask"]
+        ref_images = context["ref_images"]
         info = context["info"]
+        dti = context["dti"]
         # data, slices, info = rotate_data(data, slices, info, settings, logger)
 
     # =========================================================
@@ -216,36 +226,41 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Remove outliers (post-segmentation)
     # =========================================================
-    logger.info("Manual removal of outliers post segmentation")
-    context = {
-        "data": data,
-        "info": info,
-        "slices": slices,
-        "registration_image_data": registration_image_data,
-        "stage": "post",
-        "mask": reg_mask,
-        "segmentation": segmentation,
-    }
-    SelectOutliers(context, settings, logger).run()
-    data = context["data"]
-    info = context["info"]
-    slices = context["slices"]
+    if not settings["ex_vivo"]:
+        logger.info("Manual removal of outliers post segmentation")
+        context = {
+            "data": data,
+            "info": info,
+            "slices": slices,
+            "registration_image_data": registration_image_data,
+            "stage": "post",
+            "mask": reg_mask,
+            "segmentation": segmentation,
+        }
+        SelectOutliers(context, settings, logger).run()
+        data = context["data"]
+        info = context["info"]
+        slices = context["slices"]
 
-    # =========================================================
-    # Remove outliers from table
-    # =========================================================
-    data, info = remove_outliers(data, info)
+        # =========================================================
+        # Remove outliers from table
+        # =========================================================
+        data, info = remove_outliers(data, info)
 
     # =========================================================
     # Get line profile off all remaining images to
     # assess registration
     # =========================================================
-    record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
+    if not settings["ex_vivo"]:
+        record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
 
     # =========================================================
     # Get SNR maps
     # =========================================================
-    [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(data, mask_3c, average_images, slices, settings, logger, info)
+    if not settings["ex_vivo"]:  # SNR maps for ex-vivo are calculated in the registration step
+        [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(
+            data, mask_3c, average_images, slices, settings, logger, info
+        )
 
     # =========================================================
     # complex averaging
@@ -306,7 +321,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Cleanup before the next folder
     # =========================================================
-    logger.info("Cleaning up before the next folder")
+    logger.info("Cleaning up...")
     del (
         average_images,
         crop_mask,

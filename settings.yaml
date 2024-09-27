@@ -21,25 +21,15 @@ debug: True
 registration_extra_debug: False
 
 # ========================================================================================
-# IMAGE REGISTRATION
+# IMAGE REGISTRATION (in-vivo only)
 # ========================================================================================
 # none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid
 # elastix_groupwise (not working well at the moment)
-registration: quick_rigid
+registration: none
 # fast, slow
 registration_speed: fast
 # best, groupwise
 registration_reference_method: best
-
-# ========================================================================================
-# ROTATION
-# ========================================================================================
-# True, False
-rotate: False
-# 90, -90, 180
-rotation_angle: 90
-# z, y, x
-rotation_axis: z
 
 # ========================================================================================
 # TENSOR FITTING
@@ -73,10 +63,23 @@ print_series_description: False
 registration_mask_scale: 1.0
 
 # ========================================================================================
-# ex-vivo
+# Ex-vivo
 # ========================================================================================
-# process ex-vivo data
+# True, False
 ex_vivo: True
+# ========================================================================================
+# registration
+# none, rigid, non_rigid
+ex_vivo_registration: non_rigid
+# ========================================================================================
+# rotation
+# True, False
+rotate: False
+# 90, -90, 180 (positive angles --> left-handed rotation)
+rotation_angle: 90
+# z, y, x
+rotation_axis: y
+# ========================================================================================
 
 # ========================================================================================
 # AI MODELS
