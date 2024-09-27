@@ -81,6 +81,32 @@ pip install -U pip setuptools wheel pip-tools
 pip install -r requirements.txt
 ```
 
+### Installation Ubuntu with pip
+
+Install Python 3.12
+```bash
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt install python3.12
+sudo apt install python3.12-venv
+```
+
+Also install imagemagick:
+
+```bash
+brew install imagemagick
+```
+
+Download or clone the INDI repository.
+
+Install the python environment in the INDI root directory:
+
+```bash
+python@3.12 -m venv .venv
+source .venv/bin/activate
+pip install -U pip setuptools wheel pip-tools
+pip install -r requirements.txt
+```
+
 ### Installation cross-platform (Mac, Win & Linux) with conda
 
 Install miniforge:
