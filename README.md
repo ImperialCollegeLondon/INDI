@@ -48,8 +48,6 @@ Software has been tested on:
 - Ubuntu 22.04 with python 3.12
 - Windows 11 with python 3.12
 
-
-
 ### Clone the repository
 
 [Install git for your OS](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git).
@@ -60,8 +58,7 @@ Then clone the repository.
 git clone https://github.com/ImperialCollegeLondon/INDI.git
 ```
 
-
-### Installation in macOS (Intel and Apple silicon) with pip
+#### Installation in macOS (Intel and Apple silicon) with pip
 
 You may need to instal Xcode and Xcode’s Command Line Tools package as well, with this command:
 
@@ -92,9 +89,10 @@ pip install -U pip setuptools wheel pip-tools
 pip install -r requirements.txt
 ```
 
-### Installation Ubuntu with pip
+#### Installation in Ubuntu 22.04 with pip
 
 Install Python 3.12
+
 ```bash
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt install python3.12
@@ -107,8 +105,6 @@ Also install imagemagick:
 brew install imagemagick
 ```
 
-Download or clone the INDI repository.
-
 Install the python environment in the INDI root directory:
 
 ```bash
@@ -118,7 +114,7 @@ pip install -U pip setuptools wheel pip-tools
 pip install -r requirements.txt
 ```
 
-### Installation cross-platform (Mac, Win & Linux) with conda
+#### Installation Windows 11 with conda
 
 Install miniforge:
 [Miniforge](https://github.com/conda-forge/miniforge)
@@ -135,7 +131,7 @@ Or alternatively, if you have a CUDA compatible GPU for Win or Linux:
 conda env create -f environment-gpu.yml
 ```
 
-Install [imagemagick](https://imagemagick.org/)
+Install [imagemagick](https://imagemagick.org/).
 
 ### Development
 

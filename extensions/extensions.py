@@ -1672,11 +1672,16 @@ def export_results(
 
     # get git commit hash
     def get_git_revision_hash():
-        return (
-            subprocess.check_output(["git", "describe", "--always"], cwd=os.path.dirname(os.path.abspath(__file__)))
-            .strip()
-            .decode()
-        )
+        try:
+            return (
+                subprocess.check_output(
+                    ["git", "describe", "--always"], cwd=os.path.dirname(os.path.abspath(__file__))
+                )
+                .strip()
+                .decode()
+            )
+        except:
+            return "No Git repository found!"
 
     info["git_hash"] = get_git_revision_hash()
 
