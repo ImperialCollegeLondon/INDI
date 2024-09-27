@@ -63,7 +63,7 @@ print_series_description: False
 registration_mask_scale: 1.0
 
 # ========================================================================================
-# ex-vivo
+# ex-vivo (in development)
 # ========================================================================================
 # process ex-vivo data
 ex_vivo: False
