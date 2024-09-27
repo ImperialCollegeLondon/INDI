@@ -48,6 +48,19 @@ Software has been tested on:
 - Ubuntu 22.04 with python 3.12
 - Windows 11 with python 3.12
 
+
+
+### Clone the repository
+
+[Install git for your OS](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git).
+
+Then clone the repository.
+
+```bash
+git clone https://github.com/ImperialCollegeLondon/INDI.git
+```
+
+
 ### Installation in macOS (Intel and Apple silicon) with pip
 
 You may need to instal Xcode and Xcode’s Command Line Tools package as well, with this command:
@@ -69,8 +82,6 @@ Also install imagemagick:
 ```bash
 brew install imagemagick
 ```
-
-Download or clone the INDI repository.
 
 Install the python environment in the INDI root directory:
 
