@@ -1392,7 +1392,7 @@ def read_and_process_bruker(
     info dict
 
     """
-    # create empty dataframe
+    # create empty dataframes
     data = pd.DataFrame()
     data_phase = pd.DataFrame()
 

@@ -70,7 +70,7 @@ ex_vivo: True
 # ========================================================================================
 # registration
 # none, rigid, non_rigid
-ex_vivo_registration: non_rigid
+ex_vivo_registration: none
 # ========================================================================================
 # rotation
 # True, False
