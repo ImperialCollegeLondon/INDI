@@ -27,4 +27,5 @@ py7zr
 python-dotenv
 pyarrow
 pyautogui
-vtk==9.2.6
+vtk
+pyqt6

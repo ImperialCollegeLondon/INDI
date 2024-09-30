@@ -89,29 +89,27 @@ pip install -U pip setuptools wheel pip-tools
 pip install -r requirements.txt
 ```
 
-#### Installation in Ubuntu 22.04 with pip
+#### Installation in Ubuntu 22.04 with conda
 
-Install Python 3.12
+install imagemagick:
 
 ```bash
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt install python3.12
-sudo apt install python3.12-venv
+sudo apt install imagemagick
 ```
 
-Also install imagemagick:
+Install miniforge:
+[Miniforge](https://github.com/conda-forge/miniforge)
+
+Install the python environment with conda:
 
 ```bash
-brew install imagemagick
+conda env create -f environment-cpu.yml
 ```
 
-Install the python environment in the INDI root directory:
+Or alternatively, if you have a CUDA compatible GPU for Win or Linux:
 
 ```bash
-python@3.12 -m venv .venv
-source .venv/bin/activate
-pip install -U pip setuptools wheel pip-tools
-pip install -r requirements.txt
+conda env create -f environment-gpu.yml
 ```
 
 #### Installation Windows 11 with conda
