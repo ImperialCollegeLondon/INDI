@@ -1392,7 +1392,7 @@ def read_and_process_bruker(
     info dict
 
     """
-    # create empty dataframe
+    # create empty dataframes
     data = pd.DataFrame()
     data_phase = pd.DataFrame()
 
@@ -1434,39 +1434,47 @@ def list_files(data_type: str, logger: logging, settings: dict) -> Tuple[str, Li
     list_bruker = []
     data_type = None
 
-    # Check for DICOM files
-    included_extensions = ["dcm", "DCM", "IMA"]
-    list_dicoms = [
-        fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
-    ]
-    if len(list_dicoms) > 0:
-        data_type = "dicom"
-        logger.debug("DICOM files found.")
-        list_dicoms.sort()
+    # Chcek for h5 image file
+    if os.path.exists(os.path.join(settings["dicom_folder"], "images.h5")):
+        data_type = "pandas"
+        logger.debug("Pandas dataframe found.")
 
-    else:
-        # check if subfolders "mag" and "phase" exist
-        # if so read all dicom files in those folders
-        mag_folder = os.path.join(settings["dicom_folder"], "mag")
-        phase_folder = os.path.join(settings["dicom_folder"], "phase")
-        if os.path.exists(mag_folder) and os.path.exists(phase_folder):
-            list_dicoms = [fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)]
-            list_dicoms_phase = [
-                fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
-            ]
-            if len(list_dicoms) > 0 and len(list_dicoms_phase) > 0:
-                data_type = "dicom"
-                settings["complex_data"] = True
-                settings["dicom_folder"] = mag_folder
-                settings["dicom_folder_phase"] = phase_folder
-                # check if both folders have the same number of files
-                if len(list_dicoms) != len(list_dicoms_phase):
-                    logger.error("Number of DICOM files in mag and phase folders are different.")
-                    sys.exit(1)
-                logger.debug("Magnitude and phase DICOM files found.")
-                logger.debug("Complex averaging on.")
-                list_dicoms.sort()
-                list_dicoms_phase.sort()
+    if data_type is None:
+        # Check for DICOM files
+        included_extensions = ["dcm", "DCM", "IMA"]
+        list_dicoms = [
+            fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
+        ]
+        if len(list_dicoms) > 0:
+            data_type = "dicom"
+            logger.debug("DICOM files found.")
+            list_dicoms.sort()
+
+        else:
+            # check if subfolders "mag" and "phase" exist
+            # if so read all dicom files in those folders
+            mag_folder = os.path.join(settings["dicom_folder"], "mag")
+            phase_folder = os.path.join(settings["dicom_folder"], "phase")
+            if os.path.exists(mag_folder) and os.path.exists(phase_folder):
+                list_dicoms = [
+                    fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)
+                ]
+                list_dicoms_phase = [
+                    fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
+                ]
+                if len(list_dicoms) > 0 and len(list_dicoms_phase) > 0:
+                    data_type = "dicom"
+                    settings["complex_data"] = True
+                    settings["dicom_folder"] = mag_folder
+                    settings["dicom_folder_phase"] = phase_folder
+                    # check if both folders have the same number of files
+                    if len(list_dicoms) != len(list_dicoms_phase):
+                        logger.error("Number of DICOM files in mag and phase folders are different.")
+                        sys.exit(1)
+                    logger.debug("Magnitude and phase DICOM files found.")
+                    logger.debug("Complex averaging on.")
+                    list_dicoms.sort()
+                    list_dicoms_phase.sort()
     if data_type is None:
         # If no DICOMS, check for nii files
         included_extensions = ["nii", "nii.gz"]

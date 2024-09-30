@@ -28,4 +28,4 @@ python-dotenv
 pyarrow
 pyautogui
 brukerapi
-vtk==9.2.6
+vtk
