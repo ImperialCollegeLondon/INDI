@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from brukerapi.dataset import Dataset
 from tqdm import tqdm
+from datetime import datetime
 
 BRUKER_NAMES_CORRESPONDENCE_DICT = {
     "FG_DIFFUSION": "diffusion_direction",
@@ -81,6 +82,8 @@ def get_relevant_substring(file_contents: str, retrieval_parameter: str) -> str:
         "diff_dir": "##$PVM_DwGradVec=(",
         "diff_grad_orient": "##$PVM_SPackArrGradOrient=(",
         "transposition": "##$RECO_transposition=(",
+        "series_date_time": "##$VisuSeriesDate=<",
+        "series_description": "##$VisuSeriesComment=",
     }
 
     if retrieval_parameter in options:
@@ -115,6 +118,19 @@ def get_relevant_elements_from_substring(substring: str, retrieval_parameter: st
         first_paranthesis_pos = substring.find("<")
         elems = re.split("<*>", substring[first_paranthesis_pos:])[:-1]
         elems = [elem.strip()[1:] for elem in elems]
+
+    elif retrieval_parameter == "series_date_time":
+        first_paranthesis_pos = substring.find("<")
+        second_paranthesis_pos = substring.find("+")
+        elems = substring[first_paranthesis_pos+1:second_paranthesis_pos]
+        elems = elems.replace(",", ".")
+        elems = datetime.strptime(elems, '%Y-%m-%dT%H:%M:%S.%f')
+
+    elif retrieval_parameter == "series_description":
+        first_paranthesis_pos = substring.find("<")
+        second_paranthesis_pos = substring.find(">")
+        elems = substring[first_paranthesis_pos + 1:second_paranthesis_pos]
+
 
     elif retrieval_parameter == "slice_distance":
         elems = float(substring.split(")")[1].strip())
@@ -417,6 +433,15 @@ def read_bruker_file(folder_path: Path, data_type: str) -> Tuple[dict, list, lis
         # pixel spacing
         pixel_spacing = construct_pixel_spacing(file_contents)
 
+        # series date and time
+        visu_series_date_time = get_relevant_substring(file_contents, "series_date_time")
+        series_date_time = get_relevant_elements_from_substring(visu_series_date_time, "series_date_time")
+
+        # image comments
+        visu_series_description = get_relevant_substring(file_contents, "series_description")
+        series_description = get_relevant_elements_from_substring(visu_series_description, "series_description")
+
+
     # now read the method file
     method_file_path = folder_path / "method"
     with open(method_file_path) as file:
@@ -470,6 +495,8 @@ def read_bruker_file(folder_path: Path, data_type: str) -> Tuple[dict, list, lis
         slice_locations,
         pixel_spacing,
         image_orientation_patient,
+        series_date_time,
+        series_description,
     )
 
 
@@ -543,6 +570,8 @@ def load_bruker(paths: List[Path], phase_data_present: bool) -> Tuple[pd.DataFra
             slice_locations,
             pixel_spacing,
             image_orientation_patient,
+            series_date_time,
+            series_description,
         ) = read_bruker_file(path, data_type="magnitude")
 
         if phase_data_present:
@@ -554,6 +583,8 @@ def load_bruker(paths: List[Path], phase_data_present: bool) -> Tuple[pd.DataFra
                 slice_locations_phase,
                 pixel_spacing_phase,
                 image_orientation_patient_phase,
+                series_date_time_phase,
+                series_description_phase,
             ) = read_bruker_file(path, data_type="phase")
             images_phase.extend(current_images_phase)
             if order_phase != order:
@@ -602,6 +633,8 @@ def load_bruker(paths: List[Path], phase_data_present: bool) -> Tuple[pd.DataFra
                     diffusion_direction,
                     slice_location,
                     last_repetition,
+                    series_date_time,
+                    series_description,
                 )
             )
 
@@ -614,6 +647,8 @@ def load_bruker(paths: List[Path], phase_data_present: bool) -> Tuple[pd.DataFra
             "diffusion_direction",
             "slice_position",
             "repetition",
+            "acquisition_date_time",
+            "series_description",
         ],
     )
 
@@ -624,10 +659,8 @@ def load_bruker(paths: List[Path], phase_data_present: bool) -> Tuple[pd.DataFra
     df["image_position"] = df["image_position"].apply(lambda x: [0, 0, x])
     # add missing columns
     df["series_number"] = 0
-    df["series_description"] = "None"
-    df["acquisition_date_time"] = "None"
-    df["nominal_interval"] = "None"
     df["image_comments"] = "None"
+    df["nominal_interval"] = "None"
     iop_list = [
         attrs["image_orientation_patient"][0][0],
         attrs["image_orientation_patient"][0][1],
