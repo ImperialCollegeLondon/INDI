@@ -78,7 +78,9 @@ registration_mask_scale: 1.0
 # True, False
 ex_vivo: True
 # none, rigid, non_rigid
-ex_vivo_registration: non_rigid
+ex_vivo_registration: none
+# True False
+tissue_block: True
 
 # ========================================================================================
 # AI MODELS
