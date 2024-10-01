@@ -485,6 +485,122 @@ def get_cardiac_coordinates_short_axis(
     return local_cardiac_coordinates, lv_centres, phi_matrix
 
 
+def get_coordinates_tissue_block(
+    mask: NDArray,
+    segmentation: dict,
+    slices: NDArray,
+    n_slices: int,
+    settings,
+    dti: dict,
+    average_images: NDArray,
+    info: dict,
+):
+    """
+    Calculates the local cardiac coordinates for a tissue block in the short-axis plane"""
+
+    # the three orthogonal vectors
+    long = np.zeros((mask.shape + (3,)))
+    circ = np.zeros((mask.shape + (3,)))
+    radi = np.zeros((mask.shape + (3,)))
+
+    lv_centers = np.zeros([n_slices, 2], dtype=int)
+    phi_matrix = {}
+    for slice_idx in slices:
+        coords = np.where(mask[slice_idx] == 1)
+
+        long[slice_idx] = np.array([0, 0, 1])
+
+        # get the epicardium contour
+        epi_contour = segmentation[slice_idx]["epicardium"].T
+        # get the endocardium contour
+        endo_contour = segmentation[slice_idx]["endocardium"].T
+
+        dr = np.linalg.norm(endo_contour - epi_contour, axis=1)
+        dr = np.mean(dr)
+
+        # calculate the arc length of the epicardium and endocardium
+        s_epi = np.trapz(np.sqrt(1 + np.gradient(epi_contour[:, 1], epi_contour[:, 0]) ** 2), epi_contour[:, 0])
+        s_endo = np.trapz(np.sqrt(1 + np.gradient(endo_contour[:, 1], endo_contour[:, 0]) ** 2), endo_contour[:, 0])
+
+        theta = (s_epi - s_endo) / dr
+
+        r = s_epi / theta
+        # find the centre of the circle using the method from https://math.stackexchange.com/questions/1781438/finding-the-center-of-a-circle-given-two-points-and-a-radius-algebraically
+        p1 = epi_contour[0]
+        p2 = epi_contour[-1]
+        pa = (p2 - p1) / 2
+        p0 = p1 + pa
+        a = np.linalg.norm(pa)
+        b = np.sqrt(r**2 - a**2)
+        center = np.array([p0[0] + b * pa[1] / a, p0[1] - b * pa[0] / a])
+        lv_centers[slice_idx] = center
+
+        phi_matrix[slice_idx] = np.zeros(mask.shape[1:])
+        phi_matrix[slice_idx][coords] = -np.arctan2(coords[0] - center[0], coords[1] - center[1])
+
+        circ[slice_idx][coords] = np.array(
+            [
+                np.sin(phi_matrix[slice_idx][coords]),
+                -np.cos(phi_matrix[slice_idx][coords]),
+                np.repeat(0, len(coords[0])),
+            ]
+        ).T
+
+        # get the distance to the closest point in the epicardium
+        for i in range(mask.shape[1]):
+            for j in range(mask.shape[2]):
+                idx = np.argmin(np.linalg.norm(epi_contour - np.array([i, j]), axis=1))
+                wall_vec = epi_contour[idx] - epi_contour[idx - 1]
+                wall_vec = wall_vec / np.linalg.norm(wall_vec)
+                wall_vec[1] = -wall_vec[1]
+                angle = np.rad2deg(np.arccos(np.dot(wall_vec, circ[slice_idx][i, j, :2])))
+
+                if angle > 90:
+                    wall_vec = -wall_vec
+
+                circ[slice_idx, i, j] = np.array([wall_vec[1], -wall_vec[0], 0])
+
+        radi[slice_idx] = -np.cross(circ[slice_idx], long[slice_idx])
+
+        if settings["debug"]:
+            plt.subplot(2, 3, 1)
+            plt.imshow(circ[slice_idx][:, :, 0], cmap="RdYlBu")
+            plt.plot(epi_contour[:, 0], epi_contour[:, 1])
+            plt.plot(endo_contour[:, 0], endo_contour[:, 1])
+            plt.plot(center[0], center[1], "go")
+            plt.colorbar()
+            plt.subplot(2, 3, 2)
+            plt.imshow(circ[slice_idx][:, :, 1], cmap="RdYlBu")
+            plt.colorbar()
+            plt.subplot(2, 3, 3)
+            plt.imshow(circ[slice_idx][:, :, 2], cmap="RdYlBu")
+            plt.colorbar()
+
+            plt.subplot(2, 3, 4)
+            plt.imshow(radi[slice_idx][:, :, 0], cmap="RdYlBu")
+            plt.colorbar()
+            plt.subplot(2, 3, 5)
+            plt.imshow(radi[slice_idx][:, :, 1], cmap="RdYlBu")
+            plt.colorbar()
+            plt.subplot(2, 3, 6)
+            plt.imshow(radi[slice_idx][:, :, 2], cmap="RdYlBu")
+            plt.colorbar()
+
+            plt.savefig(
+                os.path.join(
+                    settings["debug_folder"], "cardiac_coordinates_slice_" + str(slice_idx).zfill(2) + ".png"
+                ),
+                dpi=200,
+                pad_inches=0,
+                transparent=False,
+            )
+            plt.close()
+
+    local_cardiac_coordinates = {"long": long, "circ": circ, "radi": radi}
+
+    return local_cardiac_coordinates, lv_centers, phi_matrix
+
+
 def create_2d_montage(img_stack: NDArray) -> NDArray:
     """
     Creates a 2D montage of a 3D array of images

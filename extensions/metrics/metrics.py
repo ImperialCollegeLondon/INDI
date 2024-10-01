@@ -1,5 +1,10 @@
 from extensions.extension_base import ExtensionBase
-from extensions.extensions import get_cardiac_coordinates_short_axis, get_ha_line_profiles, get_lv_segments
+from extensions.extensions import (
+    get_cardiac_coordinates_short_axis,
+    get_coordinates_tissue_block,
+    get_ha_line_profiles,
+    get_lv_segments,
+)
 from extensions.get_eigensystem import get_eigensystem
 from extensions.get_fa_md import get_fa_md
 from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
@@ -34,9 +39,14 @@ class Metrics(ExtensionBase):
         # =========================================================
         # Get cardiac coordinates
         # =========================================================
-        local_cardiac_coordinates, lv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
-            mask_3c, segmentation, slices, info["n_slices"], self.settings, dti, average_images, info
-        )
+        if self.settings["tissue_block"]:
+            local_cardiac_coordinates, lv_centres, phi_matrix = get_coordinates_tissue_block(
+                mask_3c, segmentation, slices, info["n_slices"], self.settings, dti, average_images, info
+            )
+        else:
+            local_cardiac_coordinates, lv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
+                mask_3c, segmentation, slices, info["n_slices"], self.settings, dti, average_images, info
+            )
 
         # =========================================================
         # Segment heart
@@ -53,9 +63,10 @@ class Metrics(ExtensionBase):
         # =========================================================
         # Get HA line profiles
         # =========================================================
-        dti["ha_line_profiles"], dti["wall_thickness"] = get_ha_line_profiles(
-            dti["ha"], lv_centres, slices, mask_3c, segmentation, self.settings, info
-        )
+        if not self.settings["tissue_block"]:
+            dti["ha_line_profiles"], dti["wall_thickness"] = get_ha_line_profiles(
+                dti["ha"], lv_centres, slices, mask_3c, segmentation, self.settings, info
+            )
 
         self.context["dti"] = dti
         self.context["info"] = info
