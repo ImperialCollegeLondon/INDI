@@ -215,20 +215,22 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # crop the images to the region around the segmented area only
     # use the same crop for all slices and then pad with 3 pixels on all sides
-    dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
-        dti,
-        data,
-        mask_3c,
-        reg_mask,
-        segmentation,
-        slices,
-        average_images,
-        registration_image_data,
-        ref_images,
-        info,
-        logger,
-        settings,
-    )
+    if not settings["tissue_block"]:
+        # no need to crop for tissue block
+        dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
+            dti,
+            data,
+            mask_3c,
+            reg_mask,
+            segmentation,
+            slices,
+            average_images,
+            registration_image_data,
+            ref_images,
+            info,
+            logger,
+            settings,
+        )
 
     # =========================================================
     # Remove outliers (post-segmentation)

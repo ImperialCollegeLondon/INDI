@@ -129,9 +129,6 @@ class ExternalTissueBlockSegmentation(ExtensionBase):
         endo = interpolate_curves(endo_zs, endo_curves, z_desired)
 
         segmentation = {}
-
-        import matplotlib.pyplot as plt
-
         for i, slice_idx in enumerate(self.context["slices"]):
             segmentation[slice_idx] = {
                 "epicardium": epi[i],
@@ -139,9 +136,5 @@ class ExternalTissueBlockSegmentation(ExtensionBase):
                 "anterior_ip": np.array([]),
                 "inferior_ip": np.array([]),
             }
-            plt.imshow(self.context["average_images"][slice_idx], cmap="gray")
-            plt.plot(endo[i][0], endo[i][1])
-            plt.plot(epi[i][0], epi[i][1])
-            plt.show()
 
         self.context["segmentation"] = segmentation
