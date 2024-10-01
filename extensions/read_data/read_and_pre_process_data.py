@@ -902,8 +902,13 @@ def reorder_by_slice(
         number of slices
 
     """
+    # round the image position values (sometimes there are small differences)
+    # round image position to the first significant digit decimal place in the slice thickness
+    slice_thickness = float(info["slice_thickness"])
+    decimal_place = abs(int(math.log10(abs(slice_thickness)))) + 1
+    data["image_position"] = data["image_position"].apply(lambda x: tuple(np.round(x, decimal_place)))
+
     # determine if we can use z, or y or x to sort the slices
-    data["image_position"] = data["image_position"].apply(lambda x: tuple(x))
     unique_positions = np.array(list(data.image_position.unique()))
     n_positions = len(unique_positions)
     n_positions_x = len(np.unique(unique_positions[:, 0]))
