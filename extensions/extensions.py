@@ -547,42 +547,49 @@ def get_coordinates_tissue_block(
         ).T
 
         # get the distance to the closest point in the epicardium
-        for i in range(mask.shape[1]):
-            for j in range(mask.shape[2]):
-                idx = np.argmin(np.linalg.norm(epi_contour - np.array([i, j]), axis=1))
-                wall_vec = epi_contour[idx] - epi_contour[idx - 1]
-                wall_vec = wall_vec / np.linalg.norm(wall_vec)
-                wall_vec[1] = -wall_vec[1]
-                angle = np.rad2deg(np.arccos(np.dot(wall_vec, circ[slice_idx][i, j, :2])))
+        for i in range(len(coords[0])):
+            x, y = coords[0][i], coords[1][i]
+            idx = np.argmin(np.linalg.norm(epi_contour - np.array([x, y]), axis=1))
+            wall_vec = epi_contour[idx] - epi_contour[idx - 1]
+            wall_vec = wall_vec / np.linalg.norm(wall_vec)
+            # wall_vec[1] = -wall_vec[1]
+            wall_vec = np.array([wall_vec[1], -wall_vec[0], 0])
+            angle = np.rad2deg(np.arccos(np.dot(wall_vec, circ[slice_idx][coords][i])))
 
-                if angle > 90:
-                    wall_vec = -wall_vec
+            if angle > 90:
+                wall_vec = -wall_vec
 
-                circ[slice_idx, i, j] = np.array([wall_vec[1], -wall_vec[0], 0])
+            circ[slice_idx][coords][i] = np.array([wall_vec[0], wall_vec[1], 0])
 
         radi[slice_idx] = -np.cross(circ[slice_idx], long[slice_idx])
 
         if settings["debug"]:
             plt.subplot(2, 3, 1)
+            plt.title("Cic: x")
             plt.imshow(circ[slice_idx][:, :, 0], cmap="RdYlBu")
             plt.plot(epi_contour[:, 0], epi_contour[:, 1])
             plt.plot(endo_contour[:, 0], endo_contour[:, 1])
             plt.plot(center[0], center[1], "go")
             plt.colorbar()
             plt.subplot(2, 3, 2)
+            plt.title("Cic: y")
             plt.imshow(circ[slice_idx][:, :, 1], cmap="RdYlBu")
             plt.colorbar()
             plt.subplot(2, 3, 3)
+            plt.title("Cic: z")
             plt.imshow(circ[slice_idx][:, :, 2], cmap="RdYlBu")
             plt.colorbar()
 
             plt.subplot(2, 3, 4)
+            plt.title("Rad: x")
             plt.imshow(radi[slice_idx][:, :, 0], cmap="RdYlBu")
             plt.colorbar()
             plt.subplot(2, 3, 5)
+            plt.title("Rad: y")
             plt.imshow(radi[slice_idx][:, :, 1], cmap="RdYlBu")
             plt.colorbar()
             plt.subplot(2, 3, 6)
+            plt.title("Rad: z")
             plt.imshow(radi[slice_idx][:, :, 2], cmap="RdYlBu")
             plt.colorbar()
 
@@ -595,6 +602,12 @@ def get_coordinates_tissue_block(
                 transparent=False,
             )
             plt.close()
+
+            # plt.figure()
+            # plt.quiver(circ[slice_idx][:, :, 0], circ[slice_idx][:, :, 1])
+            # plt.figure()
+            # plt.quiver(radi[slice_idx][:, :, 0], radi[slice_idx][:, :, 1])
+            # plt.show()
 
     local_cardiac_coordinates = {"long": long, "circ": circ, "radi": radi}
 
