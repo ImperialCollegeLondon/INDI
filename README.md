@@ -169,3 +169,11 @@ DICOM files.
 In the videio tutorial below we show how to run INDI with the phantom data:
 
 [![Watch the video tutorial](assets/images/indi_tutorial_movie_screenshot.png)](https://1drv.ms/v/s!Ah-7Qw9tn52siW8SQZYX0RjRPdKG?e=Pwq85B)
+
+## Aknowledgements
+
+- Royal Brompton Hospital (Guy's and St Thomas' NHS Foundation Trust), London UK.
+- Imperial College, London UK.
+- This work was supported by the British Heart Foundation RG/19/1/34160 and RG/F/23/110115.
+- Chan Zuckerberg Initiative DAF, an advised fund of the Silicon Valley Community Foundation: 2024-337787.
+- EPSRC Healthcare Technologies EP/X014010/1.

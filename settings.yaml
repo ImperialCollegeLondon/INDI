@@ -62,7 +62,7 @@ print_series_description: False
 #registration mask scale for circle radius > 0, 1 for a circle diameter = image width
 registration_mask_scale: 1.0
 # remove b=0 from final tensor fitting
-remove_b0: True
+remove_b0: False
 
 # ========================================================================================
 # ex-vivo (in development)
