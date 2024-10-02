@@ -170,6 +170,13 @@ In the videio tutorial below we show how to run INDI with the phantom data:
 
 [![Watch the video tutorial](assets/images/indi_tutorial_movie_screenshot.png)](https://1drv.ms/v/s!Ah-7Qw9tn52siW8SQZYX0RjRPdKG?e=Pwq85B)
 
+## License
+
+INDI is licensed under the terms of the BSD license. Please see the [LICENSE](License) file.
+
+If you use this software, please credit this website and "**The CMR unit, 
+Royal Brompton Hospital**".
+
 ## Aknowledgements
 
 - Royal Brompton Hospital (Guy's and St Thomas' NHS Foundation Trust), London UK.
