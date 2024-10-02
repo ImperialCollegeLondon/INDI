@@ -14,6 +14,8 @@ import pyautogui
 
 from extensions.complex_averaging import complex_averaging
 from extensions.crop.crop import Crop
+
+# from extensions.crop.crop import Crop
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
@@ -27,7 +29,7 @@ from extensions.extensions import (
 from extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
-from extensions.metrics.metrics import Metrics
+from extensions.metrics.metrics import Metrics, MetricsRV
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.rotation.rotation import Rotation
@@ -139,11 +141,14 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     if settings["ex_vivo"] and settings["rotate"]:
         logger.info("Ex-vivo rotation is True")
-        context = {"data": data, "info": info, "slices": slices}
+        context = {"data": data, "info": info, "slices": slices, "ref_images": ref_images, "dti": dti}
         Rotation(context, settings, logger).run()
         data = context["data"]
         slices = context["slices"]
+        reg_mask = context["reg_mask"]
+        ref_images = context["ref_images"]
         info = context["info"]
+        dti = context["dti"]
         # data, slices, info = rotate_data(data, slices, info, settings, logger)
 
     # =========================================================
@@ -200,7 +205,7 @@ for current_folder in all_to_be_analysed_folders:
     slices = context["slices"]
     segmentation = context["segmentation"]
     mask_3c = context["mask_3c"]
-
+    mask_rv = context["mask_rv"]
     # =========================================================
     # Remove non segmented slices
     # =========================================================
@@ -211,10 +216,11 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # crop the images to the region around the segmented area only
     # use the same crop for all slices and then pad with 3 pixels on all sides
-    dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
+    dti, data, mask_3c, mask_rv, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
         dti,
         data,
         mask_3c,
+        mask_rv,
         reg_mask,
         segmentation,
         slices,
@@ -316,10 +322,26 @@ for current_folder in all_to_be_analysed_folders:
     dti = context["dti"]
     info = context["info"]
 
+    if settings["RV-segmented"]:
+        # RV Metrics/Maps
+        context = {
+            "data": data,
+            "info": info,
+            "slices": slices,
+            "dti": dti,
+            "segmentation": segmentation,
+            "mask_rv": mask_rv,
+            "average_images": average_images,
+        }
+        MetricsRV(context, settings, logger).run()
+        dti = context["dti"]
+        info = context["info"]
     # =========================================================
     # Plot main results and save data
     # =========================================================
-    export_results(data, dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps, logger)
+    export_results(
+        data, dti, info, settings, mask_3c, mask_rv, slices, average_images, segmentation, colormaps, logger
+    )
 
     # =========================================================
     # Cleanup before the next folder

@@ -187,13 +187,13 @@ def get_tensor_orientation_maps(
 
     var_names = ["HA"]
     for var in var_names:
-        for slice_idx in slices:
-            vals = eval(var.lower())[slice_idx][mask_3c[slice_idx] == 1]
+        for i, slice_idx in enumerate(slices):
+            vals = eval(var.lower())[i][mask_3c[i] == 1]
 
     var_names = ["E2A"]
     for var in var_names:
-        for slice_idx in slices:
-            vals = np.abs(eval(var.lower())[slice_idx][mask_3c[slice_idx] == 1])
+        for i, slice_idx in enumerate(slices):
+            vals = np.abs(eval(var.lower())[i][mask_3c[i] == 1])
             logger.debug(
                 "Median "
                 + var

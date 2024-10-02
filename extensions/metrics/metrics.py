@@ -59,3 +59,53 @@ class Metrics(ExtensionBase):
 
         self.context["dti"] = dti
         self.context["info"] = info
+
+
+class MetricsRV(ExtensionBase):
+    def run(self):
+        dti = self.context["dti"]
+        slices = self.context["slices"]
+        info = self.context["info"]
+        average_images = self.context["average_images"]
+        mask_3c = self.context["mask_rv"]
+        segmentation = self.context["segmentation"]
+
+        self.logger.info("Calculating the RV maps")
+        # =========================================================
+        # Get Eigensystems
+        # =========================================================
+        dti, info = get_eigensystem(dti, slices, info, average_images, self.settings, mask_3c, self.logger, "RV")
+
+        # =========================================================
+        # Get dti["fa"] and dti["md"] maps
+        # =========================================================
+        dti["md-rv"], dti["fa-rv"], info = get_fa_md(dti["eigenvalues"], info, mask_3c, slices, self.logger)
+
+        # =========================================================
+        # Get cardiac coordinates
+        # =========================================================
+        local_cardiac_coordinates, rv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
+            mask_3c, segmentation, slices, info["n_slices"], self.settings, dti, average_images, info, "RV"
+        )
+
+        # =========================================================
+        # Segment heart
+        # =========================================================
+        dti["rv_sectors"] = get_lv_segments(segmentation, phi_matrix, mask_3c, rv_centres, slices, self.logger)
+
+        # =========================================================
+        # Get dti["ha"] and dti["e2a"] maps
+        # =========================================================
+        dti["ha-rv"], dti["ta-rv"], dti["e2a-rv"], info = get_tensor_orientation_maps(
+            slices, mask_3c, local_cardiac_coordinates, dti, self.settings, info, self.logger
+        )
+
+        # =========================================================
+        # Get HA line profiles
+        # =========================================================
+        # dti["ha_line_profiles-rv"], dti["wall_thickness-rv"] = get_ha_line_profiles(
+        #     dti["ha-rv"], rv_centres, slices, mask_3c, segmentation, self.settings, info, "RV"
+        # )
+
+        self.context["dti"] = dti
+        self.context["info"] = info

@@ -41,11 +41,15 @@ def get_sa_contours(lv_mask):
 
     # find endocardial contour
     hier_matches = list(np.where(hier[:, 3] != -1))
-    # check there is only one epicardium
-    assert len(hier_matches) == 1, "We have detected more than one endocardium!"
-    hier_pos = int(hier_matches[0][0])
-    endo_contour = np.squeeze(contours[hier_pos])
 
+    # catch the case where there is no endocardium
+    try:
+        # check there is only one epicardium
+        assert len(hier_matches) == 1, "We have detected more than one endocardium!"
+        hier_pos = int(hier_matches[0][0])
+        endo_contour = np.squeeze(contours[hier_pos])
+    except IndexError:
+        endo_contour = np.array([])
     return epi_contour, endo_contour
 
 

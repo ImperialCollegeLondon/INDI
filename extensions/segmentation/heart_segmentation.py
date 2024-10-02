@@ -285,9 +285,11 @@ class ExternalSegmentation(ExtensionBase):
             self.logger.info("Opening Slicer for manual segmentation")
             self.logger.info("Segment the LV and press Ctrl+Shift+s (Cmd+Shift+s) and close Slicer once done")
 
-            nrrd.write((session / "average_images.nrrd").as_posix(), self.context["average_images"])
-            nrrd.write((session / "MD_map.nrrd").as_posix(), prelim_md)
-            nrrd.write((session / "HA_map.nrrd").as_posix(), prelim_ha)
+            nrrd.write(
+                (session / "average_images.nrrd").as_posix(), self.context["average_images"][self.context["slices"]]
+            )
+            nrrd.write((session / "MD_map.nrrd").as_posix(), prelim_md[self.context["slices"]])
+            nrrd.write((session / "HA_map.nrrd").as_posix(), prelim_ha[self.context["slices"]])
 
             subprocess.run(
                 [
@@ -300,13 +302,34 @@ class ExternalSegmentation(ExtensionBase):
                 ]
             )
 
-        mask_3c, _ = nrrd.read((session / "label.seg.nrrd").as_posix())
-        # mask_3c, header = nrrd.read((session / "Segmentation.seg.nrrd").as_posix())
+        seg_mask, _ = nrrd.read((session / "label.seg.nrrd").as_posix())
 
-        assert mask_3c.shape[0] == 2, "Segment both the LV and RV, both including the septum"
+        if seg_mask.ndim == 4:
+            assert seg_mask.shape[0] == 2, "Segment both the LV and RV, both including the septum"
 
-        self.context["mask_3c"] = mask_3c[0, ...]
-        self.context["mask_rv"] = mask_3c[1, ...]
+            # eliminate slices with no segmentation
+            mask = np.any(seg_mask[0, ...], axis=(1, 2))
+            self.context["slices"] = np.asarray(self.context["slices"])[mask]
+            self.context["info"]["n_slices"] = len(self.context["slices"])
+
+            self.context["mask_3c"] = seg_mask[0, mask, :, :]
+
+            # eliminate slices with no segmentation
+            mask = np.any(seg_mask[1, ...], axis=(1, 2))
+            self.context["mask_rv"] = seg_mask[1, mask, :, :]
+
+            self.settings["RV-segmented"] = True
+            self.logger.info("RV segmentation detected")
+
+        else:
+            # eliminate slices with no segmentation
+            mask = np.any(seg_mask, axis=(1, 2))
+            self.context["slices"] = np.asarray(self.context["slices"])[mask]
+            self.context["info"]["n_slices"] = len(self.context["slices"])
+            self.context["mask_3c"] = seg_mask[mask, ...]
+            self.context["mask_rv"] = None
+            self.settings["RV-segmented"] = False
+            self.logger.info("No RV segmentation detected")
 
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
 
@@ -327,11 +350,13 @@ class ExternalSegmentation(ExtensionBase):
         for i, slice_idx in enumerate(self.context["slices"]):
             segmentation[slice_idx] = {}
 
-            epi_contour, endo_contour = get_sa_contours(self.context["mask_3c"][slice_idx])
+            epi_contour, endo_contour = get_sa_contours(self.context["mask_3c"][i])
 
             segmentation[slice_idx]["epicardium"] = epi_contour
             segmentation[slice_idx]["endocardium"] = endo_contour
             segmentation[slice_idx]["anterior_ip"] = np.asarray([points_interp[0][0][i], points_interp[0][1][i]])
             segmentation[slice_idx]["inferior_ip"] = np.asarray([points_interp[1][0][i], points_interp[1][1][i]])
 
+        # remove slices not segmented
+        self.context["data"] = self.context["data"][self.context["data"]["slice_integer"].isin(self.context["slices"])]
         self.context["segmentation"] = segmentation
