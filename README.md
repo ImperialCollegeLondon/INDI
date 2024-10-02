@@ -168,7 +168,7 @@ python main_script.py <data_path>
 Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the
 DICOM files.
 
-In the videio tutorial below we show how to run INDI with the phantom data:
+In the video tutorial below we show how to run INDI with the phantom data:
 
 [![Watch the video tutorial](assets/images/indi_tutorial_movie_screenshot.png)](https://1drv.ms/v/s!Ah-7Qw9tn52siW8SQZYX0RjRPdKG?e=Pwq85B)
 
