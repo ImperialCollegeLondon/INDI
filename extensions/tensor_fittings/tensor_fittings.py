@@ -380,7 +380,8 @@ def dipy_tensor_fit(
     import dipy.reconst.dti as dti
     from dipy.core.gradients import gradient_table
 
-    logger.info("Starting tensor fitting with method: " + method)
+    if not quick_mode:
+        logger.info("Starting tensor fitting with method: " + method)
 
     tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3, mask_3c.shape[0]])
     s0 = np.zeros([info["img_size"][0], info["img_size"][1], info["n_slices"]])

@@ -28,3 +28,4 @@ python-dotenv
 pyarrow
 pyautogui
 brukerapi
+vtk
