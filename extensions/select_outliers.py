@@ -323,11 +323,6 @@ def select_outliers(
     data, info, slices
 
     """
-
-    # check if there is already a column marking the images to be removed
-    if "to_be_removed" not in data:
-        data["to_be_removed"] = False
-
     # check if the info dictionary has the rejected_indices and n_images_rejected keys
     if "rejected_indices" not in info:
         info["rejected_indices"] = []
@@ -414,6 +409,8 @@ def select_outliers(
                 )
 
         if stage == "post":
+            highlight_list = data.index[data["to_be_removed"] == True].tolist()
+
             # plot all remaining DWIs also add the segmentation curves
             create_2d_montage_from_database(
                 data,
@@ -424,7 +421,7 @@ def select_outliers(
                 slices,
                 "dwis_accepted",
                 os.path.join(settings["results"], "results_b"),
-                info["rejected_indices"],
+                highlight_list,
                 segmentation,
                 False,
             )
@@ -438,7 +435,7 @@ def select_outliers(
                     slices,
                     "dwis_accepted_phase",
                     settings["debug_folder"],
-                    info["rejected_indices"],
+                    highlight_list,
                     segmentation,
                     False,
                     "image_phase",
