@@ -316,7 +316,7 @@ class ExternalSegmentation(ExtensionBase):
             self.context["mask_3c"] = seg_mask[0, mask, :, :]
 
             # eliminate slices with no segmentation
-            mask = np.any(seg_mask[1, ...], axis=(1, 2))
+            # mask = np.any(seg_mask[1, ...], axis=(1, 2))
             self.context["mask_rv"] = seg_mask[1, mask, :, :]
 
             self.settings["RV-segmented"] = True
