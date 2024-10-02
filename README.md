@@ -14,6 +14,8 @@ Post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [How to](#how-to)
+- [License](#license)
+- [Aknowledgements](#aknowledgements)
 
 ## Introduction
 
@@ -169,6 +171,13 @@ DICOM files.
 In the videio tutorial below we show how to run INDI with the phantom data:
 
 [![Watch the video tutorial](assets/images/indi_tutorial_movie_screenshot.png)](https://1drv.ms/v/s!Ah-7Qw9tn52siW8SQZYX0RjRPdKG?e=Pwq85B)
+
+## License
+
+INDI is licensed under the terms of the BSD license. Please see the [LICENSE](LICENSE) file.
+
+If you use this software, please credit this website and "**The CMR unit,
+Royal Brompton Hospital**".
 
 ## Aknowledgements
 
