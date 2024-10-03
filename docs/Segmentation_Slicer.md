@@ -17,7 +17,7 @@ Go to the the 3D Slicer website and download the latest version. Alternately you
 ## LV and RV segmentation for whole heart images
 
 Running INDI as usual once it gets to the segmentation section will automatically open 3D Slicer with the volume loaded.
-At the start you will see a preliminary HA map and you can change it to MD or a B_0 image.
+At the start you will see a preliminary HA map and you can change it to MD or a contrast image.
 
 In this mode you can define the LV, intersection points and optionally the RV.
 
@@ -50,7 +50,7 @@ from the oficial 3D Slicer documentation to familiarice yourself with the tools.
 >[!NOTE]
 >This step is optional
 
-Create a new segment which wil became our right ventricle. This segment has to include the septum overlapping with the
+Create a new segment which wil became our right ventricle. This segment must **include the septum** overlapping with the
 LV.
 
 To create overlapping segments you can select where the tools are allowed to modify in the bottom portion of the
@@ -81,3 +81,25 @@ continue to process the image.
 
 ## Tissue blocks segmentation
 
+INDI will open 3D Slicer automatically with a preliminary HA and MD map and a contrast image. You have to define a
+tissue mask, and epi and endo contours.
+
+### Tissue mask
+
+Create a new segment that includes only the tissue. Reefer to the LV part of the tutorial for more detailed
+instructions. The tissue block should be easily segmented using thresholding.
+
+![Tissue mask](assets/segmentation/tissue_block.png)
+
+### Epi and endo contours
+
+Use the curve tool to draw the epicardium and endocardium edges every few slices. Name each curve with a name including
+`endo` and `epi` for the endocardium and epicardium curves respectively.
+
+>[!NOTE]
+>Due to how 3D SLicer names things is important to rename the curve before adding points.
+
+![Tissue block contours](assets/segmentation/tissue_blocks_cont.png)
+
+Finally press `cmd+shift+s` to save the files and close 3D Slicer. Now the segmentation is finished and INDI will
+continue to process the image.
