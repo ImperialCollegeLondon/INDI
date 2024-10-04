@@ -1,7 +1,7 @@
 # Segmentation with 3D Slicer
 
 [3D Slicer](https://www.slicer.org/) is an open source tool for visualization and analysis of medical images. It has a
-rich support for segmentation which we can take advantage for facilitated the segmentation process. There are two types
+rich support for segmentation which we can take advantage to facilitated the segmentation process. There are two types
 of images that can be segmented with Slicer, whole heart and tissue blocks
 
 ## Installing 3D Slicer
@@ -37,7 +37,8 @@ be our LV segment.
 ![segment editor](assets/segmentation/segement_editor.png)
 
 Now segment the left ventricle using all the tools available. Read [this article](https://slicer.readthedocs.io/en/latest/user_guide/modules/segmenteditor.html)
-from the oficial 3D Slicer documentation to familiarice yourself with the tools. The workflow could be as follow:
+from the oficial 3D Slicer documentation to familiarize yourself with the tools. The a recommended workflow is as
+follow:
 
   1. Use the threshold tool to get a segmentation of the whole heart
   2. Using the brush and eraser tools clean up the first segmentation (remove RV, empty spaces, etc.)
@@ -58,10 +59,10 @@ settings
 
 ![RV overlap](assets/segmentation/RV_overlap.png)
 
-The workflow could be as follow
+The workflow could be as follow:
 
-  1. Segment again all the heart
-  2. Use the eraser and brush tools to remove the LV.
+  1. Segment again all the heart with the threshold tool
+  2. Use the eraser and brush tools to remove the LV (remember to include the septum)
   3. Smooth segmentation if needed
 
 ### Select the Intersection points
@@ -93,11 +94,11 @@ instructions. The tissue block should be easily segmented using thresholding.
 
 ### Epi and endo contours
 
-Use the curve tool to draw the epicardium and endocardium edges every few slices. Name each curve with a name including
-`endo` and `epi` for the endocardium and epicardium curves respectively.
+Use the curve tool from the markup module to draw the epicardium and endocardium edges every few slices. Name each curve
+with a name including `endo` and `epi` for the endocardium and epicardium curves respectively.
 
 >[!NOTE]
->Due to how 3D SLicer names things is important to rename the curve before adding points.
+>Due to how 3D Slicer names things is important to rename the curve before adding points.
 
 ![Tissue block contours](assets/segmentation/tissue_blocks_cont.png)
 
