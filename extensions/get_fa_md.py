@@ -29,7 +29,7 @@ def get_fa_md(eigv: NDArray, info, mask_3c, slices, logger) -> tuple[NDArray, ND
     var_names = ["MD", "FA"]
     for var in var_names:
         for i, slice_idx in enumerate(slices):
-            vals = eval(var.lower())[i][mask_3c[i] == 1]
+            vals = eval(var.lower())[i][mask_3c[i] > 0]
             if var == "MD":
                 vals = 1e3 * vals
             logger.debug(

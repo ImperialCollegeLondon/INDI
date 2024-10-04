@@ -7,6 +7,7 @@ import pandas as pd
 from numpy import ndarray
 from numpy.typing import NDArray
 from scipy import stats
+from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
 
@@ -251,11 +252,11 @@ class TensorFit(ExtensionBase):
         residuals_map = {}
 
         myo_mask = np.copy(mask_3c.reshape(mask_3c.shape[0], mask_3c.shape[1] * mask_3c.shape[2]))
-        myo_mask[myo_mask > 1] = 0
+        myo_mask[myo_mask > 1] = 1
 
         # I need to do this per slice, because gtab might differ from slice to slice
         info["tensor fitting sigma"] = {}
-        for i, slice_idx in enumerate(slices):
+        for i, slice_idx in enumerate(tqdm(slices, desc="Tensor fitting")):
             current_entries = data.loc[data["slice_integer"] == slice_idx]
 
             # remove any images that have been marked to be removed
@@ -274,12 +275,12 @@ class TensorFit(ExtensionBase):
                 info["tensor fitting sigma"][str(slice_idx).zfill(2)] = (
                     "%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma)
                 )
-                self.logger.debug(
-                    "Mean sigma for slice "
-                    + str(slice_idx).zfill(2)
-                    + ": "
-                    + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
-                )
+                # self.logger.debug(
+                #     "Mean sigma for slice "
+                #     + str(slice_idx).zfill(2)
+                #     + ": "
+                #     + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
+                # )
 
             if self.method == "NLLS" or self.method == "RESTORE":
                 tenmodel = dti.TensorModel(gtab, fit_method=self.method, sigma=sigma, return_S0_hat=True)

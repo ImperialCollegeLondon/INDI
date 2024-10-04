@@ -361,9 +361,9 @@ def get_cardiac_coordinates_short_axis(
     Returns
     -------
     heart_coordinates as a dictionary with radi, circ, long arrays
-    lv_centres: dictionary with the LV centres for each slice
+    ventricle_centres: dictionary with the LV centres for each slice
     """
-    lv_centres = np.zeros([n_slices, 2])
+    ventricle_centres = np.zeros([n_slices, 2])
 
     # the three orthogonal vectors
     long = np.zeros((mask.shape + (3,)))
@@ -388,8 +388,12 @@ def get_cardiac_coordinates_short_axis(
         # find the LV centre
         count = (ventricle_mask == 1).sum()
         x_center, y_center = np.round(np.argwhere(ventricle_mask == 1).sum(0) / count)
+        ventricle_centres[i, :] = [x_center, y_center]
 
-        lv_centres[i, :] = [x_center, y_center]
+        # we have calculated the centre of the RV using the whole heart mask
+        # but for the calculation below we only need to calculate for the RV mask
+        if ventricle == "RV":
+            ventricle_mask[mask[i] == 1] = 1
 
         phi_matrix[i] = np.zeros(ventricle_mask.shape)
 
@@ -494,7 +498,7 @@ def get_cardiac_coordinates_short_axis(
         if settings["debug"]:
             save_vtk_file(lcc, {}, maps, info, f"cardiac_coordinates_{ventricle}", settings["debug_folder"])
 
-    return local_cardiac_coordinates, lv_centres, phi_matrix
+    return local_cardiac_coordinates, ventricle_centres, phi_matrix
 
 
 def create_2d_montage(img_stack: NDArray) -> NDArray:
@@ -1191,8 +1195,8 @@ def plot_results_maps(
         folder id string to use on the filename
     """
 
-    # plt.style.use("seaborn-deep")
     colors = ["tab:orange", "tab:green", "tab:blue", "tab:red", "tab:brown", "tab:olive"]
+
     # plot results small montage for each slice
     for i, slice_idx in enumerate(slices):
         alphas_whole_heart = np.copy(mask_3c[i])
@@ -1253,7 +1257,7 @@ def plot_results_maps(
         plt.imshow(average_images[i], cmap="Greys_r")
         plt.imshow(
             dti["ha"][i],
-            alpha=alphas_myocardium,
+            alpha=alphas_whole_heart,
             vmin=-90,
             vmax=90,
             cmap=colormaps["HA"],
@@ -1275,7 +1279,7 @@ def plot_results_maps(
         plt.imshow(average_images[i], cmap="Greys_r")
         plt.imshow(
             abs(dti["e2a"][i]),
-            alpha=alphas_myocardium,
+            alpha=alphas_whole_heart,
             vmin=0,
             vmax=90,
             cmap=colormaps["abs_E2A"],
@@ -1452,6 +1456,7 @@ def plot_results_maps(
             alphas_myocardium[alphas_myocardium == 2] = 0
             alphas_myocardium[alphas_myocardium > 0.1] = 1
 
+            # DTI maps
             plt.figure(figsize=(5, 5))
             plt.imshow(average_images[i], cmap="Greys_r")
             if params[param]["abs"]:
@@ -1486,11 +1491,12 @@ def plot_results_maps(
             )
             plt.close()
 
+            # histograms
             plt.figure(figsize=(5, 5))
             if params[param]["abs"]:
-                vals = abs(dti[params[param]["var_name"]][i][alphas_myocardium > 0] * params[param]["scale"])
+                vals = abs(dti[params[param]["var_name"]][i][alphas_whole_heart > 0] * params[param]["scale"])
             else:
-                vals = dti[params[param]["var_name"]][i][alphas_myocardium > 0] * params[param]["scale"]
+                vals = dti[params[param]["var_name"]][i][alphas_whole_heart > 0] * params[param]["scale"]
             bins = np.linspace(params[param]["vmin_max"][0], params[param]["vmin_max"][1], 40)
             weights = np.ones_like(vals) / len(vals)
             plt.hist(vals, bins=bins, weights=weights, rwidth=0.95, color=params[param]["hist_color"])
@@ -1507,52 +1513,69 @@ def plot_results_maps(
             )
             plt.close()
 
-        # plot LV 12 sectors
-        plt.figure(figsize=(5, 5))
-        plt.imshow(average_images[i], cmap="Greys_r")
-        plt.imshow(
-            dti["lv_sectors"][i],
-            alpha=alphas_whole_heart * 0.5,
-            vmin=1,
-            vmax=12,
-            cmap=matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("tab20c").colors[0:12]),
-        )
-        if segmentation[slice_idx]["anterior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["anterior_ip"][0],
-                segmentation[slice_idx]["anterior_ip"][1],
-                "2",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
+        # plot LV and RV 12 sectors
+        params2 = {}
+        params2["lv_sectors"] = {}
+        params2["lv_sectors"]["var_name"] = "lv_sectors"
+        params2["lv_sectors"]["title"] = "LV segments"
+        params2["lv_sectors"]["file_string"] = "lv_segments"
+
+        params2["rv_sectors"] = {}
+        params2["rv_sectors"]["var_name"] = "rv_sectors"
+        params2["rv_sectors"]["title"] = "RV segments"
+        params2["rv_sectors"]["file_string"] = "rv_segments"
+
+        if settings["RV-segmented"]:
+            key_list = ["lv_sectors", "rv_sectors"]
+        else:
+            key_list = ["lv_sectors"]
+
+        for key in key_list:
+            plt.figure(figsize=(5, 5))
+            plt.imshow(average_images[i], cmap="Greys_r")
+            plt.imshow(
+                dti[params2[key]["var_name"]][i],
+                alpha=alphas_whole_heart * 0.5,
+                vmin=1,
+                vmax=12,
+                cmap=matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("tab20c").colors[0:12]),
             )
-        if segmentation[slice_idx]["inferior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["inferior_ip"][0],
-                segmentation[slice_idx]["inferior_ip"][1],
-                "1",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
+            if segmentation[slice_idx]["anterior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["anterior_ip"][0],
+                    segmentation[slice_idx]["anterior_ip"][1],
+                    "2",
+                    color="tab:orange",
+                    markersize=20,
+                    alpha=1.0,
+                )
+            if segmentation[slice_idx]["inferior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["inferior_ip"][0],
+                    segmentation[slice_idx]["inferior_ip"][1],
+                    "1",
+                    color="tab:orange",
+                    markersize=20,
+                    alpha=1.0,
+                )
+            cbar = plt.colorbar(fraction=0.046, pad=0.04)
+            ticklabels = [str(i) for i in range(1, 12 + 1)]
+            tickpos = np.linspace(1.5, 12 - 0.5, 12)
+            cbar.set_ticks(tickpos, labels=ticklabels)
+            plt.tight_layout(pad=1.0)
+            plt.axis("off")
+            plt.title(params2[key]["title"])
+            plt.savefig(
+                os.path.join(
+                    settings["results"],
+                    "results_b",
+                    params2[key]["file_string"] + "_slice_" + str(slice_idx).zfill(2) + ".png",
+                ),
+                dpi=200,
+                pad_inches=0,
+                transparent=False,
             )
-        cbar = plt.colorbar(fraction=0.046, pad=0.04)
-        ticklabels = [str(i) for i in range(1, 12 + 1)]
-        tickpos = np.linspace(1.5, 12 - 0.5, 12)
-        cbar.set_ticks(tickpos, labels=ticklabels)
-        plt.tight_layout(pad=1.0)
-        plt.axis("off")
-        plt.title("LV sectors")
-        plt.savefig(
-            os.path.join(
-                settings["results"],
-                "results_b",
-                "lv_segments_slice_" + str(slice_idx).zfill(2) + ".png",
-            ),
-            dpi=200,
-            pad_inches=0,
-            transparent=False,
-        )
-        plt.close()
+            plt.close()
 
         # plot S0 map with segmentation
         plt.figure(figsize=(5, 5))

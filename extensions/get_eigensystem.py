@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: NDArray, ventricle="LV"):
+def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: NDArray):
     """
     Plot eigenvalues histograms
 
@@ -58,7 +58,7 @@ def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: N
     plt.tick_params(axis="both", which="major", labelsize=5)
     plt.tight_layout(pad=1.0)
     plt.savefig(
-        os.path.join(settings["results"], f"{ventricle}_eigenvalues_histograms.png"),
+        os.path.join(settings["results"], "eigenvalues_histograms.png"),
         dpi=200,
         pad_inches=0,
         transparent=False,
@@ -66,7 +66,7 @@ def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: N
     plt.close()
 
 
-def plot_eigenvector_maps(eigenvectors, average_images, mask_3c, slices, settings, ventricle="LV"):
+def plot_eigenvector_maps(eigenvectors, average_images, mask_3c, slices, settings):
     # plot the eigenvectors
     direction_str = ["x", "y", "z"]
     order_str = ["tertiary", "secondary", "primary"]
@@ -93,7 +93,7 @@ def plot_eigenvector_maps(eigenvectors, average_images, mask_3c, slices, setting
         plt.savefig(
             os.path.join(
                 settings["debug_folder"],
-                f"eigenvector_components_slice_{ventricle}" + str(slice_idx).zfill(2) + ".png",
+                "eigenvector_components_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             pad_inches=0,
@@ -144,7 +144,6 @@ def get_negative_eigenvalues_map(
     average_images: NDArray,
     settings: dict,
     mask_3c: NDArray,
-    ventricle="LV",
 ):
     """
     Save the negative eigenvalues map
@@ -195,7 +194,7 @@ def get_negative_eigenvalues_map(
             os.path.join(
                 settings["results"],
                 "results_b",
-                f"negative_eigenvalues_slice_{ventricle}_" + str(slice_idx).zfill(2) + ".png",
+                "negative_eigenvalues_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             pad_inches=0,
@@ -214,7 +213,6 @@ def get_eigensystem(
     settings: dict,
     mask_3c: NDArray,
     logger: logging.Logger,
-    ventricle="LV",
 ) -> tuple[dict, dict]:
     """
 
@@ -246,7 +244,7 @@ def get_eigensystem(
     )  # use the fact that dti["tensor"] is symmetric to speed up the process
 
     # get info on the number of negative eigenvalues in the myocardium
-    vals = dti["eigenvalues"][mask_3c == 1]
+    vals = dti["eigenvalues"][mask_3c > 0]
     neg_vals = vals[vals < 0]
 
     info["n_negative_eigenvalues"] = int(len(neg_vals))
@@ -261,7 +259,7 @@ def get_eigensystem(
 
     # export negative dti["eigenvalues"] map
     dti["negative_eigenvalues"] = get_negative_eigenvalues_map(
-        dti["eigenvalues"], slices, info, average_images, settings, mask_3c, ventricle
+        dti["eigenvalues"], slices, info, average_images, settings, mask_3c
     )
     # make dti["eigenvectors"] point z positive for easier debugging
     dti["eigenvectors"] = make_eigenvectors_z_positive(dti["eigenvectors"])
@@ -271,8 +269,8 @@ def get_eigensystem(
 
     # plot histograms of the dti["eigenvalues"]
     # and also maps for the eigenvectors if debug is True
-    plot_eigenvalues_histograms(dti["eigenvalues"], settings, mask_3c, ventricle)
+    plot_eigenvalues_histograms(dti["eigenvalues"], settings, mask_3c)
     if settings["debug"]:
-        plot_eigenvector_maps(dti["eigenvectors"], average_images, mask_3c, slices, settings, ventricle)
+        plot_eigenvector_maps(dti["eigenvectors"], average_images, mask_3c, slices, settings)
 
     return dti, info

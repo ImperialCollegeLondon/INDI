@@ -205,6 +205,7 @@ for current_folder in all_to_be_analysed_folders:
     slices = context["slices"]
     segmentation = context["segmentation"]
     mask_3c = context["mask_3c"]
+
     # =========================================================
     # Remove non segmented slices
     # =========================================================
@@ -272,8 +273,9 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # complex averaging
     # =========================================================
-    if settings["complex_data"]:
-        data = complex_averaging(data, logger)
+    if not settings["ex_vivo"]:
+        if settings["complex_data"]:
+            data = complex_averaging(data, logger)
 
     # =========================================================
     # Calculate tensor
@@ -324,21 +326,6 @@ for current_folder in all_to_be_analysed_folders:
     dti = context["dti"]
     info = context["info"]
 
-    # # RV Metrics/Maps
-    # if settings["RV-segmented"]:
-    #     context = {
-    #         "data": data,
-    #         "info": info,
-    #         "slices": slices,
-    #         "dti": dti,
-    #         "segmentation": segmentation,
-    #         "mask_rv": mask_rv,
-    #         "mask_whole_heart": mask_whole_heart,
-    #         "average_images": average_images,
-    #     }
-    #     MetricsRV(context, settings, logger).run()
-    #     dti = context["dti"]
-    #     info = context["info"]
     # =========================================================
     # Plot main results and save data
     # =========================================================

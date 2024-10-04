@@ -1,3 +1,4 @@
+import copy
 import pathlib
 import subprocess
 
@@ -6,6 +7,7 @@ import nrrd
 import numpy as np
 import pandas as pd
 from scipy.interpolate import splev, splprep
+from skimage import morphology
 from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
@@ -270,6 +272,8 @@ class ExternalSegmentation(ExtensionBase):
         session = pathlib.Path(self.settings["session"])
 
         if not (session / "label.seg.nrrd").exists():
+            # if no 3D segmentation from slicer found, then run slicer
+
             prelim_ha, prelim_md = get_premliminary_ha_md_maps(
                 self.context["slices"],
                 self.context["average_images"],
@@ -303,8 +307,10 @@ class ExternalSegmentation(ExtensionBase):
                 ]
             )
 
+        # load slicer 3D segmentation
         seg_mask, segmentation_info = nrrd.read((session / "label.seg.nrrd").as_posix())
 
+        # retrieve label value and layer value from the segmentation masks
         def find_label_value_and_layer(input_dict, value):
             for key, val in input_dict.items():
                 if isinstance(val, str):
@@ -324,18 +330,34 @@ class ExternalSegmentation(ExtensionBase):
             self.context["info"]["n_slices"] = len(self.context["slices"])
             seg_mask = seg_mask[:, mask, :, :]
 
+            # LV segmentation
             lv_mask = np.copy(seg_mask[lv_label_layer[1], ...])
             lv_mask[lv_mask != lv_label_layer[0]] = 0
             lv_mask[lv_mask == lv_label_layer[0]] = 1
 
+            # Whole heart segmentation
             whole_heart_mask = np.copy(seg_mask[whole_heart_layer[1], ...])
             whole_heart_mask[whole_heart_mask != whole_heart_layer[0]] = 0
             whole_heart_mask[whole_heart_mask == whole_heart_layer[0]] = 1
 
+            # RV segmentation defined as the whole_heart - lv
             rv_mask = whole_heart_mask - lv_mask
             rv_mask[rv_mask > 2] = 0
             rv_mask[rv_mask < 0] = 0
 
+            # remove all but the biggest island of the RV
+            def remove_small_objects(img):
+                binary = copy.copy(img)
+                binary[binary > 0] = 1
+                labels = morphology.label(binary)
+                labels_num = [len(labels[labels == each]) for each in np.unique(labels)]
+                rank = np.argsort(np.argsort(labels_num))
+                index = list(rank).index(len(rank) - 2)
+                new_img = copy.copy(img)
+                new_img[labels != index] = 0
+                return new_img
+
+            rv_mask = remove_small_objects(rv_mask)
             self.context["mask_3c"] = lv_mask + (2 * rv_mask)
 
             self.settings["RV-segmented"] = True
@@ -366,21 +388,28 @@ class ExternalSegmentation(ExtensionBase):
         for i, slice_idx in enumerate(self.context["slices"]):
             segmentation[slice_idx] = {}
 
-            epi_contour, endo_contour = get_sa_contours(self.context["mask_3c"][i])
+            # get the contour points for the LV
+            epi_contour, endo_contour = get_sa_contours(lv_mask[i])
+            # interpolate with splines, so we do not have a ladder effect when calculating the
+            # cardiac coordinates
             epi_len = len(epi_contour)
             endo_len = len(endo_contour)
             epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
             epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
-            endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
-            endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
+            if endo_len > 10:
+                endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
+                endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
+
+            # do the same for the RV
             if self.settings["RV-segmented"]:
                 epi_contour_rv, endo_contour_rv = get_sa_contours(lv_mask[i] + rv_mask[i])
                 epi_len = len(epi_contour_rv)
                 endo_len = len(endo_contour_rv)
                 epi_contour_rv = spline_interpolate_contour(epi_contour_rv, 20, join_ends=False)
                 epi_contour_rv = spline_interpolate_contour(epi_contour_rv, epi_len, join_ends=False)
-                endo_contour_rv = spline_interpolate_contour(endo_contour_rv, 20, join_ends=False)
-                endo_contour_rv = spline_interpolate_contour(endo_contour_rv, endo_len, join_ends=False)
+                if endo_len > 10:
+                    endo_contour_rv = spline_interpolate_contour(endo_contour_rv, 20, join_ends=False)
+                    endo_contour_rv = spline_interpolate_contour(endo_contour_rv, endo_len, join_ends=False)
             else:
                 epi_contour_rv = np.array([])
                 endo_contour_rv = np.array([])

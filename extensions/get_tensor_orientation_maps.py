@@ -196,22 +196,23 @@ def get_tensor_orientation_maps(
     #     for i, slice_idx in enumerate(slices):
     #         vals = eval(var.lower())[i][mask_3c[i] == 1]
 
-    var_names = ["E2A"]
-    for var in var_names:
-        for i, slice_idx in enumerate(slices):
-            vals = np.abs(eval(var.lower())[i][mask_3c[i] == 1])
-            logger.debug(
-                "Median "
-                + var
-                + " for slice "
-                + str(slice_idx).zfill(2)
-                + ": "
-                + "%.2f" % np.nanmedian(vals)
-                + " ["
-                + "%.2f" % np.nanquantile(vals, 0.25)
-                + ", "
-                + "%.2f" % np.nanquantile(vals, 0.75)
-                + "]"
-            )
+    if ventricle == "LV":
+        var_names = ["E2A"]
+        for var in var_names:
+            for i, slice_idx in enumerate(slices):
+                vals = np.abs(eval(var.lower())[i][mask_3c[i] == 1])
+                logger.debug(
+                    "Median "
+                    + var
+                    + " for slice "
+                    + str(slice_idx).zfill(2)
+                    + ": "
+                    + "%.2f" % np.nanmedian(vals)
+                    + " ["
+                    + "%.2f" % np.nanquantile(vals, 0.25)
+                    + ", "
+                    + "%.2f" % np.nanquantile(vals, 0.75)
+                    + "]"
+                )
 
     return ha, ta, e2a
