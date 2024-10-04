@@ -74,7 +74,7 @@ ex_vivo_registration: none
 # ========================================================================================
 # rotation
 # True, False
-rotate: True
+rotate: False
 # 90, -90, 180 (positive angles --> left-handed rotation)
 rotation_angle: 90
 # z, y, x
@@ -87,7 +87,7 @@ rotation_axis: y
 # SEGMENTATION
 # ========================================================================================
 # True, False
-u_net_segmentation: True
+u_net_segmentation: False
 # int [1, 5]
 n_ensemble: 5
 

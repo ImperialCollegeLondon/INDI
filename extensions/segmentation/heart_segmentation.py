@@ -303,21 +303,40 @@ class ExternalSegmentation(ExtensionBase):
                 ]
             )
 
-        seg_mask, _ = nrrd.read((session / "label.seg.nrrd").as_posix())
+        seg_mask, segmentation_info = nrrd.read((session / "label.seg.nrrd").as_posix())
 
-        if seg_mask.ndim == 4:
-            assert seg_mask.shape[0] == 2, "Segment both the LV and RV, both including the septum"
+        def find_label_value_and_layer(input_dict, value):
+            for key, val in input_dict.items():
+                if isinstance(val, str):
+                    if val == value:
+                        label_value_key = key.replace("Name", "LabelValue")
+                        layer_value_key = key.replace("Name", "Layer")
+                        return (int(input_dict[label_value_key]), int(input_dict[layer_value_key]))
+            return "None"
 
+        lv_label_layer = find_label_value_and_layer(segmentation_info, "LV")
+        whole_heart_layer = find_label_value_and_layer(segmentation_info, "whole_heart")
+
+        if whole_heart_layer:
             # eliminate slices with no segmentation
             mask = np.any(seg_mask[0, ...], axis=(1, 2))
             self.context["slices"] = np.asarray(self.context["slices"])[mask]
             self.context["info"]["n_slices"] = len(self.context["slices"])
+            seg_mask = seg_mask[:, mask, :, :]
 
-            self.context["mask_3c"] = seg_mask[0, mask, :, :]
+            lv_mask = np.copy(seg_mask[lv_label_layer[1], ...])
+            lv_mask[lv_mask != lv_label_layer[0]] = 0
+            lv_mask[lv_mask == lv_label_layer[0]] = 1
 
-            # eliminate slices with no segmentation
-            # mask = np.any(seg_mask[1, ...], axis=(1, 2))
-            self.context["mask_rv"] = seg_mask[1, mask, :, :]
+            whole_heart_mask = np.copy(seg_mask[whole_heart_layer[1], ...])
+            whole_heart_mask[whole_heart_mask != whole_heart_layer[0]] = 0
+            whole_heart_mask[whole_heart_mask == whole_heart_layer[0]] = 1
+
+            rv_mask = whole_heart_mask - lv_mask
+            rv_mask[rv_mask > 2] = 0
+            rv_mask[rv_mask < 0] = 0
+
+            self.context["mask_3c"] = lv_mask + (2 * rv_mask)
 
             self.settings["RV-segmented"] = True
             self.logger.info("RV segmentation detected")
@@ -328,33 +347,48 @@ class ExternalSegmentation(ExtensionBase):
             self.context["slices"] = np.asarray(self.context["slices"])[mask]
             self.context["info"]["n_slices"] = len(self.context["slices"])
             self.context["mask_3c"] = seg_mask[mask, ...]
-            self.context["mask_rv"] = None
             self.settings["RV-segmented"] = False
             self.logger.info("No RV segmentation detected")
 
+        # insertion points
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
-
         assert len(points) == 2, "No intersection points selected"
-
         points_interp = []
-
         u_fine = np.linspace(0, 1, len(self.context["slices"]))
         for p in points:
             arr = np.stack([p["s"].values, p["p"].values, p["l"].values], axis=0)
-
             tck, _ = splprep(arr)
             x_fine, y_fine, _ = splev(u_fine, tck)
             points_interp.append([x_fine, y_fine])
 
+        # segmentation dictionary
         segmentation = {}
-
         for i, slice_idx in enumerate(self.context["slices"]):
             segmentation[slice_idx] = {}
 
             epi_contour, endo_contour = get_sa_contours(self.context["mask_3c"][i])
+            epi_len = len(epi_contour)
+            endo_len = len(endo_contour)
+            epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
+            epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
+            endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
+            endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
+            if self.settings["RV-segmented"]:
+                epi_contour_rv, endo_contour_rv = get_sa_contours(lv_mask[i] + rv_mask[i])
+                epi_len = len(epi_contour_rv)
+                endo_len = len(endo_contour_rv)
+                epi_contour_rv = spline_interpolate_contour(epi_contour_rv, 20, join_ends=False)
+                epi_contour_rv = spline_interpolate_contour(epi_contour_rv, epi_len, join_ends=False)
+                endo_contour_rv = spline_interpolate_contour(endo_contour_rv, 20, join_ends=False)
+                endo_contour_rv = spline_interpolate_contour(endo_contour_rv, endo_len, join_ends=False)
+            else:
+                epi_contour_rv = np.array([])
+                endo_contour_rv = np.array([])
 
             segmentation[slice_idx]["epicardium"] = epi_contour
             segmentation[slice_idx]["endocardium"] = endo_contour
+            segmentation[slice_idx]["epicardium_rv"] = epi_contour_rv
+            segmentation[slice_idx]["endocardium_rv"] = endo_contour_rv
             segmentation[slice_idx]["anterior_ip"] = np.asarray([points_interp[0][0][i], points_interp[0][1][i]])
             segmentation[slice_idx]["inferior_ip"] = np.asarray([points_interp[1][0][i], points_interp[1][1][i]])
 

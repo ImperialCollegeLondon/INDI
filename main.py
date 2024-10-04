@@ -29,7 +29,7 @@ from extensions.extensions import (
 from extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
-from extensions.metrics.metrics import Metrics, MetricsRV
+from extensions.metrics.metrics import Metrics
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.rotation.rotation import Rotation
@@ -205,7 +205,6 @@ for current_folder in all_to_be_analysed_folders:
     slices = context["slices"]
     segmentation = context["segmentation"]
     mask_3c = context["mask_3c"]
-    mask_rv = context["mask_rv"]
     # =========================================================
     # Remove non segmented slices
     # =========================================================
@@ -216,11 +215,10 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # crop the images to the region around the segmented area only
     # use the same crop for all slices and then pad with 3 pixels on all sides
-    dti, data, mask_3c, mask_rv, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
+    dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
         dti,
         data,
         mask_3c,
-        mask_rv,
         reg_mask,
         segmentation,
         slices,
@@ -309,6 +307,10 @@ for current_folder in all_to_be_analysed_folders:
     else:
         logger.info("Denoising tensor with uformer model is False")
 
+    # =========================================================
+    # Tensor metrics
+    # =========================================================
+    # LV Metrics/Maps
     context = {
         "data": data,
         "info": info,
@@ -322,26 +324,25 @@ for current_folder in all_to_be_analysed_folders:
     dti = context["dti"]
     info = context["info"]
 
-    if settings["RV-segmented"]:
-        # RV Metrics/Maps
-        context = {
-            "data": data,
-            "info": info,
-            "slices": slices,
-            "dti": dti,
-            "segmentation": segmentation,
-            "mask_rv": mask_rv,
-            "average_images": average_images,
-        }
-        MetricsRV(context, settings, logger).run()
-        dti = context["dti"]
-        info = context["info"]
+    # # RV Metrics/Maps
+    # if settings["RV-segmented"]:
+    #     context = {
+    #         "data": data,
+    #         "info": info,
+    #         "slices": slices,
+    #         "dti": dti,
+    #         "segmentation": segmentation,
+    #         "mask_rv": mask_rv,
+    #         "mask_whole_heart": mask_whole_heart,
+    #         "average_images": average_images,
+    #     }
+    #     MetricsRV(context, settings, logger).run()
+    #     dti = context["dti"]
+    #     info = context["info"]
     # =========================================================
     # Plot main results and save data
     # =========================================================
-    export_results(
-        data, dti, info, settings, mask_3c, mask_rv, slices, average_images, segmentation, colormaps, logger
-    )
+    export_results(data, dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps, logger)
 
     # =========================================================
     # Cleanup before the next folder

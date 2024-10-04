@@ -22,8 +22,8 @@ def get_fa_md(eigv: NDArray, info, mask_3c, slices, logger) -> tuple[NDArray, ND
     md = np.squeeze(md, axis=-1)
 
     # turn values to nan where mask is 0
-    md[mask_3c != 1] = np.nan
-    fa[mask_3c != 1] = np.nan
+    md[mask_3c == 0] = np.nan
+    fa[mask_3c == 0] = np.nan
 
     # get mean and std of dti["md"] and dti["fa"] in the myocardium
     var_names = ["MD", "FA"]

@@ -5,9 +5,7 @@ from numpy.typing import NDArray
 
 
 def get_ha_e2a_maps(
-    mask: NDArray,
-    local_cardiac_coordinates: dict,
-    eigenvectors: NDArray,
+    mask: NDArray, local_cardiac_coordinates: dict, eigenvectors: NDArray, ventricle
 ) -> tuple[NDArray, NDArray]:
     """
     Calculate HA and E2A maps
@@ -27,7 +25,10 @@ def get_ha_e2a_maps(
     ev1 = eigenvectors[:, :, :, :, 2]
     ev2 = eigenvectors[:, :, :, :, 1]
 
-    coords = np.where(mask == 1)
+    if ventricle == "LV":
+        coords = np.where(mask == 1)
+    elif ventricle == "RV":
+        coords = np.where(mask == 2)
     circ_vecs = local_cardiac_coordinates["circ"][coords]
     long_vecs = local_cardiac_coordinates["long"][coords]
     radi_vecs = local_cardiac_coordinates["radi"][coords]
@@ -152,8 +153,8 @@ def get_tensor_orientation_maps(
     local_cardiac_coordinates: dict,
     dti: dict,
     settings: dict,
-    info: dict,
     logger: logging.Logger,
+    ventricle="LV",
 ) -> tuple[NDArray, NDArray, dict]:
     """_summary_
 
@@ -178,17 +179,22 @@ def get_tensor_orientation_maps(
         _description_
     """
 
-    ha, ta, e2a = get_ha_e2a_maps(mask_3c, local_cardiac_coordinates, dti["eigenvectors"])
+    ha, ta, e2a = get_ha_e2a_maps(mask_3c, local_cardiac_coordinates, dti["eigenvectors"], ventricle)
 
-    # the orientation maps from above should be nan outside the LV re
-    ha[mask_3c != 1] = np.nan
-    ta[mask_3c != 1] = np.nan
-    e2a[mask_3c != 1] = np.nan
+    if ventricle == "LV":
+        # the orientation maps from above should be nan outside the LV re
+        ha[mask_3c != 1] = np.nan
+        ta[mask_3c != 1] = np.nan
+        e2a[mask_3c != 1] = np.nan
+    elif ventricle == "RV":
+        ha[mask_3c != 2] = np.nan
+        ta[mask_3c != 2] = np.nan
+        e2a[mask_3c != 2] = np.nan
 
-    var_names = ["HA"]
-    for var in var_names:
-        for i, slice_idx in enumerate(slices):
-            vals = eval(var.lower())[i][mask_3c[i] == 1]
+    # var_names = ["HA"]
+    # for var in var_names:
+    #     for i, slice_idx in enumerate(slices):
+    #         vals = eval(var.lower())[i][mask_3c[i] == 1]
 
     var_names = ["E2A"]
     for var in var_names:
@@ -208,4 +214,4 @@ def get_tensor_orientation_maps(
                 + "]"
             )
 
-    return ha, ta, e2a, info
+    return ha, ta, e2a

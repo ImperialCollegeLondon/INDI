@@ -377,18 +377,21 @@ def get_cardiac_coordinates_short_axis(
         # number of slices and get LV mask from mask
         # (contains LV myocardium and other heart structures)
 
-        lv_mask = np.zeros(mask[i].shape)
-        lv_mask[mask[i] == 1] = 1
+        ventricle_mask = np.zeros(mask[i].shape)
+        if ventricle == "LV":
+            ventricle_mask[mask[i] == 1] = 1
+        elif ventricle == "RV":
+            ventricle_mask[((mask[i] == 1) | (mask[i] == 2))] = 1
 
-        coords = np.where(lv_mask == 1)
+        coords = np.where(ventricle_mask == 1)
         n_points = len(coords[0])
         # find the LV centre
-        count = (lv_mask == 1).sum()
-        x_center, y_center = np.round(np.argwhere(lv_mask == 1).sum(0) / count)
+        count = (ventricle_mask == 1).sum()
+        x_center, y_center = np.round(np.argwhere(ventricle_mask == 1).sum(0) / count)
 
         lv_centres[i, :] = [x_center, y_center]
 
-        phi_matrix[i] = np.zeros(lv_mask.shape)
+        phi_matrix[i] = np.zeros(ventricle_mask.shape)
 
         phi_matrix[i][coords] = -np.arctan2(coords[0] - x_center, coords[1] - y_center)
 
@@ -402,7 +405,10 @@ def get_cardiac_coordinates_short_axis(
             ]
         ).T
 
-        epi_points = np.flip(segmentation[slice_idx]["epicardium"])
+        if ventricle == "LV":
+            epi_points = np.flip(segmentation[slice_idx]["epicardium"])
+        elif ventricle == "RV":
+            epi_points = np.flip(segmentation[slice_idx]["epicardium_rv"])
 
         # remove last point because it is the same as the first
         epi_points = epi_points[:-1, :]
@@ -410,6 +416,10 @@ def get_cardiac_coordinates_short_axis(
 
         for idx in range(n_points):
             c_point = [coords[0][idx], coords[1][idx]]
+
+            if c_point == [52, 66]:
+                pass
+
             # distance of array to this point
             dist = np.sqrt((epi_points[:, 0] - c_point[0]) ** 2 + (epi_points[:, 1] - c_point[1]) ** 2)
             # get the index of the closest point
@@ -1151,7 +1161,6 @@ def denoise_tensor(D: np.ndarray, settings: dict) -> np.ndarray:
 def plot_results_maps(
     slices: NDArray,
     mask_3c: NDArray,
-    mask_rv: NDArray,
     average_images: dict,
     dti,
     segmentation: dict,
@@ -1366,73 +1375,73 @@ def plot_results_maps(
     params["abs_E2A"]["abs"] = True
     params["abs_E2A"]["mask"] = mask_3c
 
-    # RV parameters
-    if settings["RV-segmented"]:
-        params["FA-RV"] = {}
-        params["FA-RV"]["var_name"] = "fa-rv"
-        params["FA-RV"]["vmin_max"] = [0, 1]
-        params["FA-RV"]["cmap"] = colormaps["FA"]
-        params["FA-RV"]["hist_color"] = colors[0]
-        params["FA-RV"]["title"] = "Fractional anisotropy"
-        params["FA-RV"]["units"] = "[]"
-        params["FA-RV"]["scale"] = 1
-        params["FA-RV"]["abs"] = False
-        params["FA-RV"]["mask"] = mask_rv
-
-        params["MD-RV"] = {}
-        params["MD-RV"]["var_name"] = "md-rv"
-        params["MD-RV"]["vmin_max"] = [0, 2]
-        params["MD-RV"]["cmap"] = colormaps["MD"]
-        params["MD-RV"]["hist_color"] = colors[1]
-        params["MD-RV"]["title"] = "Mean diffusivity"
-        params["MD-RV"]["units"] = "10^{-3} mm^2s^{-1}"
-        params["MD-RV"]["scale"] = 1000
-        params["MD-RV"]["abs"] = False
-        params["MD-RV"]["mask"] = mask_rv
-
-        params["HA-RV"] = {}
-        params["HA-RV"]["var_name"] = "ha-rv"
-        params["HA-RV"]["vmin_max"] = [-90, 90]
-        params["HA-RV"]["cmap"] = colormaps["HA"]
-        params["HA-RV"]["hist_color"] = colors[2]
-        params["HA-RV"]["title"] = "Helix angle"
-        params["HA-RV"]["units"] = "degrees"
-        params["HA-RV"]["scale"] = 1
-        params["HA-RV"]["abs"] = False
-        params["HA-RV"]["mask"] = mask_rv
-
-        params["TA-RV"] = {}
-        params["TA-RV"]["var_name"] = "ta-rv"
-        params["TA-RV"]["vmin_max"] = [-90, 90]
-        params["TA-RV"]["cmap"] = "twilight_shifted"
-        params["TA-RV"]["hist_color"] = colors[5]
-        params["TA-RV"]["title"] = "Transverse angle"
-        params["TA-RV"]["units"] = "degrees"
-        params["TA-RV"]["scale"] = 1
-        params["TA-RV"]["abs"] = False
-        params["TA-RV"]["mask"] = mask_rv
-
-        params["E2A-RV"] = {}
-        params["E2A-RV"]["var_name"] = "e2a-rv"
-        params["E2A-RV"]["vmin_max"] = [-90, 90]
-        params["E2A-RV"]["cmap"] = "twilight_shifted"
-        params["E2A-RV"]["hist_color"] = colors[4]
-        params["E2A-RV"]["title"] = "Sheetlet angle"
-        params["E2A-RV"]["units"] = "degrees"
-        params["E2A-RV"]["scale"] = 1
-        params["E2A-RV"]["abs"] = False
-        params["E2A-RV"]["mask"] = mask_rv
-
-        params["abs_E2A-RV"] = {}
-        params["abs_E2A-RV"]["var_name"] = "e2a-rv"
-        params["abs_E2A-RV"]["vmin_max"] = [0, 90]
-        params["abs_E2A-RV"]["cmap"] = colormaps["abs_E2A"]
-        params["abs_E2A-RV"]["hist_color"] = colors[3]
-        params["abs_E2A-RV"]["title"] = "Absolute sheetlet angle"
-        params["abs_E2A-RV"]["units"] = "degrees"
-        params["abs_E2A-RV"]["scale"] = 1
-        params["abs_E2A-RV"]["abs"] = True
-        params["abs_E2A-RV"]["mask"] = mask_rv
+    # # RV parameters
+    # if settings["RV-segmented"]:
+    #     params["FA-RV"] = {}
+    #     params["FA-RV"]["var_name"] = "fa-rv"
+    #     params["FA-RV"]["vmin_max"] = [0, 1]
+    #     params["FA-RV"]["cmap"] = colormaps["FA"]
+    #     params["FA-RV"]["hist_color"] = colors[0]
+    #     params["FA-RV"]["title"] = "Fractional anisotropy"
+    #     params["FA-RV"]["units"] = "[]"
+    #     params["FA-RV"]["scale"] = 1
+    #     params["FA-RV"]["abs"] = False
+    #     params["FA-RV"]["mask"] = mask_rv
+    #
+    #     params["MD-RV"] = {}
+    #     params["MD-RV"]["var_name"] = "md-rv"
+    #     params["MD-RV"]["vmin_max"] = [0, 2]
+    #     params["MD-RV"]["cmap"] = colormaps["MD"]
+    #     params["MD-RV"]["hist_color"] = colors[1]
+    #     params["MD-RV"]["title"] = "Mean diffusivity"
+    #     params["MD-RV"]["units"] = "10^{-3} mm^2s^{-1}"
+    #     params["MD-RV"]["scale"] = 1000
+    #     params["MD-RV"]["abs"] = False
+    #     params["MD-RV"]["mask"] = mask_rv
+    #
+    #     params["HA-RV"] = {}
+    #     params["HA-RV"]["var_name"] = "ha-rv"
+    #     params["HA-RV"]["vmin_max"] = [-90, 90]
+    #     params["HA-RV"]["cmap"] = colormaps["HA"]
+    #     params["HA-RV"]["hist_color"] = colors[2]
+    #     params["HA-RV"]["title"] = "Helix angle"
+    #     params["HA-RV"]["units"] = "degrees"
+    #     params["HA-RV"]["scale"] = 1
+    #     params["HA-RV"]["abs"] = False
+    #     params["HA-RV"]["mask"] = mask_rv
+    #
+    #     params["TA-RV"] = {}
+    #     params["TA-RV"]["var_name"] = "ta-rv"
+    #     params["TA-RV"]["vmin_max"] = [-90, 90]
+    #     params["TA-RV"]["cmap"] = "twilight_shifted"
+    #     params["TA-RV"]["hist_color"] = colors[5]
+    #     params["TA-RV"]["title"] = "Transverse angle"
+    #     params["TA-RV"]["units"] = "degrees"
+    #     params["TA-RV"]["scale"] = 1
+    #     params["TA-RV"]["abs"] = False
+    #     params["TA-RV"]["mask"] = mask_rv
+    #
+    #     params["E2A-RV"] = {}
+    #     params["E2A-RV"]["var_name"] = "e2a-rv"
+    #     params["E2A-RV"]["vmin_max"] = [-90, 90]
+    #     params["E2A-RV"]["cmap"] = "twilight_shifted"
+    #     params["E2A-RV"]["hist_color"] = colors[4]
+    #     params["E2A-RV"]["title"] = "Sheetlet angle"
+    #     params["E2A-RV"]["units"] = "degrees"
+    #     params["E2A-RV"]["scale"] = 1
+    #     params["E2A-RV"]["abs"] = False
+    #     params["E2A-RV"]["mask"] = mask_rv
+    #
+    #     params["abs_E2A-RV"] = {}
+    #     params["abs_E2A-RV"]["var_name"] = "e2a-rv"
+    #     params["abs_E2A-RV"]["vmin_max"] = [0, 90]
+    #     params["abs_E2A-RV"]["cmap"] = colormaps["abs_E2A"]
+    #     params["abs_E2A-RV"]["hist_color"] = colors[3]
+    #     params["abs_E2A-RV"]["title"] = "Absolute sheetlet angle"
+    #     params["abs_E2A-RV"]["units"] = "degrees"
+    #     params["abs_E2A-RV"]["scale"] = 1
+    #     params["abs_E2A-RV"]["abs"] = True
+    #     params["abs_E2A-RV"]["mask"] = mask_rv
 
     for i, slice_idx in enumerate(slices):
         for param in params:
@@ -1694,7 +1703,6 @@ def export_results(
     info: dict,
     settings: dict,
     mask_3c: NDArray,
-    mask_rv: NDArray,
     slices: NDArray,
     average_images: NDArray,
     segmentation: dict,
@@ -1741,7 +1749,7 @@ def export_results(
     export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)
 
     # plot results maps
-    plot_results_maps(slices, mask_3c, mask_rv, average_images, dti, segmentation, colormaps, settings, folder_id)
+    plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, settings, folder_id)
 
     # save xarray to NetCDF
     # ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))
@@ -1843,28 +1851,28 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
         "|TA|",
     ]
 
-    if settings["RV-segmented"]:
-        dti["abs_e2a-rv"] = np.abs(dti["e2a-rv"])
-        dti["abs_ta-rv"] = np.abs(dti["ta-rv"])
-        dti["md_1e3-rv"] = dti["md-rv"] * 1000
-        var_list = var_list + [
-            "fa-rv",
-            "md_1e3-rv",
-            "ha-rv",
-            "e2a-rv",
-            "ta-rv",
-            "abs_e2a-rv",
-            "abs_ta-rv",
-        ]
-        str_list = str_list + [
-            "RV FA",
-            "RV MD",
-            "RV HA",
-            "RV E2A",
-            "RV TA",
-            "RV |E2A|",
-            "RV |TA|",
-        ]
+    # if settings["RV-segmented"]:
+    #     dti["abs_e2a-rv"] = np.abs(dti["e2a-rv"])
+    #     dti["abs_ta-rv"] = np.abs(dti["ta-rv"])
+    #     dti["md_1e3-rv"] = dti["md-rv"] * 1000
+    #     var_list = var_list + [
+    #         "fa-rv",
+    #         "md_1e3-rv",
+    #         "ha-rv",
+    #         "e2a-rv",
+    #         "ta-rv",
+    #         "abs_e2a-rv",
+    #         "abs_ta-rv",
+    #     ]
+    #     str_list = str_list + [
+    #         "RV FA",
+    #         "RV MD",
+    #         "RV HA",
+    #         "RV E2A",
+    #         "RV TA",
+    #         "RV |E2A|",
+    #         "RV |TA|",
+    #     ]
     # global values
     table_global = []
     table_global.append(["Global"] + [np.nan] * 7)
@@ -1973,6 +1981,7 @@ def get_lv_segments(
     lv_centres: NDArray,
     slices: NDArray,
     logger: logging.Logger,
+    ventricle="LV",
 ) -> NDArray:
     """
     Get array with the LV segments
@@ -2001,7 +2010,10 @@ def get_lv_segments(
     for i, slice_idx in enumerate(slices):
         if segmentation[slice_idx]["anterior_ip"].size != 0 and segmentation[slice_idx]["inferior_ip"].size != 0:
             lv_mask = np.copy(mask_3c[i])
-            lv_mask[lv_mask == 2] = 0
+            if ventricle == "LV":
+                lv_mask[lv_mask == 2] = 0
+            elif ventricle == "RV":
+                lv_mask[lv_mask == 2] = 1
             phi_matrix[i][lv_mask == 0] = np.nan
             phi_matrix[i] = -(phi_matrix[i] - np.pi)
 
@@ -2093,7 +2105,11 @@ def get_lv_segments(
                         segments_and_points[i, curr_segment][:, 1],
                     ] = curr_segment
 
-    logger.debug("LV segmentation in sectors done.")
+    if ventricle == "LV":
+        logger.debug("LV segmentation in sectors done.")
+    elif ventricle == "RV":
+        segments_mask[mask_3c != 2] = np.nan
+        logger.debug("RV segmentation in sectors done.")
 
     return segments_mask
 

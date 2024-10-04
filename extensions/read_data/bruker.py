@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -6,7 +7,6 @@ import numpy as np
 import pandas as pd
 from brukerapi.dataset import Dataset
 from tqdm import tqdm
-from datetime import datetime
 
 BRUKER_NAMES_CORRESPONDENCE_DICT = {
     "FG_DIFFUSION": "diffusion_direction",
@@ -122,15 +122,14 @@ def get_relevant_elements_from_substring(substring: str, retrieval_parameter: st
     elif retrieval_parameter == "series_date_time":
         first_paranthesis_pos = substring.find("<")
         second_paranthesis_pos = substring.find("+")
-        elems = substring[first_paranthesis_pos+1:second_paranthesis_pos]
+        elems = substring[first_paranthesis_pos + 1 : second_paranthesis_pos]
         elems = elems.replace(",", ".")
-        elems = datetime.strptime(elems, '%Y-%m-%dT%H:%M:%S.%f')
+        elems = datetime.strptime(elems, "%Y-%m-%dT%H:%M:%S.%f")
 
     elif retrieval_parameter == "series_description":
         first_paranthesis_pos = substring.find("<")
         second_paranthesis_pos = substring.find(">")
-        elems = substring[first_paranthesis_pos + 1:second_paranthesis_pos]
-
+        elems = substring[first_paranthesis_pos + 1 : second_paranthesis_pos]
 
     elif retrieval_parameter == "slice_distance":
         elems = float(substring.split(")")[1].strip())
@@ -440,7 +439,6 @@ def read_bruker_file(folder_path: Path, data_type: str) -> Tuple[dict, list, lis
         # image comments
         visu_series_description = get_relevant_substring(file_contents, "series_description")
         series_description = get_relevant_elements_from_substring(visu_series_description, "series_description")
-
 
     # now read the method file
     method_file_path = folder_path / "method"
