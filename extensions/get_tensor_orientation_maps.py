@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 
 
 def get_ha_e2a_maps(
-    mask: NDArray, local_cardiac_coordinates: dict, eigenvectors: NDArray, ventricle
+    mask: NDArray, local_cardiac_coordinates: dict, eigenvectors: NDArray, ventricle="LV"
 ) -> tuple[NDArray, NDArray]:
     """
     Calculate HA and E2A maps
@@ -44,7 +44,7 @@ def get_ha_e2a_maps(
     plane_ha = np.asarray([circ_vecs, long_vecs])
     plane_ha = np.transpose(plane_ha, (1, 2, 0))
     a = np.transpose(plane_ha.conj(), (0, 2, 1))
-    ev1_proj = np.squeeze(plane_ha @ np.linalg.inv(a @ plane_ha) @ a @ vector_to_project_ha[..., np.newaxis])
+    ev1_proj = np.squeeze(plane_ha @ np.linalg.pinv(a @ plane_ha) @ a @ vector_to_project_ha[..., np.newaxis])
     ev1_proj = np.divide(ev1_proj, np.linalg.norm(ev1_proj, axis=1)[:, np.newaxis])
 
     test_pos = np.sum(ev1_proj * circ_vecs, axis=1) < 0
@@ -74,7 +74,7 @@ def get_ha_e2a_maps(
     plane_ta = np.asarray([circ_vecs, radi_vecs])
     plane_ta = np.transpose(plane_ta, (1, 2, 0))
     a = np.transpose(plane_ta.conj(), (0, 2, 1))
-    ev1_proj_b = np.squeeze(plane_ta @ np.linalg.inv(a @ plane_ta) @ a @ vector_to_project_ta[..., np.newaxis])
+    ev1_proj_b = np.squeeze(plane_ta @ np.linalg.pinv(a @ plane_ta) @ a @ vector_to_project_ta[..., np.newaxis])
     ev1_proj_b = np.divide(ev1_proj_b, np.linalg.norm(ev1_proj_b, axis=1)[:, np.newaxis])
 
     # align the projected vector with circ direction

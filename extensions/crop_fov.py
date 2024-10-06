@@ -69,7 +69,9 @@ def crop_images(
     ] = True
 
     # crop the heart mask, registration mask and average images
+
     mask_3c = mask_3c[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
+
     reg_mask = reg_mask[np.ix_(crop_mask.any(1), crop_mask.any(0))]
     average_images = average_images[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     for slice_str in slices:

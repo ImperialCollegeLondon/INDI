@@ -33,7 +33,7 @@ from extensions.metrics.metrics import Metrics
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.rotation.rotation import Rotation
-from extensions.segmentation.heart_segmentation import ExternalSegmentation
+from extensions.segmentation.heart_segmentation import HeartSegmentation, ExternalSegmentation
 from extensions.select_outliers.select_outliers import SelectOutliers  # , manual_image_removal
 from extensions.tensor_fittings.tensor_fittings import TensorFit
 from extensions.u_net_segmentation import get_average_images
@@ -190,26 +190,40 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Heart segmentation
     # =========================================================
-    # context = {"data": data, "info": info, "average_images": average_images, "slices": slices, "colormaps": colormaps}
-    # HeartSegmentation(context, settings, logger).run()
-    # data = context["data"]
-    # info = context["info"]
-    # slices = context["slices"]
-    # segmentation = context["segmentation"]
-    # mask_3c = context["mask_3c"]
+    if not settings["ex_vivo"]:
+        context = {
+            "data": data,
+            "info": info,
+            "average_images": average_images,
+            "slices": slices,
+            "colormaps": colormaps,
+        }
+        HeartSegmentation(context, settings, logger).run()
+        data = context["data"]
+        info = context["info"]
+        slices = context["slices"]
+        segmentation = context["segmentation"]
+        mask_3c = context["mask_3c"]
 
-    context = {"data": data, "info": info, "average_images": average_images, "slices": slices, "colormaps": colormaps}
-    ExternalSegmentation(context, settings, logger).run()
-    data = context["data"]
-    info = context["info"]
-    slices = context["slices"]
-    segmentation = context["segmentation"]
-    mask_3c = context["mask_3c"]
+    else:
+        context = {
+            "data": data,
+            "info": info,
+            "average_images": average_images,
+            "slices": slices,
+            "colormaps": colormaps,
+        }
+        ExternalSegmentation(context, settings, logger).run()
+        data = context["data"]
+        info = context["info"]
+        slices = context["slices"]
+        segmentation = context["segmentation"]
+        mask_3c = context["mask_3c"]
 
     # =========================================================
     # Remove non segmented slices
     # =========================================================
-    data, slices, segmentation = remove_slices(data, slices, segmentation, logger)
+    data, info, slices, segmentation, mask_3c = remove_slices(data, info, slices, segmentation, mask_3c, logger)
 
     # =========================================================
     # Crop image data

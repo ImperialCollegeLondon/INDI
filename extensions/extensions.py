@@ -695,9 +695,9 @@ def get_ha_line_profiles(
     # loop over each slice
     for i, slice_idx in enumerate(slices):
         # current HA map
-        c_HA = np.copy(HA[i])
+        c_HA = np.copy(HA[slice_idx])
         # current U-Net mask
-        c_mask = np.copy(mask_3c[i])
+        c_mask = np.copy(mask_3c[slice_idx])
         # make the mask binary, remove RV and all non LV myocardium is 0
         c_mask[c_mask == 2] = 0
         # HA map background is nan
@@ -720,7 +720,7 @@ def get_ha_line_profiles(
             # Extract the line profiles from the centre to each point of the epicardium
             # These are in _pixel_ coordinates!!
             # centre
-            y0, x0 = [int(x) for x in lv_centres[i]]
+            y0, x0 = [int(x) for x in lv_centres[slice_idx]]
             # epicardial point
             x1, y1 = epi_contour[point_idx]
             # length of the line
@@ -2197,8 +2197,8 @@ def image_histogram_equalization(image: NDArray, number_bins: int = 256):
 
 
 def remove_slices(
-    data: pd.DataFrame, slices: NDArray, segmentation: dict, logger: logging
-) -> [pd.DataFrame, NDArray, dict]:
+    data: pd.DataFrame, info: dict, slices: NDArray, segmentation: dict, mask_3c: NDArray, logger: logging
+) -> [pd.DataFrame, NDArray, dict, NDArray]:
     """
     Remove slices that are marked as to be removed for all entries
 
@@ -2226,6 +2226,14 @@ def remove_slices(
     # slices is going to be a list of all the integers
     slices = data.slice_integer.unique().astype(int)
 
+    # convert the 3D numpy array of masks to dictionary
+    mask_3c_dict = {i: slice_array for i, slice_array in enumerate(mask_3c)}
+    # remove empty slices
+    deepcopy_mask_3c = copy.deepcopy(mask_3c_dict)
+    for slice_idx in deepcopy_mask_3c:
+        if slice_idx not in slices:
+            mask_3c_dict.pop(slice_idx)
+
     # remove slices from segmentation
     deepcopy_segmentation = copy.deepcopy(segmentation)
     for slice_idx in deepcopy_segmentation:
@@ -2236,7 +2244,9 @@ def remove_slices(
     if n_slices != original_n_slices:
         logger.info(f"Number of slices reduced from {original_n_slices} to {n_slices}")
 
-    return data, slices, segmentation
+    info["n_slices"] = n_slices
+
+    return data, info, slices, segmentation, mask_3c_dict
 
 
 def remove_outliers(data: pd.DataFrame, info: dict) -> [pd.DataFrame, dict]:

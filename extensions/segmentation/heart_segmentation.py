@@ -323,12 +323,14 @@ class ExternalSegmentation(ExtensionBase):
         lv_label_layer = find_label_value_and_layer(segmentation_info, "LV")
         whole_heart_layer = find_label_value_and_layer(segmentation_info, "whole_heart")
 
+        # mark slices with no segmentation to be removed
+        mask = np.any(seg_mask[0, ...], axis=(1, 2))
+        slices_to_be_removed = np.asarray(self.context["slices"])[~mask]
+        self.context["slices"] = np.asarray(self.context["slices"])[mask]
+        for slice_idx in slices_to_be_removed:
+            self.context["data"].loc[self.context["data"]["slice_integer"] == slice_idx, "to_be_removed"] = True
+
         if whole_heart_layer:
-            # eliminate slices with no segmentation
-            mask = np.any(seg_mask[0, ...], axis=(1, 2))
-            self.context["slices"] = np.asarray(self.context["slices"])[mask]
-            self.context["info"]["n_slices"] = len(self.context["slices"])
-            seg_mask = seg_mask[:, mask, :, :]
 
             # LV segmentation
             lv_mask = np.copy(seg_mask[lv_label_layer[1], ...])
@@ -358,28 +360,29 @@ class ExternalSegmentation(ExtensionBase):
                 return new_img
 
             rv_mask = remove_small_objects(rv_mask)
+
             self.context["mask_3c"] = lv_mask + (2 * rv_mask)
 
             self.settings["RV-segmented"] = True
             self.logger.info("RV segmentation detected")
 
         else:
-            # eliminate slices with no segmentation
-            mask = np.any(seg_mask, axis=(1, 2))
-            self.context["slices"] = np.asarray(self.context["slices"])[mask]
-            self.context["info"]["n_slices"] = len(self.context["slices"])
-            self.context["mask_3c"] = seg_mask[mask, ...]
+
             self.settings["RV-segmented"] = False
             self.logger.info("No RV segmentation detected")
 
         # insertion points
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
-        assert len(points) == 2, "No intersection points selected"
+        assert len(points) == 2, "Two insertion points needed, instead got: " + str(len(points))
         points_interp = []
         u_fine = np.linspace(0, 1, len(self.context["slices"]))
         for p in points:
             arr = np.stack([p["s"].values, p["p"].values, p["l"].values], axis=0)
-            tck, _ = splprep(arr)
+            if len(arr[0]) < 4:
+                k = len(arr[0]) - 1
+            else:
+                k = 3
+            tck, _ = splprep(arr, k=k)
             x_fine, y_fine, _ = splev(u_fine, tck)
             points_interp.append([x_fine, y_fine])
 
@@ -389,7 +392,7 @@ class ExternalSegmentation(ExtensionBase):
             segmentation[slice_idx] = {}
 
             # get the contour points for the LV
-            epi_contour, endo_contour = get_sa_contours(lv_mask[i])
+            epi_contour, endo_contour = get_sa_contours(lv_mask[slice_idx])
             # interpolate with splines, so we do not have a ladder effect when calculating the
             # cardiac coordinates
             epi_len = len(epi_contour)
@@ -402,7 +405,7 @@ class ExternalSegmentation(ExtensionBase):
 
             # do the same for the RV
             if self.settings["RV-segmented"]:
-                epi_contour_rv, endo_contour_rv = get_sa_contours(lv_mask[i] + rv_mask[i])
+                epi_contour_rv, endo_contour_rv = get_sa_contours(lv_mask[slice_idx] + rv_mask[slice_idx])
                 epi_len = len(epi_contour_rv)
                 endo_len = len(endo_contour_rv)
                 epi_contour_rv = spline_interpolate_contour(epi_contour_rv, 20, join_ends=False)
