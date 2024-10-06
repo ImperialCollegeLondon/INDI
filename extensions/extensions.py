@@ -27,7 +27,7 @@ from extensions.segmentation.manual_segmentation import get_epi_contour, get_sa_
 from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
 
 
-def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
+def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, slices, info: dict, name: str, folder_path: str):
     """
 
     Parameters
@@ -53,8 +53,9 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
     # then in z
     # collect image positions
     image_positions = []
-    for key_, name_ in info["integer_to_image_positions"].items():
-        image_positions.append(name_)
+    for slice in slices:
+        image_positions.append(info["integer_to_image_positions"][slice])
+
     # calculate distances between slices
     spacing_z = [
         np.sqrt(
@@ -140,7 +141,7 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
     write_data(sg, os.path.join(folder_path, name + ".vtk"))
 
 
-def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray):
+def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray, slices):
     """
     Organise the data in order for the DTI maps to be exported in VTK format
 
@@ -178,7 +179,7 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     maps["s0"] = dti["s0"]
     maps["mag_image"] = average_images
 
-    save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
+    save_vtk_file(vectors, tensors, maps, slices, info, "eigensystem", os.path.join(settings["results"], "data"))
 
 
 def clean_image(img: NDArray, slices: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArray, NDArray, float]:
@@ -496,7 +497,7 @@ def get_cardiac_coordinates_short_axis(
         # deep copy.
         lcc = copy.deepcopy(local_cardiac_coordinates)
         if settings["debug"]:
-            save_vtk_file(lcc, {}, maps, info, f"cardiac_coordinates_{ventricle}", settings["debug_folder"])
+            save_vtk_file(lcc, {}, maps, slices, info, f"cardiac_coordinates_{ventricle}", settings["debug_folder"])
 
     return local_cardiac_coordinates, ventricle_centres, phi_matrix
 
@@ -1769,7 +1770,7 @@ def export_results(
     folder_id = "_".join(folder_id)
 
     # plot eigenvectors and tensor in VTK format
-    export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)
+    export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images, slices)
 
     # plot results maps
     plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, settings, folder_id)
@@ -1792,7 +1793,7 @@ def export_results(
     # save the dataframe and the info dict
     data.attrs["mask"] = mask_3c
     save_path = os.path.join(settings["results"], "data", "database.zip")
-    data.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
+    data.to_pickle(save_path, compression={"method": "zip", "compresslevel": 1})
 
     # get git commit hash
     def get_git_revision_hash():

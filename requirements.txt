@@ -29,3 +29,4 @@ pyarrow
 pyautogui
 brukerapi
 vtk
+pynrrd
