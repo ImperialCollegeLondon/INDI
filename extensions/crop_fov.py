@@ -7,6 +7,8 @@ import pandas as pd
 from numpy.typing import NDArray
 from skimage.util import compare_images
 
+from extensions.extensions import convert_array_to_dict_of_arrays, convert_dict_of_arrays_to_array
+
 
 def crop_images(
     dti: dict,
@@ -51,6 +53,9 @@ def crop_images(
     crop_mask: logical mask with the crop.
     """
 
+    mask_3c = convert_dict_of_arrays_to_array(mask_3c)
+    average_images = convert_dict_of_arrays_to_array(average_images)
+
     if settings["RV-segmented"]:
         global_crop_mask = sum((mask_3c[i] == 1) | (mask_3c[i] == 2) for i in range(mask_3c.shape[0]))
     else:
@@ -69,7 +74,6 @@ def crop_images(
     ] = True
 
     # crop the heart mask, registration mask and average images
-
     mask_3c = mask_3c[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
 
     reg_mask = reg_mask[np.ix_(crop_mask.any(1), crop_mask.any(0))]
@@ -147,6 +151,9 @@ def crop_images(
 
     # record the crop positions in the info dictionary
     dti["crop_mask"] = crop_mask
+
+    mask_3c = convert_array_to_dict_of_arrays(mask_3c, slices)
+    average_images = convert_array_to_dict_of_arrays(average_images, slices)
 
     return (
         dti,

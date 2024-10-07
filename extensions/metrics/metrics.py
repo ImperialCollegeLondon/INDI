@@ -1,5 +1,5 @@
 from extensions.extension_base import ExtensionBase
-from extensions.extensions import get_cardiac_coordinates_short_axis, get_ha_line_profiles, get_lv_segments
+from extensions.extensions import get_cardiac_coordinates_short_axis, get_ha_line_profiles, get_heart_segments
 from extensions.get_eigensystem import get_eigensystem
 from extensions.get_fa_md import get_fa_md
 from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
@@ -45,9 +45,11 @@ class Metrics(ExtensionBase):
         # =========================================================
         # Segment heart
         # =========================================================
-        dti["lv_sectors"] = get_lv_segments(segmentation, phi_matrix, mask_3c, lv_centres, slices, self.logger, "LV")
+        dti["lv_sectors"] = get_heart_segments(
+            segmentation, phi_matrix, mask_3c, lv_centres, slices, self.logger, "LV"
+        )
         if self.settings["RV-segmented"]:
-            dti["rv_sectors"] = get_lv_segments(
+            dti["rv_sectors"] = get_heart_segments(
                 segmentation, phi_matrix_rv, mask_3c, rv_centres, slices, self.logger, "RV"
             )
 
@@ -75,7 +77,8 @@ class Metrics(ExtensionBase):
         maps_lv = ["ha", "ta", "e2a"]
         maps_rv = ["ha_rv", "ta_rv", "e2a_rv"]
         for idx in range(len(maps_lv)):
-            dti[maps_lv[idx]][mask_3c == 2] = dti[maps_rv[idx]][mask_3c == 2]
+            for slice_ in slices:
+                dti[maps_lv[idx]][slice_][mask_3c[slice_] == 2] = dti[maps_rv[idx]][slice_][mask_3c[slice_] == 2]
             del dti[maps_rv[idx]]
 
         self.context["dti"] = dti

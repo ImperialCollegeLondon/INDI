@@ -11,7 +11,11 @@ from skimage import morphology
 from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
-from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
+from extensions.extensions import (
+    close_small_holes,
+    convert_array_to_dict_of_arrays,
+    get_cylindrical_coordinates_short_axis,
+)
 from extensions.get_tensor_orientation_maps import get_ha_e2a_maps
 from extensions.segmentation.manual_segmentation import (
     get_epi_contour,
@@ -21,52 +25,51 @@ from extensions.segmentation.manual_segmentation import (
     plot_manual_lv_segmentation,
 )
 from extensions.segmentation.polygon_selector import spline_interpolate_contour
-from extensions.tensor_fittings.tensor_fittings import dipy_tensor_fit
+from extensions.tensor_fittings.tensor_fittings import quick_tensor_fit
 
 # Ideas
 # Use a dynamically set tool for segmentation.
 # The ida would be that this class is just a wrapper for a segmentation tool
 
 
-def get_premliminary_ha_md_maps(slices, average_images, data, info, settings, logger):
+def get_preliminary_ha_md_maps(slices, average_images, data, info, settings, logger):
     # =========================================================
     # Preliminary HA map
     # =========================================================
 
     # n_slices = len(slices)
     session = pathlib.Path(settings["session"])
+
     # check if LV manual segmentation has been previously saved
     # if not calculate a prelim HA map
     prelim_ha = np.zeros((info["n_slices"], info["img_size"][0], info["img_size"][1]))
     prelim_md = np.zeros((info["n_slices"], info["img_size"][0], info["img_size"][1]))
-    # mask is all ones here for now.
-    thr_mask = np.ones((info["n_slices"], info["img_size"][0], info["img_size"][1]))
+
     # loop over the slices
     for slice_idx in slices:
         if not (session / f"manual_lv_segmentation_slice_{str(slice_idx).zfill(3)}.npz").exists():
+            # mask is all ones here for now.
+            thr_mask = {slice_idx: np.ones((info["img_size"][0], info["img_size"][1]))}
+
             # get cylindrical coordinates
             local_cylindrical_coordinates = get_cylindrical_coordinates_short_axis(
-                thr_mask[[slice_idx], ...],
+                thr_mask[slice_idx],
+                slice_idx,
             )
-
             # get basic tensor
-            tensor, _, _, _, info = dipy_tensor_fit(
-                [slice_idx],
+            tensor = quick_tensor_fit(
+                slice_idx,
                 data,
                 info,
-                settings,
-                thr_mask,
-                average_images,
-                logger,
-                "LS",
-                quick_mode=True,
             )
             # get basic HA and MD maps
-            prelim_eigenvalues, prelim_eigenvectors = np.linalg.eigh(tensor[[slice_idx], ...])
+            prelim_eigenvalues, prelim_eigenvectors = np.linalg.eigh(tensor)
+            prelim_eigenvectors_dict = {slice_idx: prelim_eigenvectors}
+
             prelim_ha[slice_idx], _, _ = get_ha_e2a_maps(
-                thr_mask[[slice_idx], ...],
+                thr_mask,
                 local_cylindrical_coordinates,
-                prelim_eigenvectors,
+                prelim_eigenvectors_dict,
             )
             prelim_md[slice_idx] = np.mean(prelim_eigenvalues, axis=-1)
 
@@ -86,7 +89,7 @@ class HeartSegmentation(ExtensionBase):
     def run(self) -> None:
         self.logger.info("Running Heart Segmentation")
         # Get preliminary HA and MD maps
-        prelim_ha, prelim_md = get_premliminary_ha_md_maps(
+        prelim_ha, prelim_md = get_preliminary_ha_md_maps(
             self.context["slices"],
             self.context["average_images"],
             self.context["data"],
@@ -274,7 +277,7 @@ class ExternalSegmentation(ExtensionBase):
         if not (session / "label.seg.nrrd").exists():
             # if no 3D segmentation from slicer found, then run slicer
 
-            prelim_ha, prelim_md = get_premliminary_ha_md_maps(
+            prelim_ha, prelim_md = get_preliminary_ha_md_maps(
                 self.context["slices"],
                 self.context["average_images"],
                 self.context["data"],
@@ -331,7 +334,6 @@ class ExternalSegmentation(ExtensionBase):
             self.context["data"].loc[self.context["data"]["slice_integer"] == slice_idx, "to_be_removed"] = True
 
         if whole_heart_layer:
-
             # LV segmentation
             lv_mask = np.copy(seg_mask[lv_label_layer[1], ...])
             lv_mask[lv_mask != lv_label_layer[0]] = 0
@@ -361,15 +363,22 @@ class ExternalSegmentation(ExtensionBase):
 
             rv_mask = remove_small_objects(rv_mask)
 
-            self.context["mask_3c"] = lv_mask + (2 * rv_mask)
+            mask_3c = lv_mask + (2 * rv_mask)
+
+            # convert the 3D numpy array of masks to dictionary
+            mask_3c_dict = convert_array_to_dict_of_arrays(mask_3c, np.arange(lv_mask.shape[0]))
 
             self.settings["RV-segmented"] = True
             self.logger.info("RV segmentation detected")
 
         else:
+            mask_3c = seg_mask
+            mask_3c_dict = convert_array_to_dict_of_arrays(mask_3c, np.arange(lv_mask.shape[0]))
 
             self.settings["RV-segmented"] = False
             self.logger.info("No RV segmentation detected")
+
+        self.context["mask_3c"] = mask_3c_dict
 
         # insertion points
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]

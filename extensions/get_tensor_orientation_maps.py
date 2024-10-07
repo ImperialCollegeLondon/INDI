@@ -3,6 +3,8 @@ import logging
 import numpy as np
 from numpy.typing import NDArray
 
+from extensions.extensions import convert_array_to_dict_of_arrays, convert_dict_of_arrays_to_array
+
 
 def get_ha_e2a_maps(
     mask: NDArray, local_cardiac_coordinates: dict, eigenvectors: NDArray, ventricle="LV"
@@ -21,6 +23,12 @@ def get_ha_e2a_maps(
     -------
     HA, E2A maps
     """
+
+    # convert dictionaries to arrays
+    mask = convert_dict_of_arrays_to_array(mask)
+    eigenvectors = convert_dict_of_arrays_to_array(eigenvectors)
+    for key in local_cardiac_coordinates.keys():
+        local_cardiac_coordinates[key] = convert_dict_of_arrays_to_array(local_cardiac_coordinates[key])
 
     ev1 = eigenvectors[:, :, :, :, 2]
     ev2 = eigenvectors[:, :, :, :, 1]
@@ -44,7 +52,7 @@ def get_ha_e2a_maps(
     plane_ha = np.asarray([circ_vecs, long_vecs])
     plane_ha = np.transpose(plane_ha, (1, 2, 0))
     a = np.transpose(plane_ha.conj(), (0, 2, 1))
-    ev1_proj = np.squeeze(plane_ha @ np.linalg.pinv(a @ plane_ha) @ a @ vector_to_project_ha[..., np.newaxis])
+    ev1_proj = np.squeeze(plane_ha @ np.linalg.inv(a @ plane_ha) @ a @ vector_to_project_ha[..., np.newaxis])
     ev1_proj = np.divide(ev1_proj, np.linalg.norm(ev1_proj, axis=1)[:, np.newaxis])
 
     test_pos = np.sum(ev1_proj * circ_vecs, axis=1) < 0
@@ -74,7 +82,7 @@ def get_ha_e2a_maps(
     plane_ta = np.asarray([circ_vecs, radi_vecs])
     plane_ta = np.transpose(plane_ta, (1, 2, 0))
     a = np.transpose(plane_ta.conj(), (0, 2, 1))
-    ev1_proj_b = np.squeeze(plane_ta @ np.linalg.pinv(a @ plane_ta) @ a @ vector_to_project_ta[..., np.newaxis])
+    ev1_proj_b = np.squeeze(plane_ta @ np.linalg.inv(a @ plane_ta) @ a @ vector_to_project_ta[..., np.newaxis])
     ev1_proj_b = np.divide(ev1_proj_b, np.linalg.norm(ev1_proj_b, axis=1)[:, np.newaxis])
 
     # align the projected vector with circ direction
@@ -181,15 +189,17 @@ def get_tensor_orientation_maps(
 
     ha, ta, e2a = get_ha_e2a_maps(mask_3c, local_cardiac_coordinates, dti["eigenvectors"], ventricle)
 
+    mask_3c_array = convert_dict_of_arrays_to_array(mask_3c)
+
     if ventricle == "LV":
         # the orientation maps from above should be nan outside the LV re
-        ha[mask_3c != 1] = np.nan
-        ta[mask_3c != 1] = np.nan
-        e2a[mask_3c != 1] = np.nan
+        ha[mask_3c_array != 1] = np.nan
+        ta[mask_3c_array != 1] = np.nan
+        e2a[mask_3c_array != 1] = np.nan
     elif ventricle == "RV":
-        ha[mask_3c != 2] = np.nan
-        ta[mask_3c != 2] = np.nan
-        e2a[mask_3c != 2] = np.nan
+        ha[mask_3c_array != 2] = np.nan
+        ta[mask_3c_array != 2] = np.nan
+        e2a[mask_3c_array != 2] = np.nan
 
     # var_names = ["HA"]
     # for var in var_names:
@@ -199,7 +209,7 @@ def get_tensor_orientation_maps(
     if ventricle == "LV":
         var_names = ["E2A"]
         for var in var_names:
-            vals = np.abs(eval(var.lower())[mask_3c == 1])
+            vals = np.abs(eval(var.lower())[mask_3c_array == 1])
             logger.debug(
                 "Median "
                 + var
@@ -211,5 +221,10 @@ def get_tensor_orientation_maps(
                 + "%.2f" % np.nanquantile(vals, 0.75)
                 + "]"
             )
+
+    # convert arrays to dictionaries
+    ha = convert_array_to_dict_of_arrays(ha, slices)
+    ta = convert_array_to_dict_of_arrays(ta, slices)
+    e2a = convert_array_to_dict_of_arrays(e2a, slices)
 
     return ha, ta, e2a

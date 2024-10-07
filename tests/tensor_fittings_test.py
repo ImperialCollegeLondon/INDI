@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from extensions.tensor_fittings.tensor_fittings import dipy_tensor_fit
+from extensions.tensor_fittings.tensor_fittings import quick_tensor_fit
 
 
 def test_dipy_tensor_fit():
@@ -44,7 +44,7 @@ def test_dipy_tensor_fit():
     logger = logging.getLogger(__name__)
 
     # calculate tensors with DiPy functions
-    tensor_calculated, s0, residuals_img, residuals_map, _ = dipy_tensor_fit(
+    tensor_calculated, s0, residuals_img, residuals_map, _ = quick_tensor_fit(
         slices,
         table,
         info,

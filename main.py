@@ -33,7 +33,7 @@ from extensions.metrics.metrics import Metrics
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.rotation.rotation import Rotation
-from extensions.segmentation.heart_segmentation import HeartSegmentation, ExternalSegmentation
+from extensions.segmentation.heart_segmentation import ExternalSegmentation, HeartSegmentation
 from extensions.select_outliers.select_outliers import SelectOutliers  # , manual_image_removal
 from extensions.tensor_fittings.tensor_fittings import TensorFit
 from extensions.u_net_segmentation import get_average_images
@@ -223,7 +223,9 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Remove non segmented slices
     # =========================================================
-    data, info, slices, segmentation, mask_3c = remove_slices(data, info, slices, segmentation, mask_3c, logger)
+    data, dti, info, slices, segmentation, mask_3c, average_images, ref_images = remove_slices(
+        data, dti, info, slices, segmentation, mask_3c, average_images, ref_images, logger
+    )
 
     # =========================================================
     # Crop image data
