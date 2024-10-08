@@ -14,6 +14,7 @@ from extensions.extension_base import ExtensionBase
 from extensions.extensions import (
     close_small_holes,
     convert_array_to_dict_of_arrays,
+    convert_dict_of_arrays_to_array,
     get_cylindrical_coordinates_short_axis,
 )
 from extensions.get_tensor_orientation_maps import get_ha_e2a_maps
@@ -42,8 +43,8 @@ def get_preliminary_ha_md_maps(slices, average_images, data, info, settings, log
 
     # check if LV manual segmentation has been previously saved
     # if not calculate a prelim HA map
-    prelim_ha = np.zeros((info["n_slices"], info["img_size"][0], info["img_size"][1]))
-    prelim_md = np.zeros((info["n_slices"], info["img_size"][0], info["img_size"][1]))
+    prelim_ha = {}
+    prelim_md = {}
 
     # loop over the slices
     for slice_idx in slices:
@@ -66,11 +67,12 @@ def get_preliminary_ha_md_maps(slices, average_images, data, info, settings, log
             prelim_eigenvalues, prelim_eigenvectors = np.linalg.eigh(tensor)
             prelim_eigenvectors_dict = {slice_idx: prelim_eigenvectors}
 
-            prelim_ha[slice_idx], _, _ = get_ha_e2a_maps(
+            prelim_ha_, _, _ = get_ha_e2a_maps(
                 thr_mask,
                 local_cylindrical_coordinates,
                 prelim_eigenvectors_dict,
             )
+            prelim_ha[slice_idx] = prelim_ha_[0]
             prelim_md[slice_idx] = np.mean(prelim_eigenvalues, axis=-1)
 
             # threshold preliminary MD and HA maps
@@ -286,18 +288,20 @@ class ExternalSegmentation(ExtensionBase):
                 self.logger,
             )
 
-            output_path_code = "outputPath = '" + self.settings["session"] + "'"
+            prelim_ha_array = convert_dict_of_arrays_to_array(prelim_ha)
+            prelim_md_array = convert_dict_of_arrays_to_array(prelim_md)
+            average_images = self.context["average_images"]
+            average_images_array = convert_dict_of_arrays_to_array(average_images)
 
+            output_path_code = "outputPath = '" + self.settings["session"] + "'"
             script = output_path_code + python_code
 
             self.logger.info("Opening Slicer for manual segmentation")
             self.logger.info("Segment the LV and press Ctrl+Shift+s (Cmd+Shift+s) and close Slicer once done")
 
-            nrrd.write(
-                (session / "average_images.nrrd").as_posix(), self.context["average_images"][self.context["slices"]]
-            )
-            nrrd.write((session / "MD_map.nrrd").as_posix(), prelim_md[self.context["slices"]])
-            nrrd.write((session / "HA_map.nrrd").as_posix(), prelim_ha[self.context["slices"]])
+            nrrd.write((session / "average_images.nrrd").as_posix(), average_images_array)
+            nrrd.write((session / "MD_map.nrrd").as_posix(), prelim_md_array)
+            nrrd.write((session / "HA_map.nrrd").as_posix(), prelim_ha_array)
 
             subprocess.run(
                 [
@@ -329,7 +333,7 @@ class ExternalSegmentation(ExtensionBase):
         # mark slices with no segmentation to be removed
         mask = np.any(seg_mask[0, ...], axis=(1, 2))
         slices_to_be_removed = np.asarray(self.context["slices"])[~mask]
-        self.context["slices"] = np.asarray(self.context["slices"])[mask]
+        slices_to_keep = np.asarray(self.context["slices"])[mask]
         for slice_idx in slices_to_be_removed:
             self.context["data"].loc[self.context["data"]["slice_integer"] == slice_idx, "to_be_removed"] = True
 
@@ -366,14 +370,17 @@ class ExternalSegmentation(ExtensionBase):
             mask_3c = lv_mask + (2 * rv_mask)
 
             # convert the 3D numpy array of masks to dictionary
-            mask_3c_dict = convert_array_to_dict_of_arrays(mask_3c, np.arange(lv_mask.shape[0]))
+            mask_3c_dict = convert_array_to_dict_of_arrays(mask_3c, self.context["slices"])
+            lv_mask = convert_array_to_dict_of_arrays(lv_mask, self.context["slices"])
+            rv_mask = convert_array_to_dict_of_arrays(rv_mask, self.context["slices"])
 
             self.settings["RV-segmented"] = True
             self.logger.info("RV segmentation detected")
 
         else:
             mask_3c = seg_mask
-            mask_3c_dict = convert_array_to_dict_of_arrays(mask_3c, np.arange(lv_mask.shape[0]))
+            mask_3c_dict = convert_array_to_dict_of_arrays(mask_3c, self.context["slices"])
+            lv_mask = convert_array_to_dict_of_arrays(seg_mask, self.context["slices"])
 
             self.settings["RV-segmented"] = False
             self.logger.info("No RV segmentation detected")
@@ -384,7 +391,7 @@ class ExternalSegmentation(ExtensionBase):
         points = [pd.read_csv(p) for p in session.glob("insertion_point_*.csv") if "schema" not in p.name]
         assert len(points) == 2, "Two insertion points needed, instead got: " + str(len(points))
         points_interp = []
-        u_fine = np.linspace(0, 1, len(self.context["slices"]))
+        u_fine = np.linspace(0, 1, len(slices_to_keep))
         for p in points:
             arr = np.stack([p["s"].values, p["p"].values, p["l"].values], axis=0)
             if len(arr[0]) < 4:
@@ -397,7 +404,7 @@ class ExternalSegmentation(ExtensionBase):
 
         # segmentation dictionary
         segmentation = {}
-        for i, slice_idx in enumerate(self.context["slices"]):
+        for i, slice_idx in enumerate(slices_to_keep):
             segmentation[slice_idx] = {}
 
             # get the contour points for the LV

@@ -1495,43 +1495,44 @@ def plot_results_maps(
             plt.close()
 
         # plot S0 map with segmentation
-        plt.figure(figsize=(5, 5))
-        plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
-        vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
-        plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
-        if segmentation[slice_idx]["anterior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["anterior_ip"][0],
-                segmentation[slice_idx]["anterior_ip"][1],
-                "2",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
+        if not settings["ex_vivo"]:
+            plt.figure(figsize=(5, 5))
+            plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
+            vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
+            plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
+            if segmentation[slice_idx]["anterior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["anterior_ip"][0],
+                    segmentation[slice_idx]["anterior_ip"][1],
+                    "2",
+                    color="tab:orange",
+                    markersize=20,
+                    alpha=1.0,
+                )
+            if segmentation[slice_idx]["inferior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["inferior_ip"][0],
+                    segmentation[slice_idx]["inferior_ip"][1],
+                    "1",
+                    color="tab:orange",
+                    markersize=20,
+                    alpha=1.0,
+                )
+            plt.colorbar(fraction=0.046, pad=0.04)
+            plt.tight_layout(pad=1.0)
+            plt.axis("off")
+            plt.title("S0")
+            plt.savefig(
+                os.path.join(
+                    settings["results"],
+                    "results_b",
+                    "maps_s0_slice_" + str(slice_idx).zfill(2) + ".png",
+                ),
+                dpi=200,
+                pad_inches=0,
+                transparent=False,
             )
-        if segmentation[slice_idx]["inferior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["inferior_ip"][0],
-                segmentation[slice_idx]["inferior_ip"][1],
-                "1",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
-            )
-        plt.colorbar(fraction=0.046, pad=0.04)
-        plt.tight_layout(pad=1.0)
-        plt.axis("off")
-        plt.title("S0")
-        plt.savefig(
-            os.path.join(
-                settings["results"],
-                "results_b",
-                "maps_s0_slice_" + str(slice_idx).zfill(2) + ".png",
-            ),
-            dpi=200,
-            pad_inches=0,
-            transparent=False,
-        )
-        plt.close()
+            plt.close()
 
 
 def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
@@ -1994,7 +1995,7 @@ def get_heart_segments(
                 else:
                     points = np.argwhere((phi_matrix[slice_idx] >= theta_start) | (phi_matrix[slice_idx] < theta_end))
 
-                segments_and_points[(i, segment_idx + 1)] = points
+                segments_and_points[(slice_idx, segment_idx + 1)] = points
 
             # ====================
             # Segments septal-wall
@@ -2023,7 +2024,7 @@ def get_heart_segments(
                 else:
                     points = np.argwhere((phi_matrix[slice_idx] >= theta_start) | (phi_matrix[slice_idx] < theta_end))
 
-                segments_and_points[(i, segment_idx + 1)] = points
+                segments_and_points[(slice_idx, segment_idx + 1)] = points
 
     # prepare the output
     mask_array = convert_dict_of_arrays_to_array(mask_3c)
@@ -2035,8 +2036,8 @@ def get_heart_segments(
                 if (slice_idx, curr_segment) in segments_and_points.keys():
                     segments_mask[
                         i,
-                        segments_and_points[i, curr_segment][:, 0],
-                        segments_and_points[i, curr_segment][:, 1],
+                        segments_and_points[slice_idx, curr_segment][:, 0],
+                        segments_and_points[slice_idx, curr_segment][:, 1],
                     ] = curr_segment
 
     if ventricle == "LV":
@@ -2147,8 +2148,10 @@ def remove_slices(
     slices = data.slice_integer.unique().astype(int)
 
     # remove empty slices from average images
-    average_images = average_images[slices, ...]
-    average_images = convert_array_to_dict_of_arrays(average_images, slices)
+    deepcopy_average_images = copy.deepcopy(average_images)
+    for slice_idx in deepcopy_average_images:
+        if slice_idx not in slices:
+            average_images.pop(slice_idx)
 
     # remove empty slices from mask
     deepcopy_mask_3c = copy.deepcopy(mask_3c)

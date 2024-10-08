@@ -223,7 +223,7 @@ def get_average_images(
 
     """
 
-    average_images = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
+    average_images = {}
     for i, slice_idx in enumerate(slices):
         # dataframe with current slice
         c_df = data.loc[data["slice_integer"] == slice_idx].copy()
@@ -241,7 +241,7 @@ def get_average_images(
         # normalise image
         mean_img = mean_img * (1 / mean_img.max())
 
-        average_images[i] = mean_img
+        average_images[slice_idx] = mean_img
 
     logger.info("Average images calculated")
 
