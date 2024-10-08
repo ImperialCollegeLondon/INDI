@@ -40,4 +40,4 @@ dependencies:
     - tensorflow[and-cuda]
     - itk-elastix
     - brukerapi
-
+    - pynrrd

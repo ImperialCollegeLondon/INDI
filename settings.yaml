@@ -87,7 +87,7 @@ rotation_axis: y
 # SEGMENTATION
 # ========================================================================================
 # True, False
-u_net_segmentation: True
+u_net_segmentation: False
 # int [1, 5]
 n_ensemble: 5
 

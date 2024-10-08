@@ -7,6 +7,8 @@ import pandas as pd
 from numpy.typing import NDArray
 from skimage.util import compare_images
 
+from extensions.extensions import convert_array_to_dict_of_arrays, convert_dict_of_arrays_to_array
+
 
 def crop_images(
     dti: dict,
@@ -51,7 +53,13 @@ def crop_images(
     crop_mask: logical mask with the crop.
     """
 
-    global_crop_mask = sum(mask_3c[i] for i in range(mask_3c.shape[0]))
+    mask_3c = convert_dict_of_arrays_to_array(mask_3c)
+    average_images = convert_dict_of_arrays_to_array(average_images)
+
+    if settings["RV-segmented"]:
+        global_crop_mask = sum((mask_3c[i] == 1) | (mask_3c[i] == 2) for i in range(mask_3c.shape[0]))
+    else:
+        global_crop_mask = sum(mask_3c[i] == 1 for i in range(mask_3c.shape[0]))
     crop_mask = global_crop_mask != 0
 
     # pad mask but beware of not going out of the FOV limits
@@ -67,6 +75,7 @@ def crop_images(
 
     # crop the heart mask, registration mask and average images
     mask_3c = mask_3c[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
+
     reg_mask = reg_mask[np.ix_(crop_mask.any(1), crop_mask.any(0))]
     average_images = average_images[np.ix_(np.repeat(True, info["n_slices"]), crop_mask.any(1), crop_mask.any(0))]
     for slice_str in slices:
@@ -94,15 +103,23 @@ def crop_images(
             segmentation[slice_name]["endocardium"] = np.array(segmentation[slice_name]["endocardium"]) - np.flip(
                 first_corner
             )
+        if segmentation[slice_name]["epicardium_rv"].size != 0:
+            segmentation[slice_name]["epicardium_rv"] = np.array(segmentation[slice_name]["epicardium_rv"]) - np.flip(
+                first_corner
+            )
+        if segmentation[slice_name]["endocardium_rv"].size != 0:
+            segmentation[slice_name]["endocardium_rv"] = np.array(
+                segmentation[slice_name]["endocardium_rv"]
+            ) - np.flip(first_corner)
 
     # add crop info to info dictionary
     temp_val = list(first_corner)
     info["crop_corner"] = [int(i) for i in temp_val]
 
     # crop the diffusion images from the table
-    for slice_idx in slices:
+    for i, slice_idx in enumerate(slices):
         c_data = data[data.slice_integer == slice_idx].copy()
-        background_mask = np.copy(mask_3c[slice_idx])
+        background_mask = np.copy(mask_3c[i])
         background_mask[background_mask > 0] = 1
 
         # crop the diffusion images
@@ -135,7 +152,20 @@ def crop_images(
     # record the crop positions in the info dictionary
     dti["crop_mask"] = crop_mask
 
-    return dti, data, mask_3c, reg_mask, segmentation, average_images, ref_images, info, crop_mask
+    mask_3c = convert_array_to_dict_of_arrays(mask_3c, slices)
+    average_images = convert_array_to_dict_of_arrays(average_images, slices)
+
+    return (
+        dti,
+        data,
+        mask_3c,
+        reg_mask,
+        segmentation,
+        average_images,
+        ref_images,
+        info,
+        crop_mask,
+    )
 
 
 def record_image_registration(
@@ -394,7 +424,17 @@ def crop_fov(
     crop_mask: logical mask with the crop.
 
     """
-    dti, data, mask_3c, reg_mask, segmentation, average_images, ref_images, info, crop_mask = crop_images(
+    (
+        dti,
+        data,
+        mask_3c,
+        reg_mask,
+        segmentation,
+        average_images,
+        ref_images,
+        info,
+        crop_mask,
+    ) = crop_images(
         dti,
         data,
         mask_3c,

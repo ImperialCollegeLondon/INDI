@@ -162,7 +162,11 @@ class RegistrationExVivo(ExtensionBase):
                     rigid_reg_images = [
                         npzfile["rigid_reg_images"][i] for i in range(len(npzfile["rigid_reg_images"]))
                     ]
+
                     self._update_reg_rigid_df(rigid_reg_images, slice_idx, indices, lower_b_value_index)
+                    file_strings = ["reg_01_line_profiles_slice", "reg_02_line_profiles_slice"]
+                    for file in file_strings:
+                        self.plot_stack_line_profiles(file, slice_idx)
 
                     continue
                 except KeyError:
@@ -482,6 +486,62 @@ class RegistrationExVivo(ExtensionBase):
 
         store_v_lp_post = post_stack[:, :, int(y_center - 1) : int(y_center + 2)]
         store_v_lp_post = np.mean(store_v_lp_post, axis=2)
+
+        plt.figure(figsize=(5, 5))
+        plt.subplot(2, 2, 1)
+        plt.imshow(store_h_lp_pre, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("horizontal pre", fontsize=7)
+        plt.subplot(2, 2, 3)
+        plt.imshow(store_v_lp_pre, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("vertical pre", fontsize=7)
+        plt.subplot(2, 2, 2)
+        plt.imshow(store_h_lp_post, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("horizontal post", fontsize=7)
+        plt.subplot(2, 2, 4)
+        plt.imshow(store_v_lp_post, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("vertical post", fontsize=7)
+        plt.tight_layout(pad=1.0)
+        plt.savefig(
+            os.path.join(
+                self.settings["results"],
+                "results_b",
+                file_string + "_" + str(slice_idx).zfill(2) + ".png",
+            ),
+            dpi=200,
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()
+
+        # save also the line profiles
+        path = os.path.join(
+            self.settings["session"],
+            file_string + "_" + str(slice_idx).zfill(2) + ".npz",
+        )
+        np.savez_compressed(
+            path,
+            store_h_lp_pre=store_h_lp_pre,
+            store_v_lp_pre=store_v_lp_pre,
+            store_h_lp_post=store_h_lp_post,
+            store_v_lp_post=store_v_lp_post,
+        )
+
+    def plot_stack_line_profiles(self, file_string, slice_idx):
+        # load line profiles
+        path = os.path.join(
+            self.settings["session"],
+            file_string + "_" + str(slice_idx).zfill(2) + ".npz",
+        )
+
+        line_profiles = np.load(path)
+        store_h_lp_pre = line_profiles["store_h_lp_pre"]
+        store_v_lp_pre = line_profiles["store_v_lp_pre"]
+        store_h_lp_post = line_profiles["store_h_lp_post"]
+        store_v_lp_post = line_profiles["store_v_lp_post"]
 
         plt.figure(figsize=(5, 5))
         plt.subplot(2, 2, 1)

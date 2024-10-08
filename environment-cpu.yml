@@ -39,4 +39,4 @@ dependencies:
     - itk-elastix
     - pyautogui
     - brukerapi
-
+    - pynrrd

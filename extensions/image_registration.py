@@ -746,7 +746,7 @@ def image_registration(
                 data_basic = current_entries[["file_name", "image", "image_phase", "acquisition_date_time"]]
             else:
                 data_basic = current_entries[["file_name", "image", "acquisition_date_time"]]
-            data_basic.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
+            data_basic.to_pickle(save_path, compression={"method": "zip", "compresslevel": 1})
             # saving registration extras
             np.savez_compressed(
                 reg_file_extras,
