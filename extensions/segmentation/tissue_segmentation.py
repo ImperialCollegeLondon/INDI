@@ -16,6 +16,7 @@ def build_curves(points):
     zs = []
     for p in points:
         control_points = np.stack([[p["s"][i], p["p"][i], p["l"][i]] for i in range(len(p))], axis=-1)
+        control_points = control_points[:, np.argsort(control_points[0])][:, ::-1]
         z = np.mean(control_points[2, :])  # Assume each curve varies little in the z direction
         u_fine = np.linspace(0, 1, 100)
         tck, _ = splprep(control_points[:2, :], k=3 if len(control_points) > 3 else 2, s=0)
