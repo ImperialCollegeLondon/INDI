@@ -399,6 +399,7 @@ class ExternalSegmentation(ExtensionBase):
 
         for p in points:
             arr = np.stack([p["s"].values, p["p"].values, p["l"].values], axis=0)
+            arr = arr[:, arr[2].argsort()]
             if len(arr[0]) < 4:
                 k = len(arr[0]) - 1
             else:
