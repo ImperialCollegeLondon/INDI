@@ -318,17 +318,17 @@ class ExternalSegmentation(ExtensionBase):
         seg_mask, segmentation_info = nrrd.read((session / "label.seg.nrrd").as_posix())
 
         # retrieve label value and layer value from the segmentation masks
-        def find_label_value_and_layer(input_dict, value):
+        def find_label_value_and_layer(input_dict, values):
             for key, val in input_dict.items():
                 if isinstance(val, str):
-                    if val == value:
+                    if any(val.lower() in value for value in values):
                         label_value_key = key.replace("Name", "LabelValue")
                         layer_value_key = key.replace("Name", "Layer")
                         return (int(input_dict[label_value_key]), int(input_dict[layer_value_key]))
             return "None"
 
-        lv_label_layer = find_label_value_and_layer(segmentation_info, "LV")
-        whole_heart_layer = find_label_value_and_layer(segmentation_info, "whole_heart")
+        lv_label_layer = find_label_value_and_layer(segmentation_info, ["lv", "left ventricle"])
+        whole_heart_layer = find_label_value_and_layer(segmentation_info, ["whole_heart", "whole heart"])
 
         # mark slices with no segmentation to be removed
         mask = np.any(seg_mask[0, ...], axis=(1, 2))
