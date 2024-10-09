@@ -393,8 +393,8 @@ class ExternalSegmentation(ExtensionBase):
         points_interp = []
         u_fine = np.linspace(0, 1, len(slices_to_keep))
 
-        # The first IP is the inferior and the second is the anterior
-        if points[0]["label"].values[0] == "anterior":
+        # The first IP is the anterior and the second is the inferior
+        if "inferior" in points[0]["label"].values[0].lower():
             points = points[::-1]
 
         for p in points:
