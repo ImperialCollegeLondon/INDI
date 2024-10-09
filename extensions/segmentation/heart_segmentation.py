@@ -318,17 +318,17 @@ class ExternalSegmentation(ExtensionBase):
         seg_mask, segmentation_info = nrrd.read((session / "label.seg.nrrd").as_posix())
 
         # retrieve label value and layer value from the segmentation masks
-        def find_label_value_and_layer(input_dict, value):
+        def find_label_value_and_layer(input_dict, values):
             for key, val in input_dict.items():
                 if isinstance(val, str):
-                    if val == value:
+                    if any(val.lower() in value for value in values):
                         label_value_key = key.replace("Name", "LabelValue")
                         layer_value_key = key.replace("Name", "Layer")
                         return (int(input_dict[label_value_key]), int(input_dict[layer_value_key]))
             return "None"
 
-        lv_label_layer = find_label_value_and_layer(segmentation_info, "LV")
-        whole_heart_layer = find_label_value_and_layer(segmentation_info, "whole_heart")
+        lv_label_layer = find_label_value_and_layer(segmentation_info, ["lv", "left ventricle"])
+        whole_heart_layer = find_label_value_and_layer(segmentation_info, ["whole_heart", "whole heart"])
 
         # mark slices with no segmentation to be removed
         mask = np.any(seg_mask[0, ...], axis=(1, 2))
@@ -392,8 +392,14 @@ class ExternalSegmentation(ExtensionBase):
         assert len(points) == 2, "Two insertion points needed, instead got: " + str(len(points))
         points_interp = []
         u_fine = np.linspace(0, 1, len(slices_to_keep))
+
+        # The first IP is the anterior and the second is the inferior
+        if "inferior" in points[0]["label"].values[0].lower():
+            points = points[::-1]
+
         for p in points:
             arr = np.stack([p["s"].values, p["p"].values, p["l"].values], axis=0)
+            arr = arr[:, arr[2].argsort()]
             if len(arr[0]) < 4:
                 k = len(arr[0]) - 1
             else:
