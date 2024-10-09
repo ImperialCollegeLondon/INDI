@@ -1,10 +1,14 @@
+from typing import Any, Dict
+
 import numpy as np
 from numpy.typing import NDArray
 
 from extensions.extensions import convert_array_to_dict_of_arrays, convert_dict_of_arrays_to_array
 
 
-def get_fa_md(eigv: NDArray, info, mask_3c, slices, logger) -> tuple[NDArray, NDArray, dict]:
+def get_fa_md(
+    eigv: Dict[int, NDArray], info, mask_3c, slices, logger
+) -> tuple[Dict[int, NDArray], Dict[int, NDArray], Dict[str, Any]]:
     """
     Calculate FA and MD maps
 

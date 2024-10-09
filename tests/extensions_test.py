@@ -4,8 +4,27 @@ import os
 import numpy as np
 import pandas as pd
 
-from extensions.extensions import get_cylindrical_coordinates_short_axis, get_snr_maps
+from extensions.extensions import (
+    convert_array_to_dict_of_arrays,
+    convert_dict_of_arrays_to_array,
+    get_cylindrical_coordinates_short_axis,
+    get_snr_maps,
+)
 from extensions.get_fa_md import get_fa_md
+
+
+def test_convert_array_to_dict_of_arrays():
+    """test if this function converts an array to a dictionary of arrays"""
+    # create a 3D array
+    array = np.random.rand(10, 10, 10)
+
+    # convert array to dictionary of arrays
+    dict_of_arrays = convert_array_to_dict_of_arrays(array, np.arange(10))
+
+    # convert dictionary of arrays back to array
+    array_back = convert_dict_of_arrays_to_array(dict_of_arrays)
+
+    assert np.allclose(array, array_back)
 
 
 def test_get_fa_md():
@@ -16,12 +35,11 @@ def test_get_fa_md():
     tensor_true = tensor_true["DT"]
     tensor_true = np.nan_to_num(tensor_true)
 
+    slices = np.arange(len(tensor_true))
+
     # load RV and LV mask
     mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))
-    mask = mask["mask_3c"]
-
-    # mock slices
-    slices = ["0.0"]
+    mask = convert_array_to_dict_of_arrays(mask["mask_3c"], slices)
 
     # mock info dictionary
     info = {}
@@ -31,8 +49,13 @@ def test_get_fa_md():
 
     # calculate eigenvalues from tensor
     eigenvalues, _ = np.linalg.eigh(tensor_true)
+    eigenvalues = convert_array_to_dict_of_arrays(eigenvalues, slices)
     # get FA and MD from eigenvalues
     md_calculated, fa_calculated, _ = get_fa_md(eigenvalues, info, mask, slices, logger)
+
+    md_calculated = convert_dict_of_arrays_to_array(md_calculated)
+    fa_calculated = convert_dict_of_arrays_to_array(fa_calculated)
+
     mean_md_calculated, std_md_calculated = [
         np.mean(md_calculated[md_calculated > 0]),
         np.std(md_calculated[md_calculated > 0]),
@@ -84,7 +107,7 @@ def test_get_snr_maps():
     # mock info dictionary
     info = {}
 
-    [_, noise_calculated, snr_b0_lv_calculated, _] = get_snr_maps(data, mask, settings, logger, info)
+    _, noise_calculated, snr_b0_lv_calculated, _ = get_snr_maps(data, mask, settings, logger, info)
 
     # check if SNR in the LV myo matches the simulated SNR
     assert np.allclose(snr_b0_lv_calculated["0.0"]["mean"], snr_true, atol=10)
