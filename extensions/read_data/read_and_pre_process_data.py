@@ -228,6 +228,11 @@ def read_and_process_niis(
         header_info["image_orientation_patient"] = first_json_header["ImageOrientationPatientDICOM"]
     else:
         header_info["image_orientation_patient"] = "None"
+    # slice thickness
+    if "SliceThickness" in first_json_header.keys():
+        header_info["slice_thickness"] = first_json_header["SliceThickness"]
+    else:
+        header_info["slice_thickness"] = "None"
 
     temp_list = list(first_nii_header["pixdim"][1:3])
     header_info["pixel_spacing"] = [float(i) for i in temp_list]
@@ -1046,7 +1051,10 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     # number of dicom files
     info["n_images"] = data.shape[0]
     # image size
-    info["img_size"] = (info["Rows"], info["Columns"])
+    if data_type == "nii":
+        info["img_size"] = data.image[0].shape
+    else:
+        info["img_size"] = (info["Rows"], info["Columns"])
 
     data_summary_plots(data, settings)
 
