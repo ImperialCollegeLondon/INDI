@@ -233,28 +233,9 @@ class RegistrationExVivo(ExtensionBase):
                 sys.exit()
 
             # Averaging the repetitions and storing the rigid registered images for SNR calculation
-            average_images = []
-            rigid_reg_images = []
-            post_averaging_indices = []
-            for index in np.unique(indices):
-                post_averaging_indices.append(index)
-                if self.settings["complex_data"]:
-                    registered_images_index = [
-                        (img_real, img_imag) for img_real, img_imag, idx in registered_images if idx == index
-                    ]
-                    list_real = [img[0] for img in registered_images_index]
-                    list_imag = [img[1] for img in registered_images_index]
-                    average_image_real = np.mean(list_real, axis=0)
-                    average_image_imag = np.mean(list_imag, axis=0)
-                    mag = np.sqrt(np.square(np.stack(list_real)) + np.square(np.stack(list_imag)))
-                    if index == lower_b_value_index:
-                        rigid_reg_images += [mag[i] for i in range(len(list_real))]
-                    average_images.append(np.sqrt(np.square(average_image_real) + np.square(average_image_imag)))
-                else:
-                    registered_images_index = [img for img, idx in registered_images if idx == index]
-                    average_images.append(np.mean(np.stack(registered_images_index), axis=0))
-                    if index == lower_b_value_index:
-                        rigid_reg_images += registered_images_index
+            average_images, rigid_reg_images, post_averaging_indices = self._calculate_average_image(
+                indices, lower_b_value_index, registered_images
+            )
 
             # save the rigid registered images for later use in calculating SNR
             self._update_reg_rigid_df(rigid_reg_images, slice_idx, indices, lower_b_value_index)
@@ -334,6 +315,33 @@ class RegistrationExVivo(ExtensionBase):
         self.context["data"] = self.data_reg
         self.context["ref_images"] = ref_images
         self.settings["complex_data"] = False
+
+    def _calculate_average_image(self, indices, lower_b_value_index, registered_images):
+        # Averaging the repetitions and storing the rigid registered images for SNR calculation
+        average_images = []
+        rigid_reg_images = []
+        post_averaging_indices = []
+        for index in np.unique(indices):
+            post_averaging_indices.append(index)
+            if self.settings["complex_data"]:
+                registered_images_index = [
+                    (img_real, img_imag) for img_real, img_imag, idx in registered_images if idx == index
+                ]
+                list_real = [img[0] for img in registered_images_index]
+                list_imag = [img[1] for img in registered_images_index]
+                average_image_real = np.mean(list_real, axis=0)
+                average_image_imag = np.mean(list_imag, axis=0)
+                mag = np.sqrt(np.square(np.stack(list_real)) + np.square(np.stack(list_imag)))
+                if index == lower_b_value_index:
+                    rigid_reg_images += [mag[i] for i in range(len(list_real))]
+                average_images.append(np.sqrt(np.square(average_image_real) + np.square(average_image_imag)))
+            else:
+                registered_images_index = [img for img, idx in registered_images if idx == index]
+                average_images.append(np.mean(np.stack(registered_images_index), axis=0))
+                if index == lower_b_value_index:
+                    rigid_reg_images += registered_images_index
+
+        return average_images, rigid_reg_images, post_averaging_indices
 
     def _register_itk(self, ref_image, images, mask, recipe):
         ref_image = itk.GetImageFromArray(np.array(ref_image, dtype=np.float32))
