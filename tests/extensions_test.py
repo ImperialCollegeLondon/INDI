@@ -81,41 +81,65 @@ def test_get_fa_md():
 
 def test_get_snr_maps():
     # load RV and LV mask
-    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))
-    mask = mask["mask_3c"]
+    n_configs = 2
+    n_average = 6
+    n_slices = 3
+    im_size = 10
 
-    """test if this function calculates the correct SNR and noise maps"""
-    # Here I am loading data created by create_dwi_dicoms.py in DTI_numerical_phantom_3D repo
-    # load table with pixel values, b_values and directions
-    # I am going to load data simulated with an SNR of 20 in the myocardial wall
-    data = pd.read_pickle(os.path.join("tests", "data", "cdti_table_snr_20.zip"))
-    slice_position_column = np.repeat(["0.0"], len(data))
-    data["slice_position"] = slice_position_column
-    data["b_value_original"] = data["b_value"]
+    indices_one_slice = sum([[i] * n_average for i in range(n_configs)], start=[])
+    indices = indices_one_slice * n_slices
+    slices = sum([[i] * n_configs * n_average for i in range(n_slices)], start=[])
 
-    simulated_gain = 1000
-    snr_true = 20
-    lv_myocardial_noise_true = simulated_gain / snr_true
+    b_values_one_slice = sum([[i] * n_average for i in range(n_configs)], start=[])
+    diffusion_direction_one_slice = sum([[np.random.rand(3)] * n_average for i in range(n_configs)], start=[])
+
+    n_images = len(indices)
+    assert n_images == n_configs * n_average * n_slices
+    std = 1
+    X, Y = np.meshgrid(np.arange(im_size), np.arange(im_size))
+    circle = (X - im_size / 2) ** 2 + (Y - im_size / 2) ** 2 < (im_size / 4) ** 2
+    images = [circle + std * np.random.randn(im_size, im_size) for _ in range(n_images)]
+
+    # Check that the dataframe is correctly created
+    assert len(indices) == len(slices) == len(images)
+
+    data = pd.DataFrame(
+        {
+            "image": images,
+            "diff_config": indices,
+            "slice_integer": slices,
+            "b_value": b_values_one_slice * n_slices,
+            "b_value_original": b_values_one_slice * n_slices,
+            "diffusion_direction": diffusion_direction_one_slice * n_slices,
+            "diffusion_direction_original": diffusion_direction_one_slice * n_slices,
+        }
+    )
+
+    mask = np.stack([circle for _ in range(n_slices)], axis=0)
+    snr_true = 1 / (std)
 
     # mock settings dictionary
     settings = {}
 
     settings["debug"] = False
+    settings["ex_vivo"] = False
     # mock logger
     logger = logging.getLogger(__name__)
-
+    slices = np.arange(n_slices)
     # mock info dictionary
     info = {}
-
-    _, noise_calculated, snr_b0_lv_calculated, _ = get_snr_maps(data, mask, settings, logger, info)
-
-    # check if SNR in the LV myo matches the simulated SNR
-    assert np.allclose(snr_b0_lv_calculated["0.0"]["mean"], snr_true, atol=10)
-
-    # check also if the noise in the LV myocardium matches the simulated value
-    noise_mat = noise_calculated["0.0"]["0_0.58_0.58_0.58"]
-    noise_lv_calculated = np.mean(noise_mat[mask[0] == 1])
-    assert np.allclose(noise_lv_calculated, lv_myocardial_noise_true, atol=10)
+    snr_estimated, noise_estimated, _, _ = get_snr_maps(data, mask, None, slices, settings, logger, info)
+    print(snr_true, std)
+    for snr_slice in snr_estimated:
+        for snr in snr_estimated[snr_slice]:
+            assert np.allclose(
+                np.mean(snr_estimated[snr_slice][snr][circle == 1]), snr_true, 1
+            ), f"SNR estimate is not correct ({snr_slice} {snr})"
+    for noise_slice in noise_estimated:
+        for noise in noise_estimated[noise_slice]:
+            assert np.allclose(
+                np.mean(noise_estimated[noise_slice][noise][circle == 1]), std, 0.5
+            ), f"Noise estimate is not correct ({noise_slice} {noise})"
 
 
 def test_get_cylindrical_coordinates_short_axis():
