@@ -1,4 +1,3 @@
-import logging
 import os
 
 import matplotlib.pyplot as plt
@@ -7,8 +6,10 @@ import pandas as pd
 from numpy import ndarray
 from numpy.typing import NDArray
 from scipy import stats
+from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
+from extensions.extensions import convert_dict_of_arrays_to_array
 
 # import time
 
@@ -140,7 +141,7 @@ def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray
     vmin = tensor_mean - 3 * tensor_std
     vmax = tensor_mean + 3 * tensor_std
 
-    for slice_idx in slices:
+    for i, slice_idx in enumerate(slices):
         alphas_whole_heart = np.copy(mask_3c[slice_idx])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
 
@@ -148,42 +149,42 @@ def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray
         plt.figure(figsize=(15, 15))
         plt.subplot(3, 3, 1)
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 0, 0], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(D[i, :, :, 0, 0], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxx")
 
         plt.subplot(3, 3, 5)
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 1, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(D[i, :, :, 1, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dyy")
 
         plt.subplot(3, 3, 9)
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 2, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(D[i, :, :, 2, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.title("Dzz")
         plt.axis("off")
 
         plt.subplot(3, 3, 2)
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 0, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(D[i, :, :, 0, 1], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxy")
 
         plt.subplot(3, 3, 3)
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 0, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(D[i, :, :, 0, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.axis("off")
         plt.title("Dxz")
 
         plt.subplot(3, 3, 6)
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(D[slice_idx, :, :, 1, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
+        plt.imshow(D[i, :, :, 1, 2], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.title("Dyz")
         plt.axis("off")
@@ -245,17 +246,21 @@ class TensorFit(ExtensionBase):
 
         self.logger.info("Starting tensor fitting with method: " + self.method)
 
-        tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3, mask_3c.shape[0]])
+        tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3, info["n_slices"]])
         s0 = np.zeros([info["img_size"][0], info["img_size"][1], info["n_slices"]])
         residuals_img = {}
         residuals_map = {}
 
-        myo_mask = np.copy(mask_3c.reshape(mask_3c.shape[0], mask_3c.shape[1] * mask_3c.shape[2]))
-        myo_mask[myo_mask > 1] = 0
+        # mask with myocardium
+        mask_3c_array = convert_dict_of_arrays_to_array(mask_3c)
+        myo_mask = np.copy(
+            mask_3c_array.reshape(mask_3c_array.shape[0], mask_3c_array.shape[1] * mask_3c_array.shape[2])
+        )
+        myo_mask[myo_mask > 0] = 1
 
         # I need to do this per slice, because gtab might differ from slice to slice
         info["tensor fitting sigma"] = {}
-        for slice_idx in slices:
+        for i, slice_idx in enumerate(tqdm(slices, desc="Tensor fitting")):
             current_entries = data.loc[data["slice_integer"] == slice_idx]
 
             # remove any images that have been marked to be removed
@@ -274,12 +279,12 @@ class TensorFit(ExtensionBase):
                 info["tensor fitting sigma"][str(slice_idx).zfill(2)] = (
                     "%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma)
                 )
-                self.logger.debug(
-                    "Mean sigma for slice "
-                    + str(slice_idx).zfill(2)
-                    + ": "
-                    + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
-                )
+                # self.logger.debug(
+                #     "Mean sigma for slice "
+                #     + str(slice_idx).zfill(2)
+                #     + ": "
+                #     + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
+                # )
 
             if self.method == "NLLS" or self.method == "RESTORE":
                 tenmodel = dti.TensorModel(gtab, fit_method=self.method, sigma=sigma, return_S0_hat=True)
@@ -287,8 +292,8 @@ class TensorFit(ExtensionBase):
                 tenmodel = dti.TensorModel(gtab, fit_method=self.method, return_S0_hat=True)
 
             tenfit = tenmodel.fit(image_data)
-            tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
-            s0[..., slice_idx] = np.squeeze(tenfit.S0_hat)
+            tensor[..., i] = np.squeeze(tenfit.quadratic_form)
+            s0[..., i] = np.squeeze(tenfit.S0_hat)
 
             # t1 = time.time()
             # total = t1 - t0
@@ -302,7 +307,7 @@ class TensorFit(ExtensionBase):
                     res = np.abs(image_data - s_est)
 
                     # estimate res in the myocardium per diffusion image
-                    myo_pxs = np.flatnonzero(myo_mask[slice_idx])
+                    myo_pxs = np.flatnonzero(myo_mask[i])
                     res_img = np.squeeze(np.reshape(res, [res.shape[0] * res.shape[1], res.shape[2], res.shape[3]]))
                     res_img = np.nanmean(res_img[myo_pxs, :], axis=0)
                     residuals_img[slice_idx] = res_img
@@ -332,6 +337,10 @@ class TensorFit(ExtensionBase):
                 plot_tensor_components(tensor, average_images, mask_3c, slices, self.settings)
 
         dti = {}
+        # convert arrays to dictionaries
+        tensor = {slices[i]: slice_array for i, slice_array in enumerate(tensor)}
+        s0 = {slices[i]: slice_array for i, slice_array in enumerate(s0)}
+
         dti["tensor"] = tensor
         dti["s0"] = s0
         dti["residuals_plot"] = residuals_img
@@ -339,16 +348,10 @@ class TensorFit(ExtensionBase):
         self.context["dti"] = dti
 
 
-def dipy_tensor_fit(
-    slices: NDArray,
+def quick_tensor_fit(
+    slice_idx: NDArray,
     data: pd.DataFrame,
     info: dict,
-    settings: dict,
-    mask_3c: NDArray,
-    average_images: NDArray,
-    logger: logging.Logger,
-    method: str = "NLLS",
-    quick_mode=False,
 ):
     """
 
@@ -376,96 +379,27 @@ def dipy_tensor_fit(
     Tensor array and info dictionary
 
     """
-    import dipy.denoise.noise_estimate as ne
     import dipy.reconst.dti as dti
     from dipy.core.gradients import gradient_table
 
-    logger.info("Starting tensor fitting with method: " + method)
+    tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3])
 
-    tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3, mask_3c.shape[0]])
-    s0 = np.zeros([info["img_size"][0], info["img_size"][1], info["n_slices"]])
-    residuals_img = {}
-    residuals_map = {}
+    current_entries = data.loc[data["slice_integer"] == slice_idx]
 
-    myo_mask = np.copy(mask_3c.reshape(mask_3c.shape[0], mask_3c.shape[1] * mask_3c.shape[2]))
-    myo_mask[myo_mask > 1] = 0
+    # remove any images that have been marked to be removed
+    current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
 
-    # I need to do this per slice, because gtab might differ from slice to slice
-    info["tensor fitting sigma"] = {}
-    for slice_idx in slices:
-        current_entries = data.loc[data["slice_integer"] == slice_idx]
+    bvals = current_entries["b_value"].values
+    bvecs = np.vstack(current_entries["diffusion_direction"])
+    gtab = gradient_table(bvals, bvecs, atol=0.5)
 
-        # remove any images that have been marked to be removed
-        current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
+    image_data = np.stack(current_entries["image"])
+    image_data = image_data[..., np.newaxis]
+    image_data = image_data.transpose(1, 2, 3, 0)
 
-        bvals = current_entries["b_value"].values
-        bvecs = np.vstack(current_entries["diffusion_direction"])
-        gtab = gradient_table(bvals, bvecs, atol=0.5)
+    tenmodel = dti.TensorModel(gtab, fit_method="LS", return_S0_hat=True)
 
-        image_data = np.stack(current_entries["image"])
-        image_data = image_data[..., np.newaxis]
-        image_data = image_data.transpose(1, 2, 3, 0)
-        # t0 = time.time()
-        if not quick_mode:
-            sigma = ne.estimate_sigma(image_data)
-            info["tensor fitting sigma"][str(slice_idx).zfill(2)] = (
-                "%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma)
-            )
-            logger.debug(
-                "Mean sigma for slice "
-                + str(slice_idx).zfill(2)
-                + ": "
-                + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
-            )
+    tenfit = tenmodel.fit(image_data)
+    tensor = np.squeeze(tenfit.quadratic_form)
 
-        if method == "NLLS" or method == "RESTORE":
-            tenmodel = dti.TensorModel(gtab, fit_method=method, sigma=sigma, return_S0_hat=True)
-        else:
-            tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
-
-        tenfit = tenmodel.fit(image_data)
-        tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
-        s0[..., slice_idx] = np.squeeze(tenfit.S0_hat)
-
-        # t1 = time.time()
-        # total = t1 - t0
-        # logger.info(f"Slice {slice_idx}: Time for tensor fitting: {total = :.3f} seconds")
-
-        if not quick_mode:
-            if method != "RESTORE":
-                # calculate tensor residuals
-                # Predict a signal given tensor parameters.
-                s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
-                res = np.abs(image_data - s_est)
-
-                # estimate res in the myocardium per diffusion image
-                myo_pxs = np.flatnonzero(myo_mask[slice_idx])
-                res_img = np.squeeze(np.reshape(res, [res.shape[0] * res.shape[1], res.shape[2], res.shape[3]]))
-                res_img = np.nanmean(res_img[myo_pxs, :], axis=0)
-                residuals_img[slice_idx] = res_img
-                # estimate res per voxel
-                res_map = np.nanmean(np.squeeze(res), axis=2)
-                residuals_map[slice_idx] = res_map
-
-                z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
-
-                if settings["debug"]:
-                    plot_residuals_plot(res_img, slice_idx, settings, prefix="")
-                    plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
-
-            else:
-                residuals_img = []
-                residuals_map = []
-        else:
-            residuals_img = []
-            residuals_map = []
-
-    # reorder tensor to: [slice, lines, cols, 3x3 tensor]
-    tensor = tensor.transpose(4, 0, 1, 2, 3)
-    s0 = s0.transpose(2, 0, 1)
-
-    if not quick_mode:
-        if settings["debug"]:
-            plot_tensor_components(tensor, average_images, mask_3c, slices, settings)
-
-    return tensor, s0, residuals_img, residuals_map, info
+    return tensor

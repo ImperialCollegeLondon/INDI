@@ -27,7 +27,7 @@ from extensions.segmentation.manual_segmentation import get_epi_contour, get_sa_
 from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
 
 
-def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
+def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, slices, info: dict, name: str, folder_path: str):
     """
 
     Parameters
@@ -53,8 +53,9 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
     # then in z
     # collect image positions
     image_positions = []
-    for key_, name_ in info["integer_to_image_positions"].items():
-        image_positions.append(name_)
+    for slice in slices:
+        image_positions.append(info["integer_to_image_positions"][slice])
+
     # calculate distances between slices
     spacing_z = [
         np.sqrt(
@@ -140,7 +141,7 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
     write_data(sg, os.path.join(folder_path, name + ".vtk"))
 
 
-def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray):
+def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray, slices):
     """
     Organise the data in order for the DTI maps to be exported in VTK format
 
@@ -155,30 +156,31 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
 
     """
     vectors = {}
-    vectors["primary_evs"] = dti["eigenvectors"][:, :, :, :, 2]
-    vectors["secondary_evs"] = dti["eigenvectors"][:, :, :, :, 1]
-    vectors["tertiary_evs"] = dti["eigenvectors"][:, :, :, :, 0]
+    vectors["primary_evs"] = convert_dict_of_arrays_to_array(dti["eigenvectors"])[:, :, :, :, 2]
+    vectors["secondary_evs"] = convert_dict_of_arrays_to_array(dti["eigenvectors"])[:, :, :, :, 1]
+    vectors["tertiary_evs"] = convert_dict_of_arrays_to_array(dti["eigenvectors"])[:, :, :, :, 0]
 
+    tensor_array = convert_dict_of_arrays_to_array(dti["tensor"])
     required_shape = (
-        dti["tensor"].shape[0],
-        dti["tensor"].shape[1],
-        dti["tensor"].shape[2],
-        dti["tensor"].shape[3] * dti["tensor"].shape[4],
+        tensor_array.shape[0],
+        tensor_array.shape[1],
+        tensor_array.shape[2],
+        tensor_array.shape[3] * tensor_array.shape[4],
     )
-    tensor_mat = np.reshape(dti["tensor"], required_shape)
+    tensor_mat = np.reshape(tensor_array, required_shape)
     tensors = {"diff_tensor": tensor_mat}
 
     maps = {}
-    maps["HA"] = dti["ha"]
-    maps["TA"] = dti["ta"]
-    maps["E2A"] = dti["e2a"]
-    maps["MD"] = dti["md"]
-    maps["FA"] = dti["fa"]
-    maps["mask"] = mask_3c
-    maps["s0"] = dti["s0"]
-    maps["mag_image"] = average_images
+    maps["HA"] = convert_dict_of_arrays_to_array(dti["ha"])
+    maps["TA"] = convert_dict_of_arrays_to_array(dti["ta"])
+    maps["E2A"] = convert_dict_of_arrays_to_array(dti["e2a"])
+    maps["MD"] = convert_dict_of_arrays_to_array(dti["md"])
+    maps["FA"] = convert_dict_of_arrays_to_array(dti["fa"])
+    maps["mask"] = convert_dict_of_arrays_to_array(mask_3c)
+    maps["s0"] = convert_dict_of_arrays_to_array(dti["s0"])
+    maps["mag_image"] = convert_dict_of_arrays_to_array(average_images)
 
-    save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
+    save_vtk_file(vectors, tensors, maps, slices, info, "eigensystem", os.path.join(settings["results"], "data"))
 
 
 def clean_image(img: NDArray, slices: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArray, NDArray, float]:
@@ -246,9 +248,7 @@ def close_small_holes(mask: NDArray) -> NDArray:
     return mask
 
 
-def get_cylindrical_coordinates_short_axis(
-    mask: NDArray,
-) -> [dict]:
+def get_cylindrical_coordinates_short_axis(mask: NDArray, slice_idx: int) -> [dict]:
     """
     Function to calculate an approximate version of the local cardiac coordinates for a short-axis plane
     (radial, circumferential, and longitudinal vectors). They will be cylindrical coordinates with the
@@ -270,13 +270,13 @@ def get_cylindrical_coordinates_short_axis(
 
     # centre of image as we don't know yet the centre of the LV
     # we jut hope the two are close
-    centre_of_images = np.array([mask.shape[1] / 2, mask.shape[2] / 2])
+    centre_of_images = np.array([mask.shape[0] / 2, mask.shape[1] / 2])
     coords = np.where(mask == 1)
     centre_of_images_coords = centre_of_images[..., np.newaxis]
     centre_of_images_coords = np.repeat(centre_of_images_coords, len(coords[0]), axis=1)
     centre_of_images_coords = np.vstack((coords[0], centre_of_images_coords))
     n_points = len(coords[0])
-    phi_matrix[coords] = -np.arctan2(coords[1] - centre_of_images_coords[1], coords[2] - centre_of_images_coords[2])
+    phi_matrix[coords] = -np.arctan2(coords[0] - centre_of_images_coords[1], coords[1] - centre_of_images_coords[2])
 
     long[coords] = [0, 0, 1]
 
@@ -296,40 +296,11 @@ def get_cylindrical_coordinates_short_axis(
         ]
     ).T
 
-    # output variable as a dictionary with all 3 vectors
-    local_cylindrical_coordinates = {"long": long, "circ": circ, "radi": radi}
+    long_dict = {slice_idx: long}
+    circ_dict = {slice_idx: circ}
+    radi_dict = {slice_idx: radi}
 
-    # if settings["debug"]:
-    #     # plot the cardiac coordinates maps
-    #     direction_str = ["x", "y", "z"]
-    #     order_keys = ["long", "circ", "radi"]
-    #     for slice_idx, slice_str in enumerate(slices):
-    #         fig, ax = plt.subplots(3, 3)
-    #         for idx in range(3):
-    #             for direction in range(3):
-    #                 i = ax[idx, direction].imshow(
-    #                     local_cylindrical_coordinates[order_keys[idx]][slice_idx, :, :, direction], vmin=-1, vmax=1
-    #                 )
-    #                 ax[idx, direction].set_title(order_keys[idx] + ": " + direction_str[direction], fontsize=7)
-    #                 ax[idx, direction].axis("off")
-    #                 plt.tick_params(axis="both", which="major", labelsize=5)
-    #                 cbar = plt.colorbar(i)
-    #                 cbar.ax.tick_params(labelsize=5)
-    #         plt.tight_layout(pad=1.0)
-    #         plt.savefig(
-    #             os.path.join(
-    #                 settings["debug_folder"],
-    #                 "cardiac_coordinates_slice_" + slice_str + ".png",
-    #             ),
-    #             dpi=200,
-    #             pad_inches=0,
-    #             transparent=False,
-    #         )
-    #         plt.close()
-
-    # maps = {"mag": mag_image, "mask": mask}
-    # lcc = copy.deepcopy(local_cylindrical_coordinates)
-    # save_vtk_file(lcc, {}, maps, info, "cylindrical_coordinates", settings["debug_folder"])
+    local_cylindrical_coordinates = {"long": long_dict, "circ": circ_dict, "radi": radi_dict}
 
     return local_cylindrical_coordinates
 
@@ -343,6 +314,7 @@ def get_cardiac_coordinates_short_axis(
     dti: dict,
     average_images: NDArray,
     info: dict,
+    ventricle="LV",
 ) -> [dict, dict]:
     """
     Function to calculate the local cardiac coordinates for a short-axis plane
@@ -360,9 +332,10 @@ def get_cardiac_coordinates_short_axis(
     Returns
     -------
     heart_coordinates as a dictionary with radi, circ, long arrays
-    lv_centres: dictionary with the LV centres for each slice
+    ventricle_centres: dictionary with the LV centres for each slice
     """
-    lv_centres = np.zeros([n_slices, 2], dtype=int)
+    ventricle_centres = np.zeros([n_slices, 2])
+    mask = convert_dict_of_arrays_to_array(mask)
 
     # the three orthogonal vectors
     long = np.zeros((mask.shape + (3,)))
@@ -372,27 +345,35 @@ def get_cardiac_coordinates_short_axis(
 
     phi_matrix = {}
 
-    for slice_idx in slices:
+    for i, slice_idx in enumerate(slices):
         # number of slices and get LV mask from mask
         # (contains LV myocardium and other heart structures)
 
-        lv_mask = np.zeros(mask[slice_idx].shape)
-        lv_mask[mask[slice_idx] == 1] = 1
+        ventricle_mask = np.zeros(mask[i].shape)
+        if ventricle == "LV":
+            ventricle_mask[mask[i] == 1] = 1
+        elif ventricle == "RV":
+            ventricle_mask[((mask[i] == 1) | (mask[i] == 2))] = 1
 
-        coords = np.where(lv_mask == 1)
+        coords = np.where(ventricle_mask == 1)
         n_points = len(coords[0])
         # find the LV centre
-        count = (lv_mask == 1).sum()
-        x_center, y_center = np.round(np.argwhere(lv_mask == 1).sum(0) / count)
-        lv_centres[slice_idx, :] = [x_center, y_center]
+        count = (ventricle_mask == 1).sum()
+        x_center, y_center = np.round(np.argwhere(ventricle_mask == 1).sum(0) / count)
+        ventricle_centres[i, :] = [x_center, y_center]
 
-        phi_matrix[slice_idx] = np.zeros(lv_mask.shape)
+        # we have calculated the centre of the RV using the whole heart mask
+        # but for the calculation below we only need to calculate for the RV mask
+        if ventricle == "RV":
+            ventricle_mask[mask[i] == 1] = 1
+
+        phi_matrix[slice_idx] = np.zeros(ventricle_mask.shape)
 
         phi_matrix[slice_idx][coords] = -np.arctan2(coords[0] - x_center, coords[1] - y_center)
 
-        long[slice_idx][coords] = [0, 0, 1]
+        long[i][coords] = [0, 0, 1]
 
-        circ[slice_idx][coords] = np.array(
+        circ[i][coords] = np.array(
             [
                 np.sin(phi_matrix[slice_idx][coords]),
                 -np.cos(phi_matrix[slice_idx][coords]),
@@ -400,7 +381,10 @@ def get_cardiac_coordinates_short_axis(
             ]
         ).T
 
-        epi_points = np.flip(segmentation[slice_idx]["epicardium"])
+        if ventricle == "LV":
+            epi_points = np.flip(segmentation[slice_idx]["epicardium"])
+        elif ventricle == "RV":
+            epi_points = np.flip(segmentation[slice_idx]["epicardium_rv"])
 
         # remove last point because it is the same as the first
         epi_points = epi_points[:-1, :]
@@ -408,6 +392,10 @@ def get_cardiac_coordinates_short_axis(
 
         for idx in range(n_points):
             c_point = [coords[0][idx], coords[1][idx]]
+
+            if c_point == [52, 66]:
+                pass
+
             # distance of array to this point
             dist = np.sqrt((epi_points[:, 0] - c_point[0]) ** 2 + (epi_points[:, 1] - c_point[1]) ** 2)
             # get the index of the closest point
@@ -425,32 +413,37 @@ def get_cardiac_coordinates_short_axis(
             closest_wall_vec = np.array([closest_wall_vec[1], -closest_wall_vec[0], 0])
 
             # angle with circ
-            angle = np.rad2deg(np.arccos(np.dot(closest_wall_vec, circ[slice_idx][c_point[0], c_point[1]])))
+            angle = np.rad2deg(np.arccos(np.dot(closest_wall_vec, circ[i][c_point[0], c_point[1]])))
 
             if angle > 90:
                 closest_wall_vec = -closest_wall_vec
 
-            circ_adjusted[slice_idx][c_point[0], c_point[1]] = np.array([closest_wall_vec[0], closest_wall_vec[1], 0])
-            radi_adjusted[slice_idx][c_point[0], c_point[1]] = -np.cross(
-                circ_adjusted[slice_idx][c_point[0], c_point[1]], long[slice_idx][c_point[0], c_point[1]]
+            circ_adjusted[i][c_point[0], c_point[1]] = np.array([closest_wall_vec[0], closest_wall_vec[1], 0])
+            radi_adjusted[i][c_point[0], c_point[1]] = -np.cross(
+                circ_adjusted[i][c_point[0], c_point[1]], long[i][c_point[0], c_point[1]]
             )
 
     # output variable as a dictionary with all 3 vectors
+    long = convert_array_to_dict_of_arrays(long, slices)
+    circ_adjusted = convert_array_to_dict_of_arrays(circ_adjusted, slices)
+    radi_adjusted = convert_array_to_dict_of_arrays(radi_adjusted, slices)
     local_cardiac_coordinates = {"long": long, "circ": circ_adjusted, "radi": radi_adjusted}
+
+    ventricle_centres = convert_array_to_dict_of_arrays(ventricle_centres, slices)
 
     if settings["debug"]:
         # plot the cardiac coordinates maps
         direction_str = ["x", "y", "z"]
         order_keys = ["long", "circ", "radi"]
-        for slice_idx in slices:
-            alphas_whole_heart = np.copy(mask[slice_idx])
+        for ii, slice_idx in enumerate(slices):
+            alphas_whole_heart = np.copy(mask[ii])
             alphas_whole_heart[alphas_whole_heart > 0.1] = 1
             fig, ax = plt.subplots(3, 3)
             for idx in range(3):
                 for direction in range(3):
                     ax[idx, direction].imshow(average_images[slice_idx], cmap="Greys_r")
                     i = ax[idx, direction].imshow(
-                        local_cardiac_coordinates[order_keys[idx]][slice_idx, :, :, direction],
+                        local_cardiac_coordinates[order_keys[idx]][slice_idx][..., direction],
                         vmin=-1,
                         vmax=1,
                         alpha=alphas_whole_heart,
@@ -465,7 +458,7 @@ def get_cardiac_coordinates_short_axis(
             plt.savefig(
                 os.path.join(
                     settings["debug_folder"],
-                    "cardiac_coordinates_slice_" + str(slice_idx).zfill(2) + ".png",
+                    f"{ventricle}_cardiac_coordinates_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
                 dpi=200,
                 pad_inches=0,
@@ -474,15 +467,23 @@ def get_cardiac_coordinates_short_axis(
             plt.close()
 
         # save local_cardiac_coordinates to a vtk file
-        maps = {"FA": dti["fa"], "MD": dti["md"], "mask": mask, "mean_img": average_images}
+        maps = {
+            "FA": convert_dict_of_arrays_to_array(dti["fa"]),
+            "MD": convert_dict_of_arrays_to_array(dti["md"]),
+            "mask": mask,
+            "mean_img": convert_dict_of_arrays_to_array(average_images),
+        }
         # dictionaries and lists are mutable, so they will be modified also outside the function
         # so here, to prevent local_cardiac_coordinates dict to be modified I am creating a
         # deep copy.
         lcc = copy.deepcopy(local_cardiac_coordinates)
+        # convert vector field from dict to array
+        for key in lcc.keys():
+            lcc[key] = convert_dict_of_arrays_to_array(lcc[key])
         if settings["debug"]:
-            save_vtk_file(lcc, {}, maps, info, "cardiac_coordinates", settings["debug_folder"])
+            save_vtk_file(lcc, {}, maps, slices, info, f"cardiac_coordinates_{ventricle}", settings["debug_folder"])
 
-    return local_cardiac_coordinates, lv_centres, phi_matrix
+    return local_cardiac_coordinates, ventricle_centres, phi_matrix
 
 
 def get_coordinates_tissue_block(
@@ -772,7 +773,14 @@ def mag_to_rad(img: NDArray, max_value: int = 4096) -> NDArray:
 
 
 def get_ha_line_profiles(
-    HA: NDArray, lv_centres: dict, slices: NDArray, mask_3c: NDArray, segmentation: dict, settings: dict, info: dict
+    HA: NDArray,
+    lv_centres: dict,
+    slices: NDArray,
+    mask_3c: NDArray,
+    segmentation: dict,
+    settings: dict,
+    info: dict,
+    ventricle="LV",
 ) -> [dict, dict]:
     """
     Get the HA line profiles and also Wall Thickness
@@ -800,7 +808,7 @@ def get_ha_line_profiles(
     wall_thickness = {}
 
     # loop over each slice
-    for slice_idx in slices:
+    for i, slice_idx in enumerate(slices):
         # current HA map
         c_HA = np.copy(HA[slice_idx])
         # current U-Net mask
@@ -860,9 +868,13 @@ def get_ha_line_profiles(
         std_lp = np.nanstd(lp_matrix, axis=0)
         model = LinearRegression()
         x = np.linspace(1, len(lp), len(lp)).reshape(-1, 1)
-        model.fit(x, average_lp.reshape(-1, 1))
-        r_sq = model.score(x, average_lp.reshape(-1, 1))
-        y_pred = model.predict(x)
+        # eliminate NaNs
+        x = x[~np.isnan(average_lp).reshape(-1, 1)]
+        std_lp = std_lp[~np.isnan(average_lp)]
+        average_lp = average_lp[~np.isnan(average_lp)]
+        model.fit(x.reshape(-1, 1), average_lp.reshape(-1, 1))
+        r_sq = model.score(x.reshape(-1, 1), average_lp.reshape(-1, 1))
+        y_pred = model.predict(x.reshape(-1, 1))
         slope = model.coef_[0, 0]
 
         # store all this info in the dictionary
@@ -899,7 +911,7 @@ def get_ha_line_profiles(
             os.path.join(
                 settings["results"],
                 "results_b",
-                "HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
+                f"{ventricle}_HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             pad_inches=0,
@@ -1299,10 +1311,10 @@ def plot_results_maps(
         folder id string to use on the filename
     """
 
-    # plt.style.use("seaborn-deep")
     colors = ["tab:orange", "tab:green", "tab:blue", "tab:red", "tab:brown", "tab:olive"]
+
     # plot results small montage for each slice
-    for slice_idx in slices:
+    for i, slice_idx in enumerate(slices):
         alphas_whole_heart = np.copy(mask_3c[slice_idx])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
 
@@ -1361,7 +1373,7 @@ def plot_results_maps(
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
         plt.imshow(
             dti["ha"][slice_idx],
-            alpha=alphas_myocardium,
+            alpha=alphas_whole_heart,
             vmin=-90,
             vmax=90,
             cmap=colormaps["HA"],
@@ -1383,7 +1395,7 @@ def plot_results_maps(
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
         plt.imshow(
             abs(dti["e2a"][slice_idx]),
-            alpha=alphas_myocardium,
+            alpha=alphas_whole_heart,
             vmin=0,
             vmax=90,
             cmap=colormaps["abs_E2A"],
@@ -1426,6 +1438,7 @@ def plot_results_maps(
     params["FA"]["units"] = "[]"
     params["FA"]["scale"] = 1
     params["FA"]["abs"] = False
+    params["FA"]["mask"] = mask_3c
 
     params["MD"] = {}
     params["MD"]["var_name"] = "md"
@@ -1436,6 +1449,7 @@ def plot_results_maps(
     params["MD"]["units"] = "10^{-3} mm^2s^{-1}"
     params["MD"]["scale"] = 1000
     params["MD"]["abs"] = False
+    params["MD"]["mask"] = mask_3c
 
     params["HA"] = {}
     params["HA"]["var_name"] = "ha"
@@ -1446,6 +1460,7 @@ def plot_results_maps(
     params["HA"]["units"] = "degrees"
     params["HA"]["scale"] = 1
     params["HA"]["abs"] = False
+    params["HA"]["mask"] = mask_3c
 
     params["TA"] = {}
     params["TA"]["var_name"] = "ta"
@@ -1456,6 +1471,7 @@ def plot_results_maps(
     params["TA"]["units"] = "degrees"
     params["TA"]["scale"] = 1
     params["TA"]["abs"] = False
+    params["TA"]["mask"] = mask_3c
 
     params["E2A"] = {}
     params["E2A"]["var_name"] = "e2a"
@@ -1466,6 +1482,7 @@ def plot_results_maps(
     params["E2A"]["units"] = "degrees"
     params["E2A"]["scale"] = 1
     params["E2A"]["abs"] = False
+    params["E2A"]["mask"] = mask_3c
 
     params["abs_E2A"] = {}
     params["abs_E2A"]["var_name"] = "e2a"
@@ -1476,16 +1493,18 @@ def plot_results_maps(
     params["abs_E2A"]["units"] = "degrees"
     params["abs_E2A"]["scale"] = 1
     params["abs_E2A"]["abs"] = True
+    params["abs_E2A"]["mask"] = mask_3c
 
-    for slice_idx in slices:
-        alphas_whole_heart = np.copy(mask_3c[slice_idx])
-        alphas_whole_heart[alphas_whole_heart > 0.1] = 1
-
-        alphas_myocardium = np.copy(mask_3c[slice_idx])
-        alphas_myocardium[alphas_myocardium == 2] = 0
-        alphas_myocardium[alphas_myocardium > 0.1] = 1
-
+    for i, slice_idx in enumerate(slices):
         for param in params:
+            alphas_whole_heart = np.copy(params[param]["mask"][slice_idx])
+            alphas_whole_heart[alphas_whole_heart > 0.1] = 1
+
+            alphas_myocardium = np.copy(params[param]["mask"][slice_idx])
+            alphas_myocardium[alphas_myocardium == 2] = 0
+            alphas_myocardium[alphas_myocardium > 0.1] = 1
+
+            # DTI maps
             plt.figure(figsize=(5, 5))
             plt.imshow(average_images[slice_idx], cmap="Greys_r")
             if params[param]["abs"]:
@@ -1520,11 +1539,12 @@ def plot_results_maps(
             )
             plt.close()
 
+            # histograms
             plt.figure(figsize=(5, 5))
             if params[param]["abs"]:
-                vals = abs(dti[params[param]["var_name"]][slice_idx][alphas_myocardium > 0] * params[param]["scale"])
+                vals = abs(dti[params[param]["var_name"]][slice_idx][alphas_whole_heart > 0] * params[param]["scale"])
             else:
-                vals = dti[params[param]["var_name"]][slice_idx][alphas_myocardium > 0] * params[param]["scale"]
+                vals = dti[params[param]["var_name"]][slice_idx][alphas_whole_heart > 0] * params[param]["scale"]
             bins = np.linspace(params[param]["vmin_max"][0], params[param]["vmin_max"][1], 40)
             weights = np.ones_like(vals) / len(vals)
             plt.hist(vals, bins=bins, weights=weights, rwidth=0.95, color=params[param]["hist_color"])
@@ -1541,91 +1561,109 @@ def plot_results_maps(
             )
             plt.close()
 
-        # plot LV 12 sectors
-        plt.figure(figsize=(5, 5))
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(
-            dti["lv_sectors"][slice_idx],
-            alpha=alphas_whole_heart * 0.5,
-            vmin=1,
-            vmax=12,
-            cmap=matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("tab20c").colors[0:12]),
-        )
-        if segmentation[slice_idx]["anterior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["anterior_ip"][0],
-                segmentation[slice_idx]["anterior_ip"][1],
-                "2",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
+        # plot LV and RV 12 sectors
+        params2 = {}
+        params2["lv_sectors"] = {}
+        params2["lv_sectors"]["var_name"] = "lv_sectors"
+        params2["lv_sectors"]["title"] = "LV segments"
+        params2["lv_sectors"]["file_string"] = "lv_segments"
+
+        params2["rv_sectors"] = {}
+        params2["rv_sectors"]["var_name"] = "rv_sectors"
+        params2["rv_sectors"]["title"] = "RV segments"
+        params2["rv_sectors"]["file_string"] = "rv_segments"
+
+        if settings["RV-segmented"]:
+            key_list = ["lv_sectors", "rv_sectors"]
+        else:
+            key_list = ["lv_sectors"]
+
+        for key in key_list:
+            plt.figure(figsize=(5, 5))
+            plt.imshow(average_images[slice_idx], cmap="Greys_r")
+            plt.imshow(
+                dti[params2[key]["var_name"]][slice_idx],
+                alpha=alphas_whole_heart * 0.5,
+                vmin=1,
+                vmax=12,
+                cmap=matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("tab20c").colors[0:12]),
             )
-        if segmentation[slice_idx]["inferior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["inferior_ip"][0],
-                segmentation[slice_idx]["inferior_ip"][1],
-                "1",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
+            if segmentation[slice_idx]["anterior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["anterior_ip"][0],
+                    segmentation[slice_idx]["anterior_ip"][1],
+                    "2",
+                    color="tab:orange",
+                    markersize=20,
+                    alpha=1.0,
+                )
+            if segmentation[slice_idx]["inferior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["inferior_ip"][0],
+                    segmentation[slice_idx]["inferior_ip"][1],
+                    "1",
+                    color="tab:orange",
+                    markersize=20,
+                    alpha=1.0,
+                )
+            cbar = plt.colorbar(fraction=0.046, pad=0.04)
+            ticklabels = [str(i) for i in range(1, 12 + 1)]
+            tickpos = np.linspace(1.5, 12 - 0.5, 12)
+            cbar.set_ticks(tickpos, labels=ticklabels)
+            plt.tight_layout(pad=1.0)
+            plt.axis("off")
+            plt.title(params2[key]["title"])
+            plt.savefig(
+                os.path.join(
+                    settings["results"],
+                    "results_b",
+                    params2[key]["file_string"] + "_slice_" + str(slice_idx).zfill(2) + ".png",
+                ),
+                dpi=200,
+                pad_inches=0,
+                transparent=False,
             )
-        cbar = plt.colorbar(fraction=0.046, pad=0.04)
-        ticklabels = [str(i) for i in range(1, 12 + 1)]
-        tickpos = np.linspace(1.5, 12 - 0.5, 12)
-        cbar.set_ticks(tickpos, labels=ticklabels)
-        plt.tight_layout(pad=1.0)
-        plt.axis("off")
-        plt.title("LV sectors")
-        plt.savefig(
-            os.path.join(
-                settings["results"],
-                "results_b",
-                "lv_segments_slice_" + str(slice_idx).zfill(2) + ".png",
-            ),
-            dpi=200,
-            pad_inches=0,
-            transparent=False,
-        )
-        plt.close()
+            plt.close()
 
         # plot S0 map with segmentation
-        plt.figure(figsize=(5, 5))
-        plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
-        vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
-        plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
-        if segmentation[slice_idx]["anterior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["anterior_ip"][0],
-                segmentation[slice_idx]["anterior_ip"][1],
-                "2",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
+        if not settings["ex_vivo"]:
+            plt.figure(figsize=(5, 5))
+            plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
+            vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
+            plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
+            if segmentation[slice_idx]["anterior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["anterior_ip"][0],
+                    segmentation[slice_idx]["anterior_ip"][1],
+                    "2",
+                    color="tab:orange",
+                    markersize=20,
+                    alpha=1.0,
+                )
+            if segmentation[slice_idx]["inferior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["inferior_ip"][0],
+                    segmentation[slice_idx]["inferior_ip"][1],
+                    "1",
+                    color="tab:orange",
+                    markersize=20,
+                    alpha=1.0,
+                )
+            plt.colorbar(fraction=0.046, pad=0.04)
+            plt.tight_layout(pad=1.0)
+            plt.axis("off")
+            plt.title("S0")
+            plt.savefig(
+                os.path.join(
+                    settings["results"],
+                    "results_b",
+                    "maps_s0_slice_" + str(slice_idx).zfill(2) + ".png",
+                ),
+                dpi=200,
+                pad_inches=0,
+                transparent=False,
             )
-        if segmentation[slice_idx]["inferior_ip"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["inferior_ip"][0],
-                segmentation[slice_idx]["inferior_ip"][1],
-                "1",
-                color="tab:orange",
-                markersize=20,
-                alpha=1.0,
-            )
-        plt.colorbar(fraction=0.046, pad=0.04)
-        plt.tight_layout(pad=1.0)
-        plt.axis("off")
-        plt.title("S0")
-        plt.savefig(
-            os.path.join(
-                settings["results"],
-                "results_b",
-                "maps_s0_slice_" + str(slice_idx).zfill(2) + ".png",
-            ),
-            dpi=200,
-            pad_inches=0,
-            transparent=False,
-        )
-        plt.close()
+            plt.close()
 
 
 def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
@@ -1724,7 +1762,9 @@ def export_to_hdf5(dti: dict, mask_3c: NDArray, settings: dict):
                         for subsubname, subsubkey in subkey.items():
                             if isinstance(subsubkey, np.ndarray):
                                 hf.create_dataset(name + "_" + str(subname) + "_" + subsubname, data=subsubkey)
-        hf.create_dataset("mask", data=mask_3c)
+        for name, key in mask_3c.items():
+            if isinstance(key, np.ndarray):
+                hf.create_dataset(("mask_" + str(name)), data=key)
 
     # # to read a map example
     # with h5py.File(os.path.join(settings["results"], "data", "DTI_maps" + ".h5"), "r") as hf:
@@ -1780,7 +1820,7 @@ def export_results(
     folder_id = "_".join(folder_id)
 
     # plot eigenvectors and tensor in VTK format
-    export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)
+    export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images, slices)
 
     # plot results maps
     plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, settings, folder_id)
@@ -1803,7 +1843,7 @@ def export_results(
     # save the dataframe and the info dict
     data.attrs["mask"] = mask_3c
     save_path = os.path.join(settings["results"], "data", "database.zip")
-    data.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
+    data.to_pickle(save_path, compression={"method": "zip", "compresslevel": 1})
 
     # get git commit hash
     def get_git_revision_hash():
@@ -1862,27 +1902,57 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
     -------
 
     """
+
+    new_dict = {}
+
     # get absolute E2A and TA
-    dti["abs_e2a"] = np.abs(dti["e2a"])
-    dti["abs_ta"] = np.abs(dti["ta"])
-    dti["md_1e3"] = dti["md"] * 1000
-    var_list = ["fa", "md_1e3", "ha", "e2a", "ta", "abs_e2a", "abs_ta"]
-    str_list = ["FA", "MD", "HA", "E2A", "TA", "|E2A|", "|TA|"]
+    new_dict["abs_e2a"] = np.abs(convert_dict_of_arrays_to_array(dti["e2a"]))
+    new_dict["abs_ta"] = np.abs(convert_dict_of_arrays_to_array(dti["ta"]))
+    new_dict["md_1e3"] = convert_dict_of_arrays_to_array(dti["md"]) * 1000
+    new_dict["fa"] = convert_dict_of_arrays_to_array(dti["fa"])
+    new_dict["ha"] = convert_dict_of_arrays_to_array(dti["ha"])
+    new_dict["e2a"] = convert_dict_of_arrays_to_array(dti["e2a"])
+    new_dict["ta"] = convert_dict_of_arrays_to_array(dti["ta"])
+    new_dict["snr"] = {}
+    for key in dti["snr"].keys():
+        new_dict["snr"][key] = {}
+        for key2, values in dti["snr"][key].items():
+            new_dict["snr"][key][key2] = values
+
+    var_list = [
+        "fa",
+        "md_1e3",
+        "ha",
+        "e2a",
+        "ta",
+        "abs_e2a",
+        "abs_ta",
+    ]
+    str_list = [
+        "FA",
+        "MD",
+        "HA",
+        "E2A",
+        "TA",
+        "|E2A|",
+        "|TA|",
+    ]
+
     # global values
     table_global = []
-    table_global.append(["Global", np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
-    table_global.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+    table_global.append(["Global"] + [np.nan] * 7)
+    table_global.append([np.nan] + [np.nan] * 7)
     for idx, var in enumerate(var_list):
         table_global.append(
             [
                 str_list[idx],
-                np.nanmean(dti[var]),
-                np.nanstd(dti[var]),
-                np.nanmedian(dti[var]),
-                np.nanquantile(dti[var], 0.25),
-                np.nanquantile(dti[var], 0.75),
-                np.nanmin(dti[var]),
-                np.nanmax(dti[var]),
+                np.nanmean(new_dict[var]),
+                np.nanstd(new_dict[var]),
+                np.nanmedian(new_dict[var]),
+                np.nanquantile(new_dict[var], 0.25),
+                np.nanquantile(new_dict[var], 0.75),
+                np.nanmin(new_dict[var]),
+                np.nanmax(new_dict[var]),
             ]
         )
 
@@ -1890,7 +1960,7 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
     # gather all keys found in all slices
     keys = []
     for slice_idx in slices:
-        keys.extend(dti["snr"][slice_idx].keys())
+        keys.extend(new_dict["snr"][slice_idx].keys())
     keys = list(set(keys))
     # sort keys
     keys.sort()
@@ -1923,24 +1993,24 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
         table_per_slice.append(["Per slice", np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
         for idx, var in enumerate(var_list):
             table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
-            for slice_idx in slices:
+            for i, slice_idx in enumerate(slices):
                 table_per_slice.append(
                     [
                         str_list[idx] + "_slice_" + str(slice_idx).zfill(2),
-                        np.nanmean(dti[var][slice_idx]),
-                        np.nanstd(dti[var][slice_idx]),
-                        np.nanmedian(dti[var][slice_idx]),
-                        np.nanquantile(dti[var][slice_idx], 0.25),
-                        np.nanquantile(dti[var][slice_idx], 0.75),
-                        np.nanmin(dti[var][slice_idx]),
-                        np.nanmax(dti[var][slice_idx]),
+                        np.nanmean(new_dict[var][i]),
+                        np.nanstd(new_dict[var][i]),
+                        np.nanmedian(new_dict[var][i]),
+                        np.nanquantile(new_dict[var][i], 0.25),
+                        np.nanquantile(new_dict[var][i], 0.75),
+                        np.nanmin(new_dict[var][i]),
+                        np.nanmax(new_dict[var][i]),
                     ]
                 )
         # do the same for SNR
         table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
         for slice_idx in slices:
-            for key in dti["snr"][slice_idx]:
-                c_vals = dti["snr"][slice_idx][key]
+            for key in new_dict["snr"][slice_idx]:
+                c_vals = new_dict["snr"][slice_idx][key]
                 c_vals = c_vals[~np.isnan(c_vals)]
                 c_vals = c_vals[np.isfinite(c_vals)]
                 table_per_slice.append(
@@ -1969,13 +2039,14 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
     table_global.to_csv(os.path.join(settings["results"], "results_table.csv"), index=False)
 
 
-def get_lv_segments(
+def get_heart_segments(
     segmentation: dict,
     phi_matrix: dict,
     mask_3c: NDArray,
     lv_centres: NDArray,
     slices: NDArray,
     logger: logging.Logger,
+    ventricle="LV",
 ) -> NDArray:
     """
     Get array with the LV segments
@@ -2001,10 +2072,13 @@ def get_lv_segments(
     segments_and_points = {}
 
     # loop over slices
-    for slice_idx in slices:
+    for i, slice_idx in enumerate(slices):
         if segmentation[slice_idx]["anterior_ip"].size != 0 and segmentation[slice_idx]["inferior_ip"].size != 0:
             lv_mask = np.copy(mask_3c[slice_idx])
-            lv_mask[lv_mask == 2] = 0
+            if ventricle == "LV":
+                lv_mask[lv_mask == 2] = 0
+            elif ventricle == "RV":
+                lv_mask[lv_mask == 2] = 1
             phi_matrix[slice_idx][lv_mask == 0] = np.nan
             phi_matrix[slice_idx] = -(phi_matrix[slice_idx] - np.pi)
 
@@ -2084,19 +2158,26 @@ def get_lv_segments(
                 segments_and_points[(slice_idx, segment_idx + 1)] = points
 
     # prepare the output
-    segments_mask = np.zeros(mask_3c.shape)
+    mask_array = convert_dict_of_arrays_to_array(mask_3c)
+    segments_mask = np.zeros(mask_array.shape)
     segments_mask[:] = np.nan
-    for slice_idx in slices:
+    for i, slice_idx in enumerate(slices):
         if segmentation[slice_idx]["anterior_ip"].size != 0 and segmentation[slice_idx]["inferior_ip"].size != 0:
             for curr_segment in range(1, (LV_free_wall_n_segs + LV_septal_wall_n_segs + 1)):
                 if (slice_idx, curr_segment) in segments_and_points.keys():
                     segments_mask[
-                        slice_idx,
+                        i,
                         segments_and_points[slice_idx, curr_segment][:, 0],
                         segments_and_points[slice_idx, curr_segment][:, 1],
                     ] = curr_segment
 
-    logger.debug("LV segmentation in sectors done.")
+    if ventricle == "LV":
+        logger.debug("LV segmentation in sectors done.")
+    elif ventricle == "RV":
+        segments_mask[mask_array != 2] = np.nan
+        logger.debug("RV segmentation in sectors done.")
+
+    segments_mask = convert_array_to_dict_of_arrays(segments_mask, slices)
 
     return segments_mask
 
@@ -2160,8 +2241,16 @@ def image_histogram_equalization(image: NDArray, number_bins: int = 256):
 
 
 def remove_slices(
-    data: pd.DataFrame, slices: NDArray, segmentation: dict, logger: logging
-) -> [pd.DataFrame, NDArray, dict]:
+    data: pd.DataFrame,
+    dti: dict,
+    info: dict,
+    slices: NDArray,
+    segmentation: dict,
+    mask_3c: NDArray,
+    average_images: NDArray,
+    ref_images: dict,
+    logger: logging,
+) -> [pd.DataFrame, NDArray, dict, NDArray]:
     """
     Remove slices that are marked as to be removed for all entries
 
@@ -2187,8 +2276,19 @@ def remove_slices(
     original_n_slices = len(slices)
 
     # slices is going to be a list of all the integers
-    slices = data.slice_integer.unique()
-    slices = [int(i) for i in slices]
+    slices = data.slice_integer.unique().astype(int)
+
+    # remove empty slices from average images
+    deepcopy_average_images = copy.deepcopy(average_images)
+    for slice_idx in deepcopy_average_images:
+        if slice_idx not in slices:
+            average_images.pop(slice_idx)
+
+    # remove empty slices from mask
+    deepcopy_mask_3c = copy.deepcopy(mask_3c)
+    for slice_idx in deepcopy_mask_3c:
+        if slice_idx not in slices:
+            mask_3c.pop(slice_idx)
 
     # remove slices from segmentation
     deepcopy_segmentation = copy.deepcopy(segmentation)
@@ -2196,11 +2296,26 @@ def remove_slices(
         if slice_idx not in slices:
             segmentation.pop(slice_idx)
 
+    # if it exists dti["snr"] (for ex-vivo it does) then remove non used slices
+    if "snr" in dti.keys():
+        deepcopy_dti_snr = copy.deepcopy(dti["snr"])
+        for slice_idx in deepcopy_dti_snr:
+            if slice_idx not in slices:
+                dti["snr"].pop(slice_idx)
+
+    # remove slices from reference_images
+    deepcopy_ref_images = copy.deepcopy(ref_images)
+    for slice_idx in deepcopy_ref_images:
+        if slice_idx not in slices:
+            ref_images.pop(slice_idx)
+
     n_slices = len(slices)
     if n_slices != original_n_slices:
         logger.info(f"Number of slices reduced from {original_n_slices} to {n_slices}")
 
-    return data, slices, segmentation
+    info["n_slices"] = n_slices
+
+    return data, dti, info, slices, segmentation, mask_3c, average_images, ref_images
 
 
 def remove_outliers(data: pd.DataFrame, info: dict) -> [pd.DataFrame, dict]:
@@ -2225,3 +2340,15 @@ def remove_outliers(data: pd.DataFrame, info: dict) -> [pd.DataFrame, dict]:
     info["n_images"] = len(data)
 
     return data, info
+
+
+def convert_array_to_dict_of_arrays(array, key_array):
+    array_dict = {key_array[i]: slice_array for i, slice_array in enumerate(array)}
+    return array_dict
+
+
+def convert_dict_of_arrays_to_array(a):
+    values = list(a.values())
+    numpyArray = np.array(values)
+
+    return numpyArray

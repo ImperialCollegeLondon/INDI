@@ -14,6 +14,8 @@ import pyautogui
 
 from extensions.complex_averaging import complex_averaging
 from extensions.crop.crop import Crop
+
+# from extensions.crop.crop import Crop
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
     denoise_tensor,
@@ -31,7 +33,7 @@ from extensions.metrics.metrics import Metrics
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.rotation.rotation import Rotation
-from extensions.segmentation.heart_segmentation import ExternalSegmentation
+from extensions.segmentation.heart_segmentation import ExternalSegmentation, HeartSegmentation
 from extensions.segmentation.tissue_segmentation import ExternalTissueBlockSegmentation
 from extensions.select_outliers.select_outliers import SelectOutliers  # , manual_image_removal
 from extensions.tensor_fittings.tensor_fittings import TensorFit
@@ -140,11 +142,14 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     if settings["ex_vivo"] and settings["rotate"]:
         logger.info("Ex-vivo rotation is True")
-        context = {"data": data, "info": info, "slices": slices}
+        context = {"data": data, "info": info, "slices": slices, "ref_images": ref_images, "dti": dti}
         Rotation(context, settings, logger).run()
         data = context["data"]
         slices = context["slices"]
+        reg_mask = context["reg_mask"]
+        ref_images = context["ref_images"]
         info = context["info"]
+        dti = context["dti"]
         # data, slices, info = rotate_data(data, slices, info, settings, logger)
 
     # =========================================================
@@ -186,13 +191,20 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Heart segmentation
     # =========================================================
-    # context = {"data": data, "info": info, "average_images": average_images, "slices": slices, "colormaps": colormaps}
-    # HeartSegmentation(context, settings, logger).run()
-    # data = context["data"]
-    # info = context["info"]
-    # slices = context["slices"]
-    # segmentation = context["segmentation"]
-    # mask_3c = context["mask_3c"]
+    if not settings["ex_vivo"]:
+        context = {
+            "data": data,
+            "info": info,
+            "average_images": average_images,
+            "slices": slices,
+            "colormaps": colormaps,
+        }
+        HeartSegmentation(context, settings, logger).run()
+        data = context["data"]
+        info = context["info"]
+        slices = context["slices"]
+        segmentation = context["segmentation"]
+        mask_3c = context["mask_3c"]
 
     context = {"data": data, "info": info, "average_images": average_images, "slices": slices, "colormaps": colormaps}
     if settings["tissue_block"]:
@@ -208,7 +220,9 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Remove non segmented slices
     # =========================================================
-    data, slices, segmentation = remove_slices(data, slices, segmentation, logger)
+    data, dti, info, slices, segmentation, mask_3c, average_images, ref_images = remove_slices(
+        data, dti, info, slices, segmentation, mask_3c, average_images, ref_images, logger
+    )
 
     # =========================================================
     # Crop image data
@@ -275,8 +289,9 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # complex averaging
     # =========================================================
-    if settings["complex_data"]:
-        data = complex_averaging(data, logger)
+    if not settings["ex_vivo"]:
+        if settings["complex_data"]:
+            data = complex_averaging(data, logger)
 
     # =========================================================
     # Calculate tensor
@@ -310,6 +325,10 @@ for current_folder in all_to_be_analysed_folders:
     else:
         logger.info("Denoising tensor with uformer model is False")
 
+    # =========================================================
+    # Tensor metrics
+    # =========================================================
+    # LV Metrics/Maps
     context = {
         "data": data,
         "info": info,
@@ -331,7 +350,7 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Cleanup before the next folder
     # =========================================================
-    logger.info("Cleaning up before the next folder")
+    logger.info("Cleaning up...")
     del (
         average_images,
         crop_mask,

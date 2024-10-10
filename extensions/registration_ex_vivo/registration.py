@@ -13,7 +13,8 @@ from tqdm import tqdm
 
 from extensions.extension_base import ExtensionBase
 from extensions.extensions import get_snr_maps
-from extensions.image_registration import get_registration_mask
+
+# from extensions.image_registration import get_registration_mask
 
 
 def plot_ref_images(image_mean, slice_idx: int, ref_image: NDArray, contour, settings: Dict):
@@ -38,6 +39,7 @@ def plot_ref_images(image_mean, slice_idx: int, ref_image: NDArray, contour, set
     plt.savefig(
         os.path.join(
             settings["debug_folder"],
+            "registration",
             "reg_reference_image_slice_" + str(slice_idx).zfill(2) + ".png",
         ),
         dpi=200,
@@ -48,29 +50,37 @@ def plot_ref_images(image_mean, slice_idx: int, ref_image: NDArray, contour, set
     plt.close()
 
     # plot registration mask
-
-    plt.figure(figsize=(5, 5))
-    plt.imshow(image_mean, cmap="Greys_r")
-    plt.plot(contour[:, 0], contour[:, 1], "r")
-    plt.axis("off")
-    plt.savefig(
-        os.path.join(settings["debug_folder"], "reg_mask_slice_" + str(slice_idx).zfill(2) + ".png"),
-        dpi=200,
-        bbox_inches="tight",
-        transparent=False,
-    )
-    plt.close()
+    if contour:
+        plt.figure(figsize=(5, 5))
+        plt.imshow(image_mean, cmap="Greys_r")
+        plt.plot(contour[:, 0], contour[:, 1], "r")
+        plt.axis("off")
+        plt.savefig(
+            os.path.join(
+                settings["debug_folder"], "registration", "reg_mask_slice_" + str(slice_idx).zfill(2) + ".png"
+            ),
+            dpi=200,
+            bbox_inches="tight",
+            transparent=False,
+        )
+        plt.close()
 
 
 class RegistrationExVivo(ExtensionBase):
     def __init__(self, context, settings, logger):
         ExtensionBase.__init__(self, context, settings, logger)
 
-        self.code_path = pathlib.Path(self.settings["code_path"])
-        self.debug_folder = pathlib.Path(self.settings["debug_folder"])
+        self.code_path = pathlib.Path(self.settings["code_path"])  # create folder for all ex-vivo registration images
+
+        debug_reg_path = os.path.join(self.settings["debug_folder"], "registration")
+        if not os.path.exists(debug_reg_path):
+            os.makedirs(debug_reg_path)
 
     def run(self):
-        registration_mask, contour = get_registration_mask(self.context["info"], self.settings)
+        # using entire image for registration
+        # registration_mask, contour = get_registration_mask(self.context["info"], self.settings)
+        registration_mask = np.ones(self.context["info"]["img_size"])
+        contour = None
         self.context["reg_mask"] = registration_mask
         self.context["contour"] = contour
 
@@ -152,7 +162,11 @@ class RegistrationExVivo(ExtensionBase):
                     rigid_reg_images = [
                         npzfile["rigid_reg_images"][i] for i in range(len(npzfile["rigid_reg_images"]))
                     ]
+
                     self._update_reg_rigid_df(rigid_reg_images, slice_idx, indices, lower_b_value_index)
+                    file_strings = ["reg_01_line_profiles_slice", "reg_02_line_profiles_slice"]
+                    for file in file_strings:
+                        self.plot_stack_line_profiles(file, slice_idx)
 
                     continue
                 except KeyError:
@@ -472,6 +486,62 @@ class RegistrationExVivo(ExtensionBase):
 
         store_v_lp_post = post_stack[:, :, int(y_center - 1) : int(y_center + 2)]
         store_v_lp_post = np.mean(store_v_lp_post, axis=2)
+
+        plt.figure(figsize=(5, 5))
+        plt.subplot(2, 2, 1)
+        plt.imshow(store_h_lp_pre, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("horizontal pre", fontsize=7)
+        plt.subplot(2, 2, 3)
+        plt.imshow(store_v_lp_pre, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("vertical pre", fontsize=7)
+        plt.subplot(2, 2, 2)
+        plt.imshow(store_h_lp_post, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("horizontal post", fontsize=7)
+        plt.subplot(2, 2, 4)
+        plt.imshow(store_v_lp_post, cmap="inferno", aspect="auto")
+        plt.axis("off")
+        plt.title("vertical post", fontsize=7)
+        plt.tight_layout(pad=1.0)
+        plt.savefig(
+            os.path.join(
+                self.settings["results"],
+                "results_b",
+                file_string + "_" + str(slice_idx).zfill(2) + ".png",
+            ),
+            dpi=200,
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()
+
+        # save also the line profiles
+        path = os.path.join(
+            self.settings["session"],
+            file_string + "_" + str(slice_idx).zfill(2) + ".npz",
+        )
+        np.savez_compressed(
+            path,
+            store_h_lp_pre=store_h_lp_pre,
+            store_v_lp_pre=store_v_lp_pre,
+            store_h_lp_post=store_h_lp_post,
+            store_v_lp_post=store_v_lp_post,
+        )
+
+    def plot_stack_line_profiles(self, file_string, slice_idx):
+        # load line profiles
+        path = os.path.join(
+            self.settings["session"],
+            file_string + "_" + str(slice_idx).zfill(2) + ".npz",
+        )
+
+        line_profiles = np.load(path)
+        store_h_lp_pre = line_profiles["store_h_lp_pre"]
+        store_v_lp_pre = line_profiles["store_v_lp_pre"]
+        store_h_lp_post = line_profiles["store_h_lp_post"]
+        store_v_lp_post = line_profiles["store_v_lp_post"]
 
         plt.figure(figsize=(5, 5))
         plt.subplot(2, 2, 1)

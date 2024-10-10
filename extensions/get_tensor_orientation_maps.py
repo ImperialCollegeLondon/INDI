@@ -3,11 +3,11 @@ import logging
 import numpy as np
 from numpy.typing import NDArray
 
+from extensions.extensions import convert_array_to_dict_of_arrays, convert_dict_of_arrays_to_array
+
 
 def get_ha_e2a_maps(
-    mask: NDArray,
-    local_cardiac_coordinates: dict,
-    eigenvectors: NDArray,
+    mask: NDArray, local_cardiac_coordinates: dict, eigenvectors: NDArray, ventricle="LV"
 ) -> tuple[NDArray, NDArray]:
     """
     Calculate HA and E2A maps
@@ -24,10 +24,19 @@ def get_ha_e2a_maps(
     HA, E2A maps
     """
 
+    # convert dictionaries to arrays
+    mask = convert_dict_of_arrays_to_array(mask)
+    eigenvectors = convert_dict_of_arrays_to_array(eigenvectors)
+    for key in local_cardiac_coordinates.keys():
+        local_cardiac_coordinates[key] = convert_dict_of_arrays_to_array(local_cardiac_coordinates[key])
+
     ev1 = eigenvectors[:, :, :, :, 2]
     ev2 = eigenvectors[:, :, :, :, 1]
 
-    coords = np.where(mask == 1)
+    if ventricle == "LV":
+        coords = np.where(mask == 1)
+    elif ventricle == "RV":
+        coords = np.where(mask == 2)
     circ_vecs = local_cardiac_coordinates["circ"][coords]
     long_vecs = local_cardiac_coordinates["long"][coords]
     radi_vecs = local_cardiac_coordinates["radi"][coords]
@@ -152,8 +161,8 @@ def get_tensor_orientation_maps(
     local_cardiac_coordinates: dict,
     dti: dict,
     settings: dict,
-    info: dict,
     logger: logging.Logger,
+    ventricle="LV",
 ) -> tuple[NDArray, NDArray, dict]:
     """_summary_
 
@@ -178,27 +187,32 @@ def get_tensor_orientation_maps(
         _description_
     """
 
-    ha, ta, e2a = get_ha_e2a_maps(mask_3c, local_cardiac_coordinates, dti["eigenvectors"])
+    ha, ta, e2a = get_ha_e2a_maps(mask_3c, local_cardiac_coordinates, dti["eigenvectors"], ventricle)
 
-    # the orientation maps from above should be nan outside the LV re
-    ha[mask_3c != 1] = np.nan
-    ta[mask_3c != 1] = np.nan
-    e2a[mask_3c != 1] = np.nan
+    mask_3c_array = convert_dict_of_arrays_to_array(mask_3c)
 
-    var_names = ["HA"]
-    for var in var_names:
-        for slice_idx in slices:
-            vals = eval(var.lower())[slice_idx][mask_3c[slice_idx] == 1]
+    if ventricle == "LV":
+        # the orientation maps from above should be nan outside the LV re
+        ha[mask_3c_array != 1] = np.nan
+        ta[mask_3c_array != 1] = np.nan
+        e2a[mask_3c_array != 1] = np.nan
+    elif ventricle == "RV":
+        ha[mask_3c_array != 2] = np.nan
+        ta[mask_3c_array != 2] = np.nan
+        e2a[mask_3c_array != 2] = np.nan
 
-    var_names = ["E2A"]
-    for var in var_names:
-        for slice_idx in slices:
-            vals = np.abs(eval(var.lower())[slice_idx][mask_3c[slice_idx] == 1])
+    # var_names = ["HA"]
+    # for var in var_names:
+    #     for i, slice_idx in enumerate(slices):
+    #         vals = eval(var.lower())[i][mask_3c[i] == 1]
+
+    if ventricle == "LV":
+        var_names = ["E2A"]
+        for var in var_names:
+            vals = np.abs(eval(var.lower())[mask_3c_array == 1])
             logger.debug(
                 "Median "
                 + var
-                + " for slice "
-                + str(slice_idx).zfill(2)
                 + ": "
                 + "%.2f" % np.nanmedian(vals)
                 + " ["
@@ -208,4 +222,9 @@ def get_tensor_orientation_maps(
                 + "]"
             )
 
-    return ha, ta, e2a, info
+    # convert arrays to dictionaries
+    ha = convert_array_to_dict_of_arrays(ha, slices)
+    ta = convert_array_to_dict_of_arrays(ta, slices)
+    e2a = convert_array_to_dict_of_arrays(e2a, slices)
+
+    return ha, ta, e2a

@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 
+from extensions.extensions import convert_array_to_dict_of_arrays, convert_dict_of_arrays_to_array
+
 
 def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: NDArray):
     """
@@ -58,7 +60,7 @@ def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: N
     plt.tick_params(axis="both", which="major", labelsize=5)
     plt.tight_layout(pad=1.0)
     plt.savefig(
-        os.path.join(settings["results"], "LV_eigenvalues_histograms.png"),
+        os.path.join(settings["results"], "eigenvalues_histograms.png"),
         dpi=200,
         pad_inches=0,
         transparent=False,
@@ -70,15 +72,15 @@ def plot_eigenvector_maps(eigenvectors, average_images, mask_3c, slices, setting
     # plot the eigenvectors
     direction_str = ["x", "y", "z"]
     order_str = ["tertiary", "secondary", "primary"]
-    for slice_idx in slices:
-        alphas_whole_heart = np.copy(mask_3c[slice_idx])
+    for ii, slice_idx in enumerate(slices):
+        alphas_whole_heart = np.copy(mask_3c[ii])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
         fig, ax = plt.subplots(3, 3)
         for idx, eig_order in enumerate(range(2, -1, -1)):
             for direction in range(3):
                 ax[idx, direction].imshow(average_images[slice_idx], cmap="Greys_r")
                 i = ax[idx, direction].imshow(
-                    eigenvectors[slice_idx, :, :, direction, eig_order],
+                    eigenvectors[ii, :, :, direction, eig_order],
                     vmin=-1,
                     vmax=1,
                     alpha=alphas_whole_heart,
@@ -165,23 +167,23 @@ def get_negative_eigenvalues_map(
     background_mask = np.copy(mask_3c)
     background_mask[background_mask > 0] = 1
     negative_eig_map = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
-    for slice_idx in slices:
-        eig_1 = eigenvalues[slice_idx, :, :, 0] < 0
-        eig_2 = eigenvalues[slice_idx, :, :, 1] < 0
-        eig_3 = eigenvalues[slice_idx, :, :, 2] < 0
-        eig_1 = eig_1.astype(int) * background_mask[slice_idx]
-        eig_2 = eig_2.astype(int) * background_mask[slice_idx]
-        eig_3 = eig_3.astype(int) * background_mask[slice_idx]
+    for i, slice_idx in enumerate(slices):
+        eig_1 = eigenvalues[i, :, :, 0] < 0
+        eig_2 = eigenvalues[i, :, :, 1] < 0
+        eig_3 = eigenvalues[i, :, :, 2] < 0
+        eig_1 = eig_1.astype(int) * background_mask[i]
+        eig_2 = eig_2.astype(int) * background_mask[i]
+        eig_3 = eig_3.astype(int) * background_mask[i]
 
-        negative_eig_map[slice_idx] = eig_1 + eig_2 + eig_3
+        negative_eig_map[i] = eig_1 + eig_2 + eig_3
 
     cmap = matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("Set3").colors[1:4])
-    for slice_idx in slices:
-        alphas = np.copy(negative_eig_map[slice_idx])
+    for i, slice_idx in enumerate(slices):
+        alphas = np.copy(negative_eig_map[i])
         alphas[alphas > 0.1] = 1
         plt.figure(figsize=(5, 5))
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(negative_eig_map[slice_idx], alpha=alphas, vmin=1, vmax=3, cmap=cmap)
+        plt.imshow(negative_eig_map[i], alpha=alphas, vmin=1, vmax=3, cmap=cmap)
         cbar = plt.colorbar(fraction=0.046, pad=0.04)
         cbar.ax.tick_params(labelsize=5)
         cbar.set_ticks([4 / 3, 2, 8 / 3])
@@ -239,12 +241,14 @@ def get_eigensystem(
 
     """
     # we need to mask the nans from the tensor array
+    tensor_array = convert_dict_of_arrays_to_array(dti["tensor"])
     dti["eigenvalues"], dti["eigenvectors"] = np.linalg.eigh(
-        dti["tensor"]
+        tensor_array
     )  # use the fact that dti["tensor"] is symmetric to speed up the process
 
     # get info on the number of negative eigenvalues in the myocardium
-    vals = dti["eigenvalues"][mask_3c == 1]
+    mask_3c_array = convert_dict_of_arrays_to_array(mask_3c)
+    vals = dti["eigenvalues"][mask_3c_array > 0]
     neg_vals = vals[vals < 0]
 
     info["n_negative_eigenvalues"] = int(len(neg_vals))
@@ -259,7 +263,7 @@ def get_eigensystem(
 
     # export negative dti["eigenvalues"] map
     dti["negative_eigenvalues"] = get_negative_eigenvalues_map(
-        dti["eigenvalues"], slices, info, average_images, settings, mask_3c
+        dti["eigenvalues"], slices, info, average_images, settings, mask_3c_array
     )
     # make dti["eigenvectors"] point z positive for easier debugging
     dti["eigenvectors"] = make_eigenvectors_z_positive(dti["eigenvectors"])
@@ -269,8 +273,13 @@ def get_eigensystem(
 
     # plot histograms of the dti["eigenvalues"]
     # and also maps for the eigenvectors if debug is True
-    plot_eigenvalues_histograms(dti["eigenvalues"], settings, mask_3c)
+    plot_eigenvalues_histograms(dti["eigenvalues"], settings, mask_3c_array)
     if settings["debug"]:
-        plot_eigenvector_maps(dti["eigenvectors"], average_images, mask_3c, slices, settings)
+        plot_eigenvector_maps(dti["eigenvectors"], average_images, mask_3c_array, slices, settings)
+
+    # convert arrays to dictionaries
+    dti["eigenvalues"] = convert_array_to_dict_of_arrays(dti["eigenvalues"], slices)
+    dti["eigenvectors"] = convert_array_to_dict_of_arrays(dti["eigenvectors"], slices)
+    dti["negative_eigenvalues"] = convert_array_to_dict_of_arrays(dti["negative_eigenvalues"], slices)
 
     return dti, info

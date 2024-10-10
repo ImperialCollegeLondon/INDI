@@ -223,8 +223,8 @@ def get_average_images(
 
     """
 
-    average_images = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
-    for slice_idx in slices:
+    average_images = {}
+    for i, slice_idx in enumerate(slices):
         # dataframe with current slice
         c_df = data.loc[data["slice_integer"] == slice_idx].copy()
 
