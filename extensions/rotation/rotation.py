@@ -21,6 +21,8 @@ def rotate_vector(vector: NDArray, angle: Number, axis: str) -> NDArray:
         rot_matrix = np.array([[np.cos(angle), 0, -np.sin(angle)], [0, 1, 0], [np.sin(angle), 0, np.cos(angle)]])
     elif axis == "x":
         rot_matrix = np.array([[1, 0, 0], [0, np.cos(angle), np.sin(angle)], [0, -np.sin(angle), np.cos(angle)]])
+    else:
+        raise ValueError(f"Axis must be 'x', 'y', or 'z'. Got {axis}.")
     return np.dot(rot_matrix, vector)
 
 
