@@ -85,7 +85,7 @@ brew install imagemagick
 Install the python environment in the INDI root directory:
 
 ```bash
-python@3.12 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -U pip setuptools wheel pip-tools
 pip install -r requirements.txt
@@ -162,7 +162,7 @@ Before running we should have a look at the `settings.yaml` file, and check if t
 Then run in the INDI python environment:
 
 ```bash
-python main_script.py <data_path>
+python main.py <data_path>
 ```
 
 Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the
