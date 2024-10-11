@@ -202,6 +202,39 @@ def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray
 
 
 class TensorFit(ExtensionBase):
+    """
+    Fit tensor to data in dataframe. The fitting methods are
+    from DiPy:
+    - LS: Linear Least Squares
+    - WLS: Weighted Linear Least Squares
+    - NLLS: Non-Linear Least Squares
+    - RESTORE: RESTORE method
+
+    Parameters
+    ----------
+    context: dictionary with the following entries:
+        - slices: array of slice indices to process
+        - data: dataframe with all the diffusion information
+        - info: dictionary with general information
+        - mask_3c: segmentation mask
+        - average_images: average images
+    settings: dictionary with general options
+    logger: logger messages
+    method: string with the fitting method
+    quick_mode: boolean to speed up the function
+
+    Returns
+    -------
+    Adds a dictionary to the context with the following entries:
+
+        - dti: dictionary with the following entries:
+            - tensor: dictionary with tensors per slice
+            - s0: dictionary with S0 per slice
+            - residuals_plot: dictionary with global residuals per image (only for LS, WLS, NLLS in non quick mode)
+            - residuals_map: dictionary with residuals per voxel (only for LS, WLS, NLLS in non quick mode)
+
+    """
+
     def __init__(self, context, settings, logger, method="NLLS", quick_mode=False):
         ExtensionBase.__init__(self, context, settings, logger)
 
@@ -209,31 +242,6 @@ class TensorFit(ExtensionBase):
         self.quick_mode = quick_mode
 
     def run(self):
-        """
-        Fit tensor to data in dataframe. The fitting methods are
-        from DiPy:
-        - LS: Linear Least Squares
-        - WLS: Weighted Linear Least Squares
-        - NLLS: Non-Linear Least Squares
-        - RESTORE: RESTORE method
-
-        Parameters
-        ----------
-        slices: array of strings with slice positions
-        data: dataframe with all the diffusion information
-        info: dictionary with general information
-        settings: dictionary with general options
-        mask_3c: segmentation mask
-        logger: logger messages
-        method: string with the fitting method
-        quick_mode: boolean to speed up the function
-
-        Returns
-        -------
-
-        Tensor array and info dictionary
-
-        """
         import dipy.denoise.noise_estimate as ne
         import dipy.reconst.dti as dti
         from dipy.core.gradients import gradient_table
