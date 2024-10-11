@@ -206,16 +206,23 @@ for current_folder in all_to_be_analysed_folders:
         segmentation = context["segmentation"]
         mask_3c = context["mask_3c"]
 
-    context = {"data": data, "info": info, "average_images": average_images, "slices": slices, "colormaps": colormaps}
-    if settings["tissue_block"]:
-        ExternalTissueBlockSegmentation(context, settings, logger).run()
     else:
-        ExternalSegmentation(context, settings, logger).run()
-    data = context["data"]
-    info = context["info"]
-    slices = context["slices"]
-    segmentation = context["segmentation"]
-    mask_3c = context["mask_3c"]
+        context = {
+            "data": data,
+            "info": info,
+            "average_images": average_images,
+            "slices": slices,
+            "colormaps": colormaps,
+        }
+        if settings["tissue_block"]:
+            ExternalTissueBlockSegmentation(context, settings, logger).run()
+        else:
+            ExternalSegmentation(context, settings, logger).run()
+        data = context["data"]
+        info = context["info"]
+        slices = context["slices"]
+        segmentation = context["segmentation"]
+        mask_3c = context["mask_3c"]
 
     # =========================================================
     # Remove non segmented slices

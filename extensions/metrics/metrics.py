@@ -1,5 +1,5 @@
 from extensions.extension_base import ExtensionBase
-from extensions.extensions import (  # get_lv_segments,
+from extensions.extensions import (
     get_cardiac_coordinates_short_axis,
     get_coordinates_tissue_block,
     get_ha_line_profiles,
