@@ -271,6 +271,23 @@ shortcut.connect( "activated()", exportLabelmap)
 
 
 class ExternalSegmentation(ExtensionBase):
+    """External Segmentation Extension
+
+    This exttension uses 3D slicer to segment the heart. The user is prompted to segment the left and right ventricles
+    and mark the intersection points.
+    Refer to docs/Segmentation_Slicer.md for more information (TODO update this tutorial)
+
+    Adds the following entry to the context:
+        - mask_3c: 3D mask of the segmented heart as a array with ones for the left ventricle, twos for the right
+        - segmentation: dictionary containing the segmentation of the left and right ventricles and the insertion points
+            - epicardium: Epicardial border
+            - endocardium: Endocardial border
+            - epicardium_rv: Epicardial border of the right ventricle
+            - endocardium_rv: Endocardial border of the right ventricle
+            - anterior_ip: anterior intersection point
+            - inferior_ip: inferior intersection point
+    """
+
     def run(self) -> None:
         self.logger.info("Running Heart Segmentation")
 
