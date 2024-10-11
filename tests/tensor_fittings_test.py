@@ -47,6 +47,7 @@ def test_quick_tensor_fit():
     assert np.allclose(tensor_calculated[mask], tensor_true[mask])
 
 
+# TODO Check if the combinations of methods and quick_mode are correct
 @pytest.mark.parametrize(
     "method, quick_mode",
     [
