@@ -9,6 +9,10 @@ from extensions.extension_base import ExtensionBase
 
 
 class ThreeDSelector:
+    """
+    Keeps track of the ROI selection in 3D. It updates the 2D views accordingly.
+    """
+
     def __init__(self, nx, ny, nz, img) -> None:
         self.slice = [0, nx]
         self.row = [0, ny]
@@ -96,6 +100,10 @@ class ThreeDSelector:
 
 
 class LineSelector:
+    """
+    Drag the line with the right mouse button to move it.
+    """
+
     def __init__(self, ax, pos, orientation, callback, range=5, interactive=False, props=None):
         self.ax = ax
         self.orientation = orientation
@@ -270,28 +278,33 @@ def manual_crop(image):
 
 
 class Crop(ExtensionBase):
+    """Crop data to the desired ROI
+    Parameters
+    ----------
+    context : dictionary with the following entries
+        - slices: array of slice indices to process
+        - data: dataframe with all the diffusion information
+        - info: dictionary with general information
+    settings: dictionary with general options
+    logger: logger messages
+
+    If the file session/crop.yaml exists, it will load the ROI from there. Otherwise, it will open a window and the user
+    can select the ROI. Once the selction is made it will crop the data and save the ROI in session/crop.yaml
+
+    Returns
+    -------
+    Updates the following entries in context:
+        - data:
+            - image: cropped image
+            - image_phase: cropped phase image (if complex data)
+            - slice_integer: slice indices
+        - info:
+            - img_size: size of the cropped image
+            n_slices: number of slices after cropping
+        - slices: slice indices after cropping
+    """
+
     def run(self) -> None:
-        """Crop data to the desired ROI
-
-        Parameters
-        ----------
-        data : dict
-            dictionary to hold data
-        slices : list
-            list of slices index
-        settings : dict
-        info : dict
-        logger : logging
-            logger for console
-
-        Returns
-        -------
-        data : dict
-            pd.Dataframe to hold data
-        slices : list
-            dictionary to hold slices
-        """
-
         data = self.context["data"]
         info = self.context["info"]
         images = []
