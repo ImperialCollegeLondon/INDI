@@ -64,6 +64,31 @@ def plot_rotation(images: NDArray, images_rotated: NDArray, angle: int, axis: st
 
 
 class Rotation(ExtensionBase):
+    """Rotate data to along axis and angle specified in settings. Currently it only soppurts rotations of 90, 180, -90
+    degrees.The rotation is skipped if settings["rotate"] is False.
+
+    Parameters
+    ----------
+    context : dictionary with the following entries
+        - slices: array of slice indices to process
+        - data: dataframe with all the diffusion information
+        - info: dictionary with general information
+        - ref_images: dictionary with reference images
+    settings: dictionary with general options
+    logger: logger messages
+
+    Returns
+    -------
+    Updates the following entries in context:
+        - data: A new dataframe with the rotated images
+        - info:
+            - img_size: size of the rotated image
+            - n_slices: number of slices after rotation
+        - slices: slice indices after rotation
+        - ref_images: dictionary with reference images after rotation
+        - reg_mask: new registration mask
+    """
+
     def run(self) -> None:
         if self.settings["rotate"]:
             data = self.context["data"]
