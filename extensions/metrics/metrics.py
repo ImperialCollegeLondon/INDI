@@ -4,6 +4,7 @@ from extensions.extensions import (
     get_coordinates_tissue_block,
     get_ha_line_profiles,
     get_heart_segments,
+    get_tissue_block_segments,
 )
 from extensions.get_eigensystem import get_eigensystem
 from extensions.get_fa_md import get_fa_md
@@ -55,13 +56,16 @@ class Metrics(ExtensionBase):
         # =========================================================
         # Segment heart
         # =========================================================
-        dti["lv_sectors"] = get_heart_segments(
-            segmentation, phi_matrix, mask_3c, lv_centres, slices, self.logger, "LV"
-        )
-        if self.settings["RV-segmented"]:
-            dti["rv_sectors"] = get_heart_segments(
-                segmentation, phi_matrix_rv, mask_3c, rv_centres, slices, self.logger, "RV"
+        if self.settings["tissue_block"]:
+            dti["lv_sectors"] = get_tissue_block_segments(mask_3c, slices)
+        else:
+            dti["lv_sectors"] = get_heart_segments(
+                segmentation, phi_matrix, mask_3c, lv_centres, slices, self.logger, "LV"
             )
+            if self.settings["RV-segmented"]:
+                dti["rv_sectors"] = get_heart_segments(
+                    segmentation, phi_matrix_rv, mask_3c, rv_centres, slices, self.logger, "RV"
+                )
 
         # =========================================================
         # Get dti["ha"] and dti["e2a"] maps
@@ -85,15 +89,16 @@ class Metrics(ExtensionBase):
         # =========================================================
         # Combine metric maps for orientation measures
         # =========================================================
-        maps_lv = ["ha", "ta", "e2a"]
-        maps_rv = ["ha_rv", "ta_rv", "e2a_rv"]
-        for idx in range(len(maps_lv)):
-            for slice_ in slices:
-                dti[maps_lv[idx]][slice_][mask_3c[slice_] == 2] = dti[maps_rv[idx]][slice_][mask_3c[slice_] == 2]
-            del dti[maps_rv[idx]]
+        if self.settings["RV-segmented"]:
+            maps_lv = ["ha", "ta", "e2a"]
+            maps_rv = ["ha_rv", "ta_rv", "e2a_rv"]
+            for idx in range(len(maps_lv)):
+                for slice_ in slices:
+                    dti[maps_lv[idx]][slice_][mask_3c[slice_] == 2] = dti[maps_rv[idx]][slice_][mask_3c[slice_] == 2]
+                del dti[maps_rv[idx]]
 
-        self.context["dti"] = dti
-        self.context["info"] = info
+            self.context["dti"] = dti
+            self.context["info"] = info
 
 
 # class MetricsRV(ExtensionBase):

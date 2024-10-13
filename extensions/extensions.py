@@ -2220,6 +2220,16 @@ def get_heart_segments(
     return segments_mask
 
 
+def get_tissue_block_segments(mask_3c, slices):
+    mask_3c_array = convert_dict_of_arrays_to_array(mask_3c)
+    segments_mask = np.zeros(mask_3c_array.shape)
+    segments_mask[:] = np.nan
+    segments_mask[mask_3c_array == 1] = 1
+    segments_mask = convert_array_to_dict_of_arrays(segments_mask, slices)
+
+    return segments_mask
+
+
 def query_yes_no(question, default="no"):
     """Ask a yes/no question via input() and return their answer.
 
