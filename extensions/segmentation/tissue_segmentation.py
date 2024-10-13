@@ -142,6 +142,8 @@ class ExternalTissueBlockSegmentation(ExtensionBase):
         mask_3c_dict = convert_array_to_dict_of_arrays(mask_3c, self.context["slices"])
         self.context["mask_3c"] = mask_3c_dict
 
+        # TODO remove endo curves, I don't think I need them.
+
         points = [pd.read_csv(p) for p in session.glob("curves*.csv") if "schema" not in p.name]
 
         epi_points = list(filter(lambda p: "epi" in p["label"][0], points))
