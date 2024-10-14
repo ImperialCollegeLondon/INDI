@@ -461,6 +461,9 @@ def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
         elif val == "Philips Medical Systems" or val == "Philips":
             # manufacturer = "philips"
             logger.debug("Manufacturer: Philips")
+        elif val == "Bruker BioSpin GmbH & Co. KG":
+            # manufacturer = "bruker"
+            logger.debug("Manufacturer: Bruker")
         else:
             sys.exit("Manufacturer not supported.")
     else:

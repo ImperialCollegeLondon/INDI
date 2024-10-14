@@ -30,3 +30,4 @@ pyautogui
 brukerapi
 vtk
 pynrrd
+pystackreg

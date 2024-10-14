@@ -1,7 +1,9 @@
 import bisect
+import os
 import pathlib
 import subprocess
 
+import matplotlib.pyplot as plt
 import nrrd
 import numpy as np
 import pandas as pd
@@ -13,7 +15,7 @@ from extensions.extensions import convert_array_to_dict_of_arrays, convert_dict_
 from extensions.segmentation.heart_segmentation import get_preliminary_ha_md_maps
 
 
-def build_curves(points, mask):
+def build_curves(points):
     n_poly_points = 100
 
     curves = []
@@ -47,8 +49,6 @@ def build_curves(points, mask):
         x_fine, y_fine, z_fine = interpolate.splev(u_fine, tck)
         curves_fine_fine[:, 0, idx] = x_fine
         curves_fine_fine[:, 1, idx] = y_fine
-
-    # TODO debug plot with 3D mask and points
 
     return curves_fine_fine, zs
 
@@ -111,6 +111,7 @@ class ExternalTissueBlockSegmentation(ExtensionBase):
             output_path_code = "outputPath = '" + self.settings["session"] + "'"
             script = output_path_code + python_code
 
+            # volumes to export to slicer
             prelim_ha_array = convert_dict_of_arrays_to_array(prelim_ha)
             prelim_md_array = convert_dict_of_arrays_to_array(prelim_md)
             average_images = self.context["average_images"]
@@ -137,30 +138,72 @@ class ExternalTissueBlockSegmentation(ExtensionBase):
         mask_3c, _ = nrrd.read((session / "label.seg.nrrd").as_posix())
         # mask_3c, header = nrrd.read((session / "Segmentation.seg.nrrd").as_posix())
 
-        assert mask_3c.ndim == 3 or np.max(mask_3c) > 1, "Select only one segment"
+        # check we only have one segmented volume
+        assert mask_3c.ndim == 3 and np.max(mask_3c) == 1, "Save only one segmentation volume!"
 
         mask_3c_dict = convert_array_to_dict_of_arrays(mask_3c, self.context["slices"])
         self.context["mask_3c"] = mask_3c_dict
 
-        # TODO remove endo curves, I don't think I need them.
-
+        # Load the curves for the epicardium
         points = [pd.read_csv(p) for p in session.glob("curves*.csv") if "schema" not in p.name]
-
-        epi_points = list(filter(lambda p: "epi" in p["label"][0], points))
-        endo_points = list(filter(lambda p: "endo" in p["label"][0], points))
-
-        epi_curves, epi_zs = build_curves(epi_points, mask_3c)
-        endo_curves, endo_zs = build_curves(endo_points, mask_3c)
-
+        # epi_points = list(filter(lambda p: "epi" in p["label"][0], points))
+        # endo_points = list(filter(lambda p: "endo" in p["label"][0], points))
+        epi_curves, epi_zs = build_curves(points)
+        # endo_curves, endo_zs = build_curves(endo_points, mask_3c)
         z_desired = np.arange(len(self.context["slices"])) + 1
         epi = interpolate_curves(epi_zs, epi_curves, z_desired)
-        endo = interpolate_curves(endo_zs, endo_curves, z_desired)
+        # endo = interpolate_curves(endo_zs, endo_curves, z_desired)
+
+        if self.settings["debug"]:
+            fig = plt.figure(figsize=(10, 5))
+            ax = fig.add_subplot(221, projection="3d", azim=0)
+            # ax.voxels(np.transpose(mask_3c,(2, 1, 0)), edgecolor="g", alpha=0.1)
+            for idx, d in enumerate(epi):
+                ax.scatter(d[0], d[1], np.repeat(z_desired[idx], len(d[0])), c="b", s=1)
+            plt.xlabel("X")
+            plt.ylabel("Y")
+            ax.set_zlabel("Z")
+
+            ax = fig.add_subplot(222, projection="3d", azim=90)
+            # ax.voxels(np.transpose(mask_3c, (2, 1, 0)), edgecolor="g", alpha=0.3, shade=False)
+            for idx, d in enumerate(epi):
+                ax.scatter(d[0], d[1], np.repeat(z_desired[idx], len(d[0])), c="b", s=1)
+            plt.xlabel("X")
+            plt.ylabel("Y")
+            ax.set_zlabel("Z")
+
+            ax = fig.add_subplot(223, projection="3d", azim=180)
+            # ax.voxels(np.transpose(mask_3c, (2, 1, 0)), edgecolor="g", alpha=0.3)
+            for idx, d in enumerate(epi):
+                ax.scatter(d[0], d[1], np.repeat(z_desired[idx], len(d[0])), c="b", s=1)
+            plt.xlabel("X")
+            plt.ylabel("Y")
+            ax.set_zlabel("Z")
+
+            ax = fig.add_subplot(224, projection="3d", azim=270)
+            # ax.voxels(np.transpose(mask_3c, (2, 1, 0)), edgecolor="g", alpha=0.3)
+            for idx, d in enumerate(epi):
+                ax.scatter(d[0], d[1], np.repeat(z_desired[idx], len(d[0])), c="b", s=1)
+            plt.xlabel("X")
+            plt.ylabel("Y")
+            ax.set_zlabel("Z")
+            plt.tight_layout(pad=1.0)
+            plt.savefig(
+                os.path.join(
+                    self.settings["debug_folder"],
+                    "segmentation_3D.png",
+                ),
+                dpi=200,
+                pad_inches=0,
+                transparent=False,
+            )
+            plt.close()
 
         segmentation = {}
         for i, slice_idx in enumerate(self.context["slices"]):
             segmentation[slice_idx] = {
                 "epicardium": epi[i].T,
-                "endocardium": endo[i].T,
+                "endocardium": np.array([]),
                 "anterior_ip": np.array([]),
                 "inferior_ip": np.array([]),
             }
