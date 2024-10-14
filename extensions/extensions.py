@@ -1205,8 +1205,8 @@ def plot_results_maps(
         plt.imshow(
             dti["md"][slice_idx] * 1e3,
             alpha=alphas_whole_heart,
-            vmin=0,
-            vmax=2,
+            vmin=settings["md_scale"][0],
+            vmax=settings["md_scale"][1],
             cmap=colormaps["MD"],
         )
         plt.colorbar(fraction=0.046, pad=0.04)
@@ -1215,7 +1215,7 @@ def plot_results_maps(
 
         # MD histogram
         vals = 1e3 * dti["md"][slice_idx][alphas_myocardium > 0]
-        bins = np.linspace(0, 2, 40)
+        bins = np.linspace(settings["md_scale"][0], settings["md_scale"][1], 40)
         weights = np.ones_like(vals) / len(vals)
         plt.subplot(2, 4, 6)
         plt.hist(vals, bins=bins, weights=weights, rwidth=0.95, color=colors[1])
@@ -1294,7 +1294,7 @@ def plot_results_maps(
 
     params["MD"] = {}
     params["MD"]["var_name"] = "md"
-    params["MD"]["vmin_max"] = [0, 2]
+    params["MD"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
     params["MD"]["cmap"] = colormaps["MD"]
     params["MD"]["hist_color"] = colors[1]
     params["MD"]["title"] = "Mean diffusivity"
