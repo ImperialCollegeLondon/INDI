@@ -1035,12 +1035,13 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     data = adjust_b_val_and_dir(data, settings, info, logger, data_type)
 
     # =========================================================
-    # set b0 images to be removed if option is true
+    # set b-values to be removed if list not empty in settings
     # =========================================================
     if "to_be_removed" not in data:
         data["to_be_removed"] = False
-    if settings["remove_b0"]:
-        data.loc[data.b_value_original == 0, "to_be_removed"] = True
+    if settings["remove_b_values"]:
+        for bval in settings["remove_b_values"]:
+            data.loc[data.b_value_original == bval, "to_be_removed"] = True
 
     # =========================================================
     # re-order data again, this time by slice first, then by date-time
