@@ -6,6 +6,35 @@ from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
 
 
 class Metrics(ExtensionBase):
+    """Metric calculation extension
+
+    Calculates diffusion maps from the fitted tensor. The extension calculates the following maps:
+        - FA: Fractional Anisotropy
+        - MD: Mean Diffusivity
+        - HA: Helix Angle
+        - TA: Transverse Angle
+        - E2A: Sheetlet Angle
+        - HA line profiles: Line profiles of the HA map
+
+    Requires the following context keys:
+        - dti: Dictionary with the fitted difusion tensor
+        - slices: List of slice indices
+        - info: Dictionary with information about the data
+        - average_images: Mean image
+        - mask_3c: Mask of the heart
+        - segmentation: Dictionary with segmentation info of the heart
+
+    It update the context with the following keys:
+        - dti: Updated dictionary with the calculated maps
+            - fa: Fractional Anisotropy
+            - md: Mean Diffusivity
+            - ha: Helix Angle
+            - ta: Transverse Angle
+            - e2a: Sheetlet Angle
+            - ha_line_profiles: Line profiles of the HA map
+        - info: Updated dictionary with information about the data
+    """
+
     def run(self):
         dti = self.context["dti"]
         slices = self.context["slices"]

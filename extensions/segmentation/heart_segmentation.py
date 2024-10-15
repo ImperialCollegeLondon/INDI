@@ -273,7 +273,7 @@ shortcut.connect( "activated()", exportLabelmap)
 class ExternalSegmentation(ExtensionBase):
     """External Segmentation Extension
 
-    This exttension uses 3D slicer to segment the heart. The user is prompted to segment the left and right ventricles
+    This extension uses 3D slicer to segment the heart. The user is prompted to segment the left and right ventricles
     and mark the intersection points.
     Refer to docs/Segmentation_Slicer.md for more information (TODO update this tutorial)
 

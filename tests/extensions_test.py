@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ from extensions.extensions import (
     get_snr_maps,
 )
 from extensions.get_fa_md import get_fa_md
+from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
 from extensions.segmentation.manual_segmentation import get_sa_contours
 from extensions.segmentation.polygon_selector import spline_interpolate_contour
 
@@ -25,7 +27,33 @@ def cardiac_coordinates():
 @pytest.fixture
 def mask():
     mask_3c = np.load(os.path.join("tests", "data", "mask_3c.npz"))
-    return mask_3c["mask_3c"]
+    return convert_array_to_dict_of_arrays(mask_3c["mask_3c"], np.arange(len(mask_3c["mask_3c"])))
+
+
+@pytest.fixture
+def dummy_settings():
+    tmp = tempfile.mkdtemp()
+    os.makedirs(os.path.join(tmp, "results_b"), exist_ok=True)
+    os.makedirs(os.path.join(tmp, "results_a"), exist_ok=True)
+    settings = {
+        "code_path": os.path.abspath("./"),
+        "session": tmp,
+        "results": tmp,
+        "debug_folder": tmp,
+        "debug": True,
+        "ex_vivo": True,
+        "registration_mask_scale": 1.0,
+    }
+    return settings
+
+
+@pytest.fixture
+def vectors_and_maps():
+    data = np.load(os.path.join("tests", "data", "DT.npz"))
+    DT = data["DT"]
+    DT = np.nan_to_num(DT)
+    _, vectors = np.linalg.eigh(DT)
+    return vectors, data["HA"], data["E2A"]
 
 
 def test_convert_array_to_dict_of_arrays():
@@ -161,6 +189,7 @@ def test_get_snr_maps():
 def test_get_cylindrical_coordinates_short_axis(cardiac_coordinates, mask, ventricle):
     # Fails on the RV
 
+    mask = convert_dict_of_arrays_to_array(mask)
     # repeat mask 3 times for XYZ vector components
     mask_lv = mask == 1
     mask_rv = mask == 2
@@ -235,3 +264,38 @@ def test_get_cylindrical_coordinates_short_axis(cardiac_coordinates, mask, ventr
         circ_true, circ_calculated, atol=0.5
     ), f"Circumferential component is not correct for {ventricle}"
     assert np.allclose(radial_true, radial_calculated, atol=0.5), f"Radial component is not correct for {ventricle}"
+
+
+@pytest.mark.parametrize("ventricle", ["LV", "RV"])
+def test_get_tensor_orientation_maps(cardiac_coordinates, vectors_and_maps, dummy_settings, mask, ventricle):
+    slices = np.arange(len(mask))
+    local_cardiac_coordinates = {}
+    local_cardiac_coordinates["long"] = convert_array_to_dict_of_arrays(
+        cardiac_coordinates["longitudinal_component"], slices
+    )
+    local_cardiac_coordinates["circ"] = convert_array_to_dict_of_arrays(
+        cardiac_coordinates["circumferential_component"], slices
+    )
+    local_cardiac_coordinates["radi"] = convert_array_to_dict_of_arrays(
+        cardiac_coordinates["radial_component"], slices
+    )
+
+    dti = {}
+    dti["eigenvectors"] = convert_array_to_dict_of_arrays(vectors_and_maps[0], slices)
+
+    ha_calc, _, e2a_calc = get_tensor_orientation_maps(
+        slices, mask, local_cardiac_coordinates, dti, dummy_settings, logging.getLogger(__name__), ventricle
+    )
+    ha_calc = convert_dict_of_arrays_to_array(ha_calc)
+    e2a_calc = convert_dict_of_arrays_to_array(e2a_calc)
+
+    mask = convert_dict_of_arrays_to_array(
+        mask,
+    )
+    if ventricle == "LV":
+        mask = mask == 1
+    else:
+        mask = mask == 2
+
+    assert np.allclose(ha_calc[mask], vectors_and_maps[1][mask]), "HA map is not correct"
+    assert np.allclose(e2a_calc[mask], vectors_and_maps[2][mask]), "E2A map is not correct"
