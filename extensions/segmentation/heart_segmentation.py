@@ -342,7 +342,7 @@ class ExternalSegmentation(ExtensionBase):
                         label_value_key = key.replace("Name", "LabelValue")
                         layer_value_key = key.replace("Name", "Layer")
                         return (int(input_dict[label_value_key]), int(input_dict[layer_value_key]))
-            return "None"
+            return None
 
         lv_label_layer = find_label_value_and_layer(segmentation_info, ["lv", "left ventricle"])
         whole_heart_layer = find_label_value_and_layer(segmentation_info, ["whole_heart", "whole heart"])
