@@ -358,8 +358,7 @@ def get_cardiac_coordinates_short_axis(
         coords = np.where(ventricle_mask == 1)
         n_points = len(coords[0])
         # find the LV centre
-        count = (ventricle_mask == 1).sum()
-        x_center, y_center = np.round(np.argwhere(ventricle_mask == 1).sum(0) / count)
+        x_center, y_center = np.mean(coords[0]), np.mean(coords[1])
         ventricle_centres[i, :] = [x_center, y_center]
 
         # we have calculated the centre of the RV using the whole heart mask
@@ -392,9 +391,6 @@ def get_cardiac_coordinates_short_axis(
 
         for idx in range(n_points):
             c_point = [coords[0][idx], coords[1][idx]]
-
-            if c_point == [52, 66]:
-                pass
 
             # distance of array to this point
             dist = np.sqrt((epi_points[:, 0] - c_point[0]) ** 2 + (epi_points[:, 1] - c_point[1]) ** 2)

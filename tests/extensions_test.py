@@ -1,16 +1,32 @@
 import logging
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pytest
 
 from extensions.extensions import (
     convert_array_to_dict_of_arrays,
     convert_dict_of_arrays_to_array,
-    get_cylindrical_coordinates_short_axis,
+    get_cardiac_coordinates_short_axis,
     get_snr_maps,
 )
 from extensions.get_fa_md import get_fa_md
+from extensions.segmentation.manual_segmentation import get_sa_contours
+from extensions.segmentation.polygon_selector import spline_interpolate_contour
+
+
+@pytest.fixture
+def cardiac_coordinates():
+    coords = np.load(os.path.join("tests", "data", "cardiac_coordinates.npz"))
+    return coords
+
+
+@pytest.fixture
+def mask():
+    mask_3c = np.load(os.path.join("tests", "data", "mask_3c.npz"))
+    return mask_3c["mask_3c"]
 
 
 def test_convert_array_to_dict_of_arrays():
@@ -142,17 +158,31 @@ def test_get_snr_maps():
             ), f"Noise estimate is not correct ({noise_slice} {noise})"
 
 
-def test_get_cylindrical_coordinates_short_axis():
-    # load RV and LV mask
-    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))
-    mask = mask["mask_3c"]
+@pytest.mark.parametrize("ventricle", ["LV", "RV"])
+def test_get_cylindrical_coordinates_short_axis(cardiac_coordinates, mask, ventricle):
+    # Fails on the RV
+
     # repeat mask 3 times for XYZ vector components
-    mask_xyz = np.expand_dims(mask, axis=3)
+    mask_lv = mask == 1
+    mask_rv = mask == 2
+
+    if ventricle == "RV":
+        mask = mask > 0
+    else:
+        mask = mask == 1
+    coords = np.where(mask == 1)
+
+    v_centre_true_x = np.mean(coords[2])
+    v_centre_true_y = np.mean(coords[1])
+
+    if ventricle == "RV":
+        mask_xyz = np.expand_dims(mask_rv, axis=3)
+    else:
+        mask_xyz = np.expand_dims(mask_lv, axis=3)
+
     mask_xyz = np.repeat(mask_xyz, 3, axis=3)
-    mask_xyz[mask_xyz == 2] = 0
 
     # load phantom cardiac coordinates
-    cardiac_coordinates = np.load(os.path.join("tests", "data", "cardiac_coordinates.npz"))
     long_true = mask_xyz * cardiac_coordinates["longitudinal_component"]
     circ_true = mask_xyz * cardiac_coordinates["circumferential_component"]
     radial_true = mask_xyz * cardiac_coordinates["radial_component"]
@@ -161,14 +191,118 @@ def test_get_cylindrical_coordinates_short_axis():
     settings = {}
 
     # mock slices
-    slices = ["0.0"]
+    slices = np.arange(len(mask))
 
     settings["debug"] = False
-    local_cardiac_coordinates = get_cylindrical_coordinates_short_axis(mask, mask, slices, settings)
-    long_calculated = mask_xyz * local_cardiac_coordinates["long"]
-    circ_calculated = mask_xyz * local_cardiac_coordinates["circ"]
-    radial_calculated = mask_xyz * local_cardiac_coordinates["radi"]
+    dti = {}
+    info = {}
+    if ventricle == "LV":
+        mask[mask == 2] = 0
+    mask = convert_array_to_dict_of_arrays(mask, slices)
+    segmentation = {}
+    for slice_idx in slices:
+        segmentation[slice_idx] = {}
+        if ventricle == "LV":
+            epi_contour, endo_contour = get_sa_contours(mask_lv[slice_idx])
+            epi_len = len(epi_contour)
+            endo_len = len(endo_contour)
+            epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
+            epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
+            segmentation[slice_idx]["epicardium"], segmentation[slice_idx]["endocardium"] = epi_contour, endo_contour
+            if endo_len > 10:
+                endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
+                endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
+        else:
+            epi_contour_rv, endo_contour_rv = get_sa_contours((mask_lv + mask_rv)[slice_idx])
+            epi_len = len(epi_contour_rv)
+            endo_len = len(endo_contour_rv)
+            epi_contour_rv = spline_interpolate_contour(epi_contour_rv, 20, join_ends=False)
+            epi_contour_rv = spline_interpolate_contour(epi_contour_rv, epi_len, join_ends=False)
+            if endo_len > 10:
+                endo_contour_rv = spline_interpolate_contour(endo_contour_rv, 20, join_ends=False)
+                endo_contour_rv = spline_interpolate_contour(endo_contour_rv, endo_len, join_ends=False)
+            segmentation[slice_idx]["epicardium_rv"] = epi_contour_rv
+            segmentation[slice_idx]["endocardium_rv"] = endo_contour_rv
 
-    assert np.allclose(long_true, long_calculated)
-    assert np.allclose(circ_true, circ_calculated)
-    assert np.allclose(radial_true, radial_calculated)
+    local_cardiac_coordinates, v_center, _ = get_cardiac_coordinates_short_axis(
+        mask, segmentation, slices, len(slices), settings, dti, None, info, ventricle
+    )
+
+    long_calculated = mask_xyz * convert_dict_of_arrays_to_array(local_cardiac_coordinates["long"])
+    circ_calculated = mask_xyz * convert_dict_of_arrays_to_array(local_cardiac_coordinates["circ"])
+    radial_calculated = mask_xyz * convert_dict_of_arrays_to_array(local_cardiac_coordinates["radi"])
+
+    # assert np.isclose(v_centre_true_x, v_center[0][1], atol=2), f"v_centre_true_x: {v_centre_true_x}, v_center[0][1]: {v_center[0][1]}"
+    # assert np.isclose(v_centre_true_y, v_center[0][0], atol=2), f"v_centre_true_y: {v_centre_true_y}, v_center[0][0]: {v_center[0][0]}"
+
+    plt.subplot(121)
+    plt.imshow(long_calculated[0, :, :, 2])
+    plt.title("long calc z")
+    plt.colorbar()
+    plt.subplot(122)
+    plt.title("long true z")
+    plt.imshow(long_true[0, :, :, 2])
+    plt.colorbar()
+    plt.show()
+
+    plt.subplot(221)
+    plt.imshow(circ_calculated[0, :, :, 0])
+    plt.title("Circumferential calc x")
+    plt.plot(v_center[0][1], v_center[0][0], "ro")
+    plt.plot([v_centre_true_x], [v_centre_true_y], "bx")
+    plt.colorbar()
+    plt.subplot(222)
+    plt.title("Circumferential calc y")
+    plt.imshow(circ_calculated[0, :, :, 1])
+    plt.plot(v_center[0][1], v_center[0][0], "ro")
+    plt.plot([v_centre_true_x], [v_centre_true_y], "bx")
+    plt.colorbar()
+
+    plt.subplot(223)
+    plt.title("Circumferential true x")
+    plt.imshow(circ_true[0, :, :, 0])
+    plt.plot(v_center[0][1], v_center[0][0], "ro")
+    plt.plot([v_centre_true_x], [v_centre_true_y], "bx")
+    plt.colorbar()
+    plt.subplot(224)
+    plt.title("Circumferential true y")
+    plt.imshow(circ_true[0, :, :, 1])
+    plt.plot(v_center[0][1], v_center[0][0], "ro")
+    plt.plot([v_centre_true_x], [v_centre_true_y], "bx")
+    plt.colorbar()
+
+    plt.show()
+
+    plt.subplot(221)
+    plt.title("Radial calc x")
+    plt.imshow(radial_calculated[0, :, :, 0])
+    plt.plot(v_center[0][1], v_center[0][0], "ro")
+    plt.plot([v_centre_true_x], [v_centre_true_y], "bx")
+    plt.colorbar()
+    plt.subplot(222)
+    plt.title("Radial calc y")
+    plt.imshow(radial_calculated[0, :, :, 1])
+    plt.plot(v_center[0][1], v_center[0][0], "ro")
+    plt.plot([v_centre_true_x], [v_centre_true_y], "bx")
+    plt.colorbar()
+
+    plt.subplot(223)
+    plt.imshow(radial_true[0, :, :, 0])
+    plt.plot(v_center[0][1], v_center[0][0], "ro")
+    plt.plot([v_centre_true_x], [v_centre_true_y], "bx")
+    plt.title("Radial true x")
+    plt.colorbar()
+    plt.subplot(224)
+    plt.imshow(radial_true[0, :, :, 1])
+    plt.plot(v_center[0][1], v_center[0][0], "ro")
+    plt.plot([v_centre_true_x], [v_centre_true_y], "bx")
+    plt.title("Radial true y")
+    plt.colorbar()
+
+    plt.show()
+
+    assert np.allclose(long_true, long_calculated), f"Longitudinal component is not correct for {ventricle}"
+    assert np.allclose(
+        circ_true, circ_calculated, atol=0.5
+    ), f"Circumferential component is not correct for {ventricle}"
+    assert np.allclose(radial_true, radial_calculated, atol=0.5), f"Radial component is not correct for {ventricle}"

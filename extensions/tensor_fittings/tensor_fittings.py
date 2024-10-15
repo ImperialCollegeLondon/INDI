@@ -390,8 +390,6 @@ def quick_tensor_fit(
     import dipy.reconst.dti as dti
     from dipy.core.gradients import gradient_table
 
-    tensor = np.zeros([info["img_size"][0], info["img_size"][1], 3, 3])
-
     current_entries = data.loc[data["slice_integer"] == slice_idx]
 
     # remove any images that have been marked to be removed
