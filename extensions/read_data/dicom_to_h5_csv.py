@@ -597,57 +597,42 @@ def read_all_dicom_files(
         with open(file_name, "rb") as f:
             c_dicom_header = pydicom.dcmread(f)
 
-        for frame_idx in tqdm(range(n_images_per_file), desc="Reading frames"):
-            # collect pixel values
-            c_pixel_array = c_dicom_header.pixel_array
-            if c_pixel_array.ndim == 3:
-                c_pixel_array = c_pixel_array[frame_idx]
+        pixel_array = c_dicom_header.pixel_array
+        c_dicom_header_dict = dictify(c_dicom_header)
+        c_dicom_header_dict.pop("PixelData")
 
-            # convert header to dictionary
-            c_dicom_header_dict = dictify(c_dicom_header)
-            # remove pixel data
-            c_dicom_header_dict.pop("PixelData")
-            # flatten dictionary
-            c_dicom_header_dict = flatten_dict(c_dicom_header_dict)
+        # flatten dictionary
+        c_dicom_header_dict = flatten_dict(c_dicom_header_dict)
 
-            # fields to keep are defined in the yaml file
-            c_dict_general = {key: c_dicom_header_dict[key] for key in header_field_list if key in c_dicom_header_dict}
+        # fields to keep are defined in the yaml file
+        c_dict_general = {key: c_dicom_header_dict[key] for key in header_field_list if key in c_dicom_header_dict}
 
-            # simplify some keys that are very long
-            c_dict_general = simplify_global_dict(c_dict_general, dicom_type)
+        # simplify some keys that are very long
+        c_dict_general = simplify_global_dict(c_dict_general, dicom_type)
 
-            # ====================================
-            # legacy dicom format
-            # ====================================
-            if dicom_type == "legacy":
-                # add filename to the current dictionary
-                c_dict_general["FileName"] = os.path.basename(file_name)
+        if dicom_type == "legacy":
+            # add filename to the current dictionary
+            c_dict_general["FileName"] = os.path.basename(file_name)
 
-                # add pixel array to the current dictionary
-                c_dict_general["image"] = c_pixel_array
+            # if dictionary does not have AcquisitionDateTime key, add it manually
+            if "AcquisitionDateTime" not in c_dict_general:
+                c_dict_general["AcquisitionDateTime"] = (
+                    c_dict_general["AcquisitionDate"] + c_dicom_header_dict["AcquisitionTime"]
+                )
 
-                # if dictionary does not have AcquisitionDateTime key, add it manually
-                if "AcquisitionDateTime" not in c_dict_general:
-                    c_dict_general["AcquisitionDateTime"] = (
-                        c_dict_general["AcquisitionDate"] + c_dicom_header_dict["AcquisitionTime"]
-                    )
+            list_of_dictionaries = [copy.deepcopy(c_dict_general) for _ in range(n_images_per_file)]
 
-                c_dict = copy.deepcopy(c_dict_general)
-
-                # list_of_dictionaries[idx][frame_idx] = c_dict
-                list_of_dictionaries[frame_idx] = c_dict
-
-            # ====================================
-            # enhanced dicom format
-            # ====================================
-            if dicom_type == "enhanced":
+        else:
+            for frame_idx in tqdm(range(n_images_per_file), desc="Reading frames"):
                 # keep only info from the PerFrameFunctionalGroupsSequence
                 for k in list(c_dicom_header_dict.keys()):
                     if not k.startswith("PerFrameFunctionalGroupsSequence"):
                         del c_dicom_header_dict[k]
 
                 # copy the header above with PerFrameFunctionalGroupsSequence
-                c_dict = copy.deepcopy(c_dicom_header_dict)
+                c_dict = c_dicom_header_dict
+
+                # c_dict = copy.deepcopy(c_dicom_header_dict)
 
                 # keep only the part corresponding to the current image
                 for k in list(c_dict.keys()):
@@ -660,28 +645,31 @@ def read_all_dicom_files(
                 # add filename to the current dictionary
                 c_dict["FileName"] = os.path.basename(file_name)
 
-                # add pixel array to the current dictionary
-                c_dict["image"] = c_pixel_array
-
                 # combine the two dictionaries
                 # (PerFrameFunctionalGroupsSequence and some
                 # fields from the general one)
                 c_dict = {**c_dict_general, **c_dict}
 
                 # list_of_dictionaries[idx][frame_idx] = c_dict
-                list_of_dictionaries[frame_idx] = c_dict
+                list_of_dictionaries[frame_idx] = copy.deepcopy(c_dict)
+
+        for frame_idx in range(n_images_per_file):
+            if pixel_array.ndim == 3:
+                list_of_dictionaries[frame_idx]["image"] = pixel_array[frame_idx]
+            else:
+                list_of_dictionaries[frame_idx]["image"] = pixel_array
 
         return list_of_dictionaries
 
     # loop through all DICOM files
     # if more than 1000 images, then parallelise the reading
+    # if len(dicom_files) > 1000:
     if len(dicom_files * n_images_per_file) > 1000:
-        n_jobs = -1
+        list_of_dictionaries = Parallel(n_jobs=-1)(
+            delayed(read_file)(file_name) for file_name in tqdm(dicom_files, desc="Reading DICOMs in parallel")
+        )
     else:
-        n_jobs = 1
-    list_of_dictionaries = Parallel(n_jobs=n_jobs)(
-        delayed(read_file)(file_name) for file_name in tqdm(dicom_files, desc="Reading DICOMs")
-    )
+        list_of_dictionaries = [read_file(file_name) for file_name in tqdm(dicom_files, desc="Reading DICOMs")]
 
     # create dataframe from list_of_dictionaries
     header_table = pd.DataFrame([x for xs in list_of_dictionaries for x in xs])
