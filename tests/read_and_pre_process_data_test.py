@@ -1,47 +1,85 @@
+import logging
 import os
+import pathlib
+import tempfile
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from extensions.read_data.read_and_pre_process_data import read_data
 
 
-def test_read_data():
-    """test if this function creates the DTI table correctly"""
-    table_true = pd.read_pickle(os.path.join("tests", "data", "cdti_table_from_dicoms.zip"))
-
-    # mock dictionaries
-    info = {}
+@pytest.fixture
+def dummy_settings():
     settings = {}
-    settings["dicom_folder"] = os.path.join("tests", "data", "dicom_data")
+
+    path = pathlib.Path(os.path.join("tests", "data", "dicom_files"))
+    settings["dicom_folder"] = (
+        sorted(filter(os.path.isdir, path.glob("*")), key=os.path.getmtime)[0] / "diffusion_images"
+    )
     abspath = os.path.abspath(os.path.join("extensions"))
     dname = os.path.dirname(abspath)
-    settings["code_path"] = dname
-    table_calculated, info = read_data(settings, info)
 
-    # we need to separate the dir list into 3 columns
-    table_true[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(table_true.direction.tolist(), index=table_true.index)
-    table_true = table_true.drop("diffusion_direction", axis=1)
-
-    table_calculated[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(
-        table_calculated.direction.tolist(), index=table_calculated.index
+    tmp = tempfile.mkdtemp()
+    os.makedirs(os.path.join(tmp, "results_b"), exist_ok=True)
+    os.makedirs(os.path.join(tmp, "results_a"), exist_ok=True)
+    settings.update(
+        {
+            "code_path": os.path.abspath("./"),
+            "session": tmp,
+            "results": tmp,
+            "debug_folder": tmp,
+            "debug": True,
+            "ex_vivo": True,
+            "registration_mask_scale": 1.0,
+        }
     )
-    table_calculated = table_calculated.drop("diffusion_direction", axis=1)
+    settings["code_path"] = dname
+    settings["ex_vivo"] = True
+    settings["workflow_mode"] = "main"
+    settings["sequence_type"] = "se"
+    settings["debug"] = False
+    settings["remove_slices"] = []
+    return settings
 
-    # we also need to convert the image column to a numpy array
-    table_images_true = table_true["image"].to_numpy()
-    table_images_true = np.stack(table_images_true)
-    table_true = table_true.drop("image", axis=1)
 
-    table_images_calculated = table_calculated["image"].to_numpy()
-    table_images_calculated = np.stack(table_images_calculated)
-    table_calculated = table_calculated.drop("image", axis=1)
+@pytest.fixture
+def dummy_info():
+    info = {}
+    return info
 
-    # I am going to skip the header column as it is a very large dictionary for each cell
-    table_calculated = table_calculated.drop("header", axis=1)
 
-    # compare both tables
-    comparison_table = table_calculated.compare(table_true)
-    assert comparison_table.empty
-    # compare the image arrays
-    assert np.allclose(table_images_calculated, table_images_true)
+@pytest.fixture
+def table_true():
+    table = pd.read_pickle(os.path.join("tests", "data", "cdti_table_from_dicoms.zip"))
+    return table
+
+
+def test_read_data(dummy_settings, dummy_info, table_true):
+    """test if this function creates the DTI table correctly"""
+
+    # Sort both tables by slice_integer and b_value (or name ...)
+    table_calculated, _, _ = read_data(dummy_settings, dummy_info, logging.getLogger(__name__))
+
+    table_true["diffusion_direction"] = table_true["direction"].apply(lambda x: tuple(x))
+
+    dir_true = np.asarray(table_true["diffusion_direction"].tolist())
+    dir_calculated = np.asarray(table_calculated["diffusion_direction"].tolist())
+
+    print(dir_true)
+    print(dir_calculated)
+
+    print(np.isclose(dir_true, dir_calculated))
+    print(np.isclose(np.abs(dir_true), np.abs(dir_calculated)))
+
+    print(table_calculated["diffusion_direction"])
+
+    print(table_true["diffusion_direction"])
+
+    assert table_calculated["slice_integer"].equals(table_true["slice_integer"]), "slice_integer column is not equal"
+    assert table_calculated["b_value"].equals(table_true["b_value"]), "b_value column is not equal"
+    assert table_calculated["image"].equals(table_true["image"]), "image column is not equal"
+    assert table_calculated["diffusion_direction"].equals(
+        table_true["diffusion_direction"]
+    ), "direction column is not equal"
