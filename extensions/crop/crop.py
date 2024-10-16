@@ -316,8 +316,6 @@ class Crop(ExtensionBase):
             self.row = [int(np.floor(row[0])), int(np.ceil(row[1]))]
             self.col = [int(np.floor(col[0])), int(np.ceil(col[1]))]
 
-        # self.logger.info(f"ROI: {self.slice}, {self.row}, {self.col}")
-
         # crop the data
         data["image"] = data["image"].apply(lambda x: x[self.row[0] : self.row[1], self.col[0] : self.col[1]])
         if self.settings["complex_data"]:
@@ -335,6 +333,7 @@ class Crop(ExtensionBase):
         self.logger.info(f"Slices after cropping: n = {len(slices)}: [{min(slices)} - {max(slices)}]")
 
         self.context["data"], self.context["slices"], self.context["info"] = data, slices, info
+        self.context["slices"] = slices
 
     def _save_crop(self):
         """Saves the crop values"""

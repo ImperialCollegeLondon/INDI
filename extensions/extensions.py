@@ -51,24 +51,10 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, slices, info: dic
     pixel_positions["rows"] = np.linspace(0, info["pixel_spacing"][0] * info["img_size"][0] - 1, info["img_size"][0])
     pixel_positions["cols"] = np.linspace(0, info["pixel_spacing"][1] * info["img_size"][1] - 1, info["img_size"][1])
     # then in z
-    # collect image positions
-    image_positions = []
-    for slice in slices:
-        image_positions.append(info["integer_to_image_positions"][slice])
-
     # calculate distances between slices
-    spacing_z = [
-        np.sqrt(
-            (image_positions[i][0] - image_positions[i + 1][0]) ** 2
-            + (image_positions[i][1] - image_positions[i + 1][1]) ** 2
-            + (image_positions[i][2] - image_positions[i + 1][2]) ** 2
-        )
-        for i in range(len(image_positions) - 1)
-    ]
-    spacing_z.insert(0, 0)
-    spacing_z = np.cumsum(np.array(spacing_z))
-
-    pixel_positions["slices"] = np.array(spacing_z)
+    spacing_z = info["slice_spacing"]
+    spacing_z = [spacing_z] * info["n_slices"]
+    pixel_positions["slices"] = np.array(np.cumsum(spacing_z))
 
     # Generate points in a meshgrid
     x, y, z = np.meshgrid(pixel_positions["cols"], pixel_positions["rows"], pixel_positions["slices"])
@@ -514,24 +500,34 @@ def get_coordinates_tissue_block(
 
         # find the LV centre
         # this is going to be approximate, because it is very hard to pin-point
-        # the centre of the LV in a tissue block. We are going to define it as the point
-        # in the FOV further away from the epicardial wall. Then add 50%!
+        # the centre of the LV in a tissue block. We are going to define it as the mid point
+        # in the FOV edges across from the closest mid-point. Then add 50%!
         # feel free to suggest a better approach :D
         epi_points = np.flip(segmentation[slice_idx]["epicardium"])
         mid_epi_point = epi_points[int(epi_points.shape[0] / 2), :]
         # furthest point in the fov
-        fov_points = np.array(
+        closest_fov_points = np.array(
             [
                 [0, int(mask.shape[2] / 2)],
+                [int(mask.shape[1] / 2), int(mask.shape[2])],
                 [int(mask.shape[1]), int(mask.shape[2] / 2)],
                 [int(mask.shape[1] / 2), 0],
+            ]
+        )
+        furthest_fov_points = np.array(
+            [
+                [int(mask.shape[1]), int(mask.shape[2] / 2)],
+                [int(mask.shape[1] / 2), 0],
+                [0, int(mask.shape[2] / 2)],
                 [int(mask.shape[1] / 2), int(mask.shape[2])],
             ]
         )
-        furthest_point = fov_points[np.argmax(np.linalg.norm(fov_points - mid_epi_point, axis=1))]
+        furthest_point = furthest_fov_points[np.argmin(np.linalg.norm(closest_fov_points - mid_epi_point, axis=1))]
+        closest_point = closest_fov_points[np.argmin(np.linalg.norm(closest_fov_points - mid_epi_point, axis=1))]
+
         # add 50% to the distance
-        x_center = mid_epi_point[0] + 1.5 * (furthest_point[0] - mid_epi_point[0])
-        y_center = mid_epi_point[1] + 1.5 * (furthest_point[1] - mid_epi_point[1])
+        x_center = mid_epi_point[0] + 1.5 * (furthest_point[0] - closest_point[0])
+        y_center = mid_epi_point[1] + 1.5 * (furthest_point[1] - closest_point[1])
 
         ventricle_centres[i, :] = [int(x_center), int(y_center)]
 
