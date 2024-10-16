@@ -111,35 +111,30 @@ class Rotation(ExtensionBase):
                 if axis == "z":
                     image_rotated = np.rot90(image, k=rot_k, axes=(0, 1))
                     ref_images_array = np.rot90(ref_images_array, k=rot_k, axes=(0, 1))
-
-                    # get slice spacing
-                    image_positions = []
-                    for key_, name_ in self.context["info"]["integer_to_image_positions"].items():
-                        image_positions.append(name_)
-                    # calculate distances between slices
-                    spacing_z = [
-                        np.sqrt(
-                            (image_positions[i][0] - image_positions[i + 1][0]) ** 2
-                            + (image_positions[i][1] - image_positions[i + 1][1]) ** 2
-                            + (image_positions[i][2] - image_positions[i + 1][2]) ** 2
-                        )
-                        for i in range(len(image_positions) - 1)
+                    new_slice_spacing = self.context["info"]["slice_spacing"]
+                    pixel_spacing = [
+                        self.context["info"]["pixel_spacing"][1],
+                        self.context["info"]["pixel_spacing"][0],
                     ]
-                    new_slice_spacing = int(np.mean(spacing_z))
 
                 elif axis == "y":
                     image_rotated = np.rot90(image, k=rot_k, axes=(0, 2))
                     ref_images_array = np.rot90(ref_images_array, k=rot_k, axes=(0, 2))
+                    pixel_spacing = [self.context["info"]["slice_spacing"], self.context["info"]["pixel_spacing"][1]]
                     new_slice_spacing = self.context["info"]["pixel_spacing"][0]
 
                 elif axis == "x":
                     image_rotated = np.rot90(image, k=rot_k, axes=(1, 2))
                     ref_images_array = np.rot90(ref_images_array, k=rot_k, axes=(1, 2))
+                    pixel_spacing = [self.context["info"]["pixel_spacing"][0], self.context["info"]["slice_spacing"]]
                     new_slice_spacing = self.context["info"]["pixel_spacing"][1]
 
                 diffusion_direction = rotate_vector(
                     data[data["diff_config"] == index]["diffusion_direction"].values[0], angle, axis
                 )
+
+                self.context["info"]["pixel_spacing"] = pixel_spacing
+                self.context["info"]["slice_spacing"] = new_slice_spacing
 
                 image_position = [(0.0, 0.0, i * new_slice_spacing) for i in range(image_rotated.shape[0])]
                 b_value = data[data["diff_config"] == index]["b_value"].values[0]

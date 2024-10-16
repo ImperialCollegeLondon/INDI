@@ -34,6 +34,7 @@ from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.registration_ex_vivo.registration import RegistrationExVivo
 from extensions.rotation.rotation import Rotation
 from extensions.segmentation.heart_segmentation import ExternalSegmentation, HeartSegmentation
+from extensions.segmentation.tissue_segmentation import ExternalTissueBlockSegmentation
 from extensions.select_outliers.select_outliers import SelectOutliers  # , manual_image_removal
 from extensions.tensor_fittings.tensor_fittings import TensorFit
 from extensions.u_net_segmentation import get_average_images
@@ -213,7 +214,10 @@ for current_folder in all_to_be_analysed_folders:
             "slices": slices,
             "colormaps": colormaps,
         }
-        ExternalSegmentation(context, settings, logger).run()
+        if settings["tissue_block"]:
+            ExternalTissueBlockSegmentation(context, settings, logger).run()
+        else:
+            ExternalSegmentation(context, settings, logger).run()
         data = context["data"]
         info = context["info"]
         slices = context["slices"]
@@ -232,20 +236,23 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # crop the images to the region around the segmented area only
     # use the same crop for all slices and then pad with 3 pixels on all sides
-    dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
-        dti,
-        data,
-        mask_3c,
-        reg_mask,
-        segmentation,
-        slices,
-        average_images,
-        registration_image_data,
-        ref_images,
-        info,
-        logger,
-        settings,
-    )
+    crop_mask = None
+    if not settings["tissue_block"]:
+        # no need to crop for tissue block
+        dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
+            dti,
+            data,
+            mask_3c,
+            reg_mask,
+            segmentation,
+            slices,
+            average_images,
+            registration_image_data,
+            ref_images,
+            info,
+            logger,
+            settings,
+        )
 
     # =========================================================
     # Remove outliers (post-segmentation)

@@ -461,6 +461,9 @@ def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
         elif val == "Philips Medical Systems" or val == "Philips":
             # manufacturer = "philips"
             logger.debug("Manufacturer: Philips")
+        elif val == "Bruker BioSpin GmbH & Co. KG":
+            # manufacturer = "bruker"
+            logger.debug("Manufacturer: Bruker")
         else:
             sys.exit("Manufacturer not supported.")
     else:
@@ -594,7 +597,7 @@ def read_all_dicom_files(
         with open(file_name, "rb") as f:
             c_dicom_header = pydicom.dcmread(f)
 
-        for frame_idx in range(n_images_per_file):
+        for frame_idx in tqdm(range(n_images_per_file), desc="Reading frames"):
             # collect pixel values
             c_pixel_array = c_dicom_header.pixel_array
             if c_pixel_array.ndim == 3:
@@ -679,6 +682,7 @@ def read_all_dicom_files(
     list_of_dictionaries = Parallel(n_jobs=n_jobs)(
         delayed(read_file)(file_name) for file_name in tqdm(dicom_files, desc="Reading DICOMs")
     )
+
     # create dataframe from list_of_dictionaries
     header_table = pd.DataFrame([x for xs in list_of_dictionaries for x in xs])
 

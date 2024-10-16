@@ -942,7 +942,6 @@ def reorder_by_slice(
     # Do we need to remove slices?
     if settings["remove_slices"]:
         logger.debug("Original number of slices: " + str(n_slices))
-
     slices_to_remove = settings["remove_slices"]
     logger.debug("Removing slices: " + str(slices_to_remove))
     for slice_idx in slices_to_remove:
@@ -954,6 +953,23 @@ def reorder_by_slice(
     # n_slices = len(slices)
     # leave this with the original number of slices
     info["n_slices"] = n_slices
+
+    # calculate distances between slices
+    if n_slices > 1:
+        distance = np.sqrt(unique_positions[:, 0] ** 2 + unique_positions[:, 1] ** 2 + unique_positions[:, 2] ** 2)
+        unique_positions = unique_positions[np.argsort(distance), :]
+        spacing_z = [
+            np.sqrt(
+                (unique_positions[i][0] - unique_positions[i + 1][0]) ** 2
+                + (unique_positions[i][1] - unique_positions[i + 1][1]) ** 2
+                + (unique_positions[i][2] - unique_positions[i + 1][2]) ** 2
+            )
+            for i in range(len(unique_positions) - 1)
+        ]
+        slice_spacing = np.mean(spacing_z)
+        info["slice_spacing"] = slice_spacing
+    else:
+        info["slice_spacing"] = 0
 
     return data, info, slices, n_slices
 
