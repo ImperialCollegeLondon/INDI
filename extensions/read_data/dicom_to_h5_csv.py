@@ -175,7 +175,7 @@ def get_data_from_dicoms(
     dicom_type, n_images_per_file = get_dicom_version(dicom_header, logger)
 
     # get manufacturer
-    get_manufacturer(dicom_header, logger)
+    settings["manufacturer"] = get_manufacturer(dicom_header, logger)
 
     # read yaml file with fields to keep
     with open(os.path.join(settings["code_path"], "extensions", "read_data", "fields_to_keep.yaml"), "r") as stream:
@@ -456,20 +456,20 @@ def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
     if "Manufacturer" in header:
         val = header["Manufacturer"].value
         if val == "Siemens Healthineers" or val == "Siemens" or val == "SIEMENS":
-            # manufacturer = "siemens"
+            manufacturer = "siemens"
             logger.debug("Manufacturer: Siemens")
         elif val == "Philips Medical Systems" or val == "Philips":
-            # manufacturer = "philips"
+            manufacturer = "philips"
             logger.debug("Manufacturer: Philips")
         elif val == "Bruker BioSpin GmbH & Co. KG":
-            # manufacturer = "bruker"
+            manufacturer = "bruker"
             logger.debug("Manufacturer: Bruker")
         else:
             sys.exit("Manufacturer not supported.")
     else:
         sys.exit("Manufacturer not supported.")
 
-    # return manufacturer
+    return manufacturer
 
 
 def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
@@ -497,6 +497,8 @@ def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
                 "PlaneOrientationSequence_ImageOrientationPatient": "image_orientation_patient",
                 "CardiacSynchronizationSequence_RRIntervalTimeNominal": "nominal_interval",
                 "FrameContentSequence_FrameAcquisitionDateTime": "acquisition_date_time",
+                "AcquisitionDateTime": "acquisition_date_time",  # Bruker DICOMs
+                "ImageOrientationPatient": "image_orientation_patient",  # Bruker DICOMs
                 "SeriesDescription": "series_description",
                 "SeriesNumber": "series_number",
                 "ImageComments": "image_comments",
@@ -623,35 +625,44 @@ def read_all_dicom_files(
             list_of_dictionaries = [copy.deepcopy(c_dict_general) for _ in range(n_images_per_file)]
 
         else:
+            # I think this logic only applies for Siemens DICOMs. Bruker DICOMs seem to have a different structure.
+
+            # keep only info from the PerFrameFunctionalGroupsSequence
+            for k in list(c_dicom_header_dict.keys()):
+                if not k.startswith("PerFrameFunctionalGroupsSequence"):
+                    del c_dicom_header_dict[k]
+
+            # copy the header above with PerFrameFunctionalGroupsSequence
+            # c_dict = c_dicom_header_dict
+
+            c_dict = copy.deepcopy(c_dicom_header_dict)
+
             for frame_idx in tqdm(range(n_images_per_file), desc="Reading frames"):
-                # keep only info from the PerFrameFunctionalGroupsSequence
-                for k in list(c_dicom_header_dict.keys()):
-                    if not k.startswith("PerFrameFunctionalGroupsSequence"):
-                        del c_dicom_header_dict[k]
-
-                # copy the header above with PerFrameFunctionalGroupsSequence
-                c_dict = c_dicom_header_dict
-
-                # c_dict = copy.deepcopy(c_dicom_header_dict)
-
                 # keep only the part corresponding to the current image
                 for k in list(c_dict.keys()):
                     if not k.startswith("PerFrameFunctionalGroupsSequence_" + str(frame_idx + 1) + "_"):
                         del c_dict[k]
 
+                frame_dict = c_dict
+
+                # frame_dict = {
+                #     "PerFrameFunctionalGroupsSequence_" + str(frame_idx + 1): c_dict["PerFrameFunctionalGroupsSequence_" + str(frame_idx + 1)]
+                # }
+
                 # simplify the dictionary keys
-                c_dict = simplify_per_frame_dictionary(c_dict, frame_idx)
+                frame_dict = simplify_per_frame_dictionary(frame_dict, frame_idx)
+                # c_dict = simplify_per_frame_dictionary(c_dict, frame_idx)
 
                 # add filename to the current dictionary
-                c_dict["FileName"] = os.path.basename(file_name)
+                frame_dict["FileName"] = os.path.basename(file_name)
 
                 # combine the two dictionaries
                 # (PerFrameFunctionalGroupsSequence and some
                 # fields from the general one)
-                c_dict = {**c_dict_general, **c_dict}
+                frame_dict = {**c_dict_general, **frame_dict}
 
                 # list_of_dictionaries[idx][frame_idx] = c_dict
-                list_of_dictionaries[frame_idx] = copy.deepcopy(c_dict)
+                list_of_dictionaries[frame_idx] = copy.deepcopy(frame_dict)
 
         for frame_idx in range(n_images_per_file):
             if pixel_array.ndim == 3:

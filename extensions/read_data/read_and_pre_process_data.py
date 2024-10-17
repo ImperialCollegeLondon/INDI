@@ -6,7 +6,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import h5py
 import matplotlib.pyplot as plt
@@ -82,7 +82,7 @@ def data_summary_plots(data: pd.DataFrame, settings: dict):
     plt.close()
 
 
-def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
+def sort_by_date_time(df: pd.DataFrame, settings: Dict[str, Any]) -> pd.DataFrame:
     """
     Sort the dataframe by acquisition date and time
 
@@ -98,7 +98,11 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     # if this column doesn't exist already
     if "acquisition_date_time" in df.columns:
         if not (df["acquisition_date_time"] == "None").all():
-            df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S.%f")
+            if settings["manufacturer"] == "bruker":
+                format_str = "%Y%m%d%H%M%S.%f%z"
+            else:
+                format_str = "%Y%m%d%H%M%S.%f"
+            df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format=format_str)
             df = df.sort_values(["acquisition_date_time"], ascending=True)
     else:
         df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
@@ -1025,15 +1029,16 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     else:
         # read pandas
         data_type = "pandas"
-        data, data_phase, info = read_and_process_pandas(logger, settings)
+        data, data_phase, info, settings = read_and_process_pandas(logger, settings)
 
     # now that we loaded the images and headers we need to organise it as
     # we cannot assume that the files are in any particular order
     # sort the dataframe by date and time, this is needed in case we need to adjust
     # the b-values by the DICOM timings
-    data = sort_by_date_time(data)
+
+    data = sort_by_date_time(data, settings)
     if settings["complex_data"]:
-        data_phase = sort_by_date_time(data_phase)
+        data_phase = sort_by_date_time(data_phase, settings)
 
         # copy the image column to the data table
         data["image_phase"] = data_phase["image"]
@@ -1127,7 +1132,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     return data, info, slices
 
 
-def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFrame, pd.DataFrame, dict, dict]:
     """
     Read pandas dataframe
 
@@ -1184,7 +1189,10 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
         ), "Number of pixel slices does not match the number of entries in the dataframe."
         data_phase["image"] = pd.Series([x for x in pixel_values_phase])
 
-    return data, data_phase, info
+    with open(os.path.join(settings["dicom_folder"], "manufacturer.txt"), "r") as f:
+        settings["manufacturer"] = f.read().strip()
+
+    return data, data_phase, info, settings
 
 
 def read_and_process_dicoms(
@@ -1242,8 +1250,8 @@ def read_and_process_dicoms(
         data_phase = tweak_directions(data_phase)
 
         # check if the magnitude and phase tables match
-        data_sort = sort_by_date_time(data)
-        data_phase_sort = sort_by_date_time(data_phase)
+        data_sort = sort_by_date_time(data, settings)
+        data_phase_sort = sort_by_date_time(data_phase, settings)
         columns_to_keep = [
             "b_value",
             "diffusion_direction",
@@ -1321,6 +1329,9 @@ def read_and_process_dicoms(
         save_path = os.path.join(settings["dicom_folder_phase"], "images.h5")
         with h5py.File(save_path, "w") as hf:
             hf.create_dataset("pixel_values", data=image_pixel_values_phase, compression="gzip", compression_opts=1)
+
+    with open(os.path.join(settings["dicom_folder"], "manufacturer.txt"), "w") as f:
+        f.write(settings["manufacturer"])
 
     # if workflow is anon, we are going to archive the DICOMs
     # in a 7z file with the password set in the .env file.
