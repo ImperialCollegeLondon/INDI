@@ -23,7 +23,7 @@ from skimage.measure import label, regionprops_table
 from sklearn.linear_model import LinearRegression
 from tvtk.api import tvtk, write_data
 
-from extensions.manual_lv_segmentation import get_epi_contour, get_sa_contours
+from extensions.manual_lv_segmentation import get_sa_contours
 from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
 
 
@@ -685,7 +685,10 @@ def get_ha_line_profiles(
         if segmentation[slice_idx]["endocardium"].size != 0:
             epi_contour, _ = get_sa_contours(c_mask)
         else:
-            epi_contour = get_epi_contour(c_mask)
+            continue
+            # if we don't have the endocardium segmented, there is no reason
+            # to get the HA line profile information
+            # epi_contour = get_epi_contour(c_mask)
 
         # gather the HA values from the centre of the LV to each epicardial point
         # and also the wall thickness
