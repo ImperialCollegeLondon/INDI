@@ -9,6 +9,7 @@ import copy
 import json
 import logging
 import os
+import re
 import sys
 
 import numpy as np
@@ -233,7 +234,7 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
     """
 
     def is_unique(s):
-        a = s.to_numpy()  # s.values (pandas<0.24)
+        a = s.to_numpy()
         return (a[0] == a).all()
 
     header_info = {}
@@ -256,6 +257,7 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
                 for val in unique_vals:
                     temp = json.loads(val)
                     temp = [f"{i:.{decimal_places}f}" for i in temp]  # noqa
+                    temp = ["0" if float(x) == 0 else x for x in temp]
                     rows.append(temp)
 
                 def equalLists(lists):
@@ -266,6 +268,39 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
                 else:
                     logger.error("Field " + field + " is not unique in table.")
                     sys.exit()
+            elif field == "image_comments":
+                strings = data[field].values
+                rr_int_values = []
+                real_b0_values = []
+                for text in strings:
+                    m = re.findall(r"[-+]?(?:\d*\.*\d+)", text)
+                    m = [float(m) for m in m]
+                    if len(m) > 2:
+                        rr_int_values.append(np.nan)
+                        real_b0_values.append(np.nan)
+                    if len(m) == 2:
+                        rr_int_values.append(m[1])
+                        real_b0_values.append(m[0])
+                    elif len(m) == 1:
+                        rr_int_values.append(np.nan)
+                        real_b0_values.append(m[0])
+                    else:
+                        rr_int_values.append(np.nan)
+                        real_b0_values.append(np.nan)
+
+                # round the numbers to integer and check if unique
+                rr_int_values = [int(a) for a in rr_int_values]
+                real_b0_values = [int(a) for a in real_b0_values]
+
+                def equalLists(lists):
+                    return not lists or all(lists[0] == b for b in lists[1:])
+
+                if equalLists(rr_int_values) and equalLists(real_b0_values):
+                    header_info[field] = data[field].values[0]
+                else:
+                    logger.error("Field " + field + " is not unique in table.")
+                    sys.exit()
+
             else:
                 logger.error("Field " + field + " is not unique in table.")
                 sys.exit()
