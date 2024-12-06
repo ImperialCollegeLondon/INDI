@@ -1456,27 +1456,27 @@ def plot_results_maps(
         )
         plt.close()
 
-        # plot S0 map with segmentation
+        # plot S0 map
         plt.figure(figsize=(5, 5))
-        plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
+        # plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
         vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
-        plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", alpha=alphas_whole_heart, vmin=vmin, vmax=vmax)
-        if segmentation[slice_idx]["anterior_ip"].size != 0:
+        plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", vmin=vmin, vmax=vmax)
+        if segmentation[slice_idx]["epicardium"].size != 0:
             plt.plot(
-                segmentation[slice_idx]["anterior_ip"][0],
-                segmentation[slice_idx]["anterior_ip"][1],
-                "2",
-                color="tab:orange",
-                markersize=20,
+                segmentation[slice_idx]["epicardium"][:, 0],
+                segmentation[slice_idx]["epicardium"][:, 1],
+                ".",
+                color="tab:blue",
+                markersize=0.5,
                 alpha=1.0,
             )
-        if segmentation[slice_idx]["inferior_ip"].size != 0:
+        if segmentation[slice_idx]["endocardium"].size != 0:
             plt.plot(
-                segmentation[slice_idx]["inferior_ip"][0],
-                segmentation[slice_idx]["inferior_ip"][1],
-                "1",
-                color="tab:orange",
-                markersize=20,
+                segmentation[slice_idx]["endocardium"][:, 0],
+                segmentation[slice_idx]["endocardium"][:, 1],
+                ".",
+                color="tab:red",
+                markersize=0.5,
                 alpha=1.0,
             )
         plt.colorbar(fraction=0.046, pad=0.04)
