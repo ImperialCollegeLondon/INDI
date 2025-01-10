@@ -289,8 +289,8 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
                         real_b0_values.append(np.nan)
 
                 # round the numbers to integer and check if unique
-                rr_int_values = [int(a) for a in rr_int_values]
-                real_b0_values = [int(a) for a in real_b0_values]
+                rr_int_values = [int(a) for a in rr_int_values if not np.isnan(a)]
+                real_b0_values = [int(a) for a in real_b0_values if not np.isnan(a)]
 
                 def equalLists(lists):
                     return not lists or all(lists[0] == b for b in lists[1:])
