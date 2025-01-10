@@ -46,9 +46,9 @@ See [YAML settings](docs/YAML_settings.md) for run configuration details.
 
 Software has been tested on:
 
-- macOS 15.0 with python 3.12
-- Ubuntu 22.04 with python 3.12
-- Windows 11 with python 3.12
+- macOS 15.0 with python 3.11
+- Ubuntu 22.04 with python 3.11
+- Windows 11 with python 3.11
 
 ### Clone the repository
 
@@ -70,10 +70,10 @@ xcode-select --install
 
 Then install [homebrew](https://brew.sh/).
 
-With homebrew install python 3.12:
+With homebrew install python 3.11:
 
 ```bash
-brew install python@3.12
+brew install python@3.11
 ```
 
 Also install imagemagick:
@@ -85,7 +85,7 @@ brew install imagemagick
 Install the python environment in the INDI root directory:
 
 ```bash
-python3.12 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -U pip setuptools wheel pip-tools
 pip install -r requirements.txt
@@ -186,3 +186,5 @@ Royal Brompton Hospital**".
 - This work was supported by the British Heart Foundation RG/19/1/34160 and RG/F/23/110115.
 - Chan Zuckerberg Initiative DAF, an advised fund of the Silicon Valley Community Foundation: 2024-337787.
 - EPSRC Healthcare Technologies EP/X014010/1.
+
+![funding](assets/images/grant_logos.png)
