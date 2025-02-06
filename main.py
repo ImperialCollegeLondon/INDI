@@ -33,6 +33,7 @@ from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
 from extensions.heart_segmentation import heart_segmentation
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
+from extensions.phase_correction_for_complex_averaging import phase_correction_for_complex_averaging
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.select_outliers import select_outliers
 from extensions.tensor_fittings import dipy_tensor_fit
@@ -96,6 +97,12 @@ for current_folder in all_to_be_analysed_folders:
     if settings["workflow_mode"] == "anon":
         logger.info("Anonymisation of data only mode is True. Stopping here.")
         continue
+
+    # =========================================================
+    # phase correction for complex averaging
+    # =========================================================
+    if settings["complex_data"]:
+        data = phase_correction_for_complex_averaging(data, logger, settings)
 
     # =========================================================
     # DWIs registration
