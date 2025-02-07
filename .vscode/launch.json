@@ -14,7 +14,7 @@
                 "PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT": "5"
             },
             "args": [
-                "path"
+                "PATH"
             ],
         }
     ]
