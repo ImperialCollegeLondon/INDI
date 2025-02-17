@@ -3,7 +3,6 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 from numpy.typing import NDArray
 from scipy import ndimage
@@ -199,53 +198,6 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
         logger.debug("Reverting back image to the original size: " + str(img_dims_original))
 
     return mask_3c
-
-
-def get_average_images(
-    data: pd.DataFrame,
-    slices: NDArray,
-    info,
-    logger: logging.Logger,
-) -> NDArray:
-    """
-    Get average denoised and normalised image for each slice
-
-    Parameters
-    ----------
-    data: database with DWIs
-    slices: array with slice locations string
-    info: dict
-    logger
-
-    Returns
-    -------
-    NDarray with average images
-
-    """
-
-    average_images = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
-    for slice_idx in slices:
-        # dataframe with current slice
-        c_df = data.loc[data["slice_integer"] == slice_idx].copy()
-
-        # drop rejected images (if they exist)
-        if "to_be_removed" in c_df:
-            c_df = c_df[c_df["to_be_removed"] == False]
-
-        # stack of images
-        img_stack = np.stack(c_df["image"], axis=0)
-
-        # average image
-        mean_img = np.mean(img_stack, axis=0)
-
-        # normalise image
-        mean_img = mean_img * (1 / mean_img.max())
-
-        average_images[slice_idx] = mean_img
-
-    logger.info("Average images calculated")
-
-    return average_images
 
 
 def plot_segmentation_unet(n_slices: int, slices: NDArray, mask_3c: NDArray, average_images: NDArray, settings: dict):

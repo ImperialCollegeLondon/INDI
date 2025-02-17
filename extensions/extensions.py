@@ -24,7 +24,6 @@ from sklearn.linear_model import LinearRegression
 from tvtk.api import tvtk, write_data
 
 from extensions.manual_lv_segmentation import get_sa_contours
-from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
 
 
 def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
@@ -1095,43 +1094,6 @@ def reshape_tensor_from_6_to_3x3(D6: NDArray) -> NDArray:
     D33[:, :, :, 2, 2] = D6[:, :, :, 5]
 
     return D33
-
-
-def denoise_tensor(D: np.ndarray, settings: dict) -> np.ndarray:
-    """
-    Denoise tensor with MTs Uformer models
-
-    Parameters
-    ----------
-    D : original tensors
-
-    Returns
-    -------
-    denoised tensors
-
-    """
-
-    # Make the tensor H & W [128, 128]
-    initial_shape = D.shape
-    new_shape = (initial_shape[0], 128, 128, initial_shape[3], initial_shape[4])
-    D_new = crop_pad_rotate_array(D, new_shape, False)
-
-    # Reorder the dimensions of the tensor (N, C, H, W)
-    D_new = np.transpose(D_new, (0, 3, 4, 1, 2))
-
-    # run uformer denoising
-    breath_holds = settings["uformer_breatholds"]
-    D_denoised = uformer_main(breath_holds, D_new)
-
-    # revert back tensor to the usual dim order
-    D_denoised = np.transpose(D_denoised, (0, 2, 3, 1))
-
-    # convert last dim from 6 to 3x3
-    D_denoised = reshape_tensor_from_6_to_3x3(D_denoised)
-
-    D_denoised = crop_pad_rotate_array(D_denoised, initial_shape, False)
-
-    return D_denoised
 
 
 def plot_results_maps(

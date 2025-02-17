@@ -17,7 +17,53 @@ from extensions.manual_lv_segmentation import (
 )
 from extensions.polygon_selector import spline_interpolate_contour
 from extensions.tensor_fittings import dipy_tensor_fit
-from extensions.u_net_segmentation import plot_segmentation_unet, u_net_segment_heart
+
+
+def get_average_images(
+    data: pd.DataFrame,
+    slices: NDArray,
+    info,
+    logger: logging.Logger,
+) -> NDArray:
+    """
+    Get average denoised and normalised image for each slice
+
+    Parameters
+    ----------
+    data: database with DWIs
+    slices: array with slice locations string
+    info: dict
+    logger
+
+    Returns
+    -------
+    NDarray with average images
+
+    """
+
+    average_images = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
+    for slice_idx in slices:
+        # dataframe with current slice
+        c_df = data.loc[data["slice_integer"] == slice_idx].copy()
+
+        # drop rejected images (if they exist)
+        if "to_be_removed" in c_df:
+            c_df = c_df[c_df["to_be_removed"] == False]
+
+        # stack of images
+        img_stack = np.stack(c_df["image"], axis=0)
+
+        # average image
+        mean_img = np.mean(img_stack, axis=0)
+
+        # normalise image
+        mean_img = mean_img * (1 / mean_img.max())
+
+        average_images[slice_idx] = mean_img
+
+    logger.info("Average images calculated")
+
+    return average_images
 
 
 def heart_segmentation(
@@ -104,6 +150,12 @@ def heart_segmentation(
     # =========================================================
     if settings["u_net_segmentation"]:
         logger.info("U-Net segmentation is True")
+        try:
+            from extensions.u_net_segmentation import plot_segmentation_unet, u_net_segment_heart
+        except ModuleNotFoundError:
+            logger.error("U-Net segmentation is not available. Please install the required packages.")
+            raise ModuleNotFoundError("U-Net segmentation is not available. Please install tensorflow.")
+
         # check if U-Net segmentation has been previously saved
         if os.path.exists(os.path.join(settings["session"], "u_net_segmentation.npz")):
             # load segmentations
