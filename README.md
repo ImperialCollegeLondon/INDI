@@ -47,7 +47,7 @@ See [YAML settings](docs/YAML_settings.md) for run configuration details.
 Software has been tested on:
 
 - macOS 15.0 with python 3.12
-<!-- - Ubuntu 22.04 with python 3.11 -->
+- Ubuntu 24.04 with python 3.12
 - Windows 10 with python 3.12
 
 ### Clone the repository
@@ -60,7 +60,9 @@ Then clone the repository.
 git clone https://github.com/ImperialCollegeLondon/INDI.git
 ```
 
-#### Installation in macOS (Intel and Apple silicon) with pip
+---
+
+### Installation in macOS (Intel and Apple silicon)
 
 You may need to instal Xcode and Xcode’s Command Line Tools package as well, with this command:
 
@@ -70,7 +72,7 @@ xcode-select --install
 
 Then install [homebrew](https://brew.sh/).
 
-With homebrew install python 3.11:
+With homebrew install python 3.12:
 
 ```bash
 brew install python@3.12
@@ -88,10 +90,12 @@ Install the python environment in the INDI root directory:
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -U pip setuptools wheel pip-tools
-pip install -r requirements_mac.txt
+pip-sync requirements_mac.txt
 ```
 
-#### Installation in Ubuntu 22.04 with conda
+---
+
+### Installation in Ubuntu 24.04
 
 install imagemagick:
 
@@ -99,55 +103,33 @@ install imagemagick:
 sudo apt install imagemagick
 ```
 
+install development tools:
+
 ```bash
+sudo apt install git-all
+sudo apt install build-essential
+sudo apt install python3.12-venv
 sudo apt-get install python3-tk python3-dev
+```
+
+Create the python environment in the INDI root directory:
+
+```bash
+ppython3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip setuptools wheel pip-tools
 pip-sync requirements_linux.txt
+```
+
+You may need to allow the display to show matplotlib windows with the following terminal command:
+
+```bash
 xhost +
-    1  python
-    2  python3
-    3  exit
-    4  sudo apt install git-all
-    5  sudo apt install build-essential
-    6  apt install imagemagik
-    7  apt install imagemagick
-    8  sudo apt install imagemagick
-    9  cd Documents/GitHub/INDI/
-   10  python3 -m venv .venv
-   11  apt install python3.12-venv
-   12  sudo apt install python3.12-venv
-   13  python3 -m venv .venv
-   14  source .venv/bin/activate
-   15  pip install -U pip setuptools wheel pip-tools
-   16  pip-compile --output-file=requirements_linux.txt
-   17  pip-sync requirements_linux.txt 
-   18  python main.py /home/pf/Documents/DTI_data/STEAM_sys/
-   19  xhost +
-   20  python main.py /home/pf/Documents/DTI_data/STEAM_sys/
-   21  pip-compile --output-file=requirements_linux.txt
-   22  sudo apt-get install python3-tk python3-dev
-   23  pip-compile --output-file=requirements_linux.txt
-   24  pip-sync requirements_linux.txt 
-   25  python main.py /home/pf/Documents/DTI_data/STEAM_sys/
-   26  history
-
 ```
 
-Install miniforge:
-[Miniforge](https://github.com/conda-forge/miniforge)
+---
 
-Install the python environment with conda:
-
-```bash
-conda env create -f environment-cpu.yml
-```
-
-Or alternatively, if you have a CUDA compatible GPU for Win or Linux:
-
-```bash
-conda env create -f environment-gpu.yml
-```
-
-#### Installation Windows 10 with conda
+### Installation Windows 10 with conda
 
 Install miniforge:
 [Miniforge](https://github.com/conda-forge/miniforge)
@@ -163,16 +145,18 @@ Then install the required packages:
 
 ```bash
 pip install -U pip setuptools wheel pip-tools
-pip install -r requirements_win.txt
+pip-sync requirements_win.txt
 ```
 
 Install [imagemagick](https://imagemagick.org/).
 
+---
+
 ### For development
 
-#### Install pre-commit
+Additional packages are required for development:
 
-For development, also install the git hook scripts:
+#### Install pre-commit
 
 ```bash
 pre-commit install
@@ -194,6 +178,8 @@ The packages are pinned to specific versions in the `requirements.in` file. If y
 pip-compile --output-file=requirements_mac.txt
 pip-sync requirements_mac.txt
 ```
+
+---
 
 ## Basic usage example
 
