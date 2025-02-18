@@ -29,3 +29,5 @@ scikit-image
 scikit-learn
 python-dotenv
 PyWavelets
+pynrrd
+python-gdcm
