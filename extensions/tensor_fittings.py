@@ -235,7 +235,6 @@ def dipy_tensor_fit(
     Tensor array and info dictionary
 
     """
-    import dipy.denoise.noise_estimate as ne
     import dipy.reconst.dti as dti
     from dipy.core.gradients import gradient_table
 
