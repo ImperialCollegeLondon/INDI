@@ -91,12 +91,45 @@ pip install -U pip setuptools wheel pip-tools
 pip install -r requirements_mac.txt
 ```
 
-<!-- #### Installation in Ubuntu 22.04 with conda
+#### Installation in Ubuntu 22.04 with conda
 
 install imagemagick:
 
 ```bash
 sudo apt install imagemagick
+```
+
+```bash
+sudo apt-get install python3-tk python3-dev
+pip-sync requirements_linux.txt
+xhost +
+    1  python
+    2  python3
+    3  exit
+    4  sudo apt install git-all
+    5  sudo apt install build-essential
+    6  apt install imagemagik
+    7  apt install imagemagick
+    8  sudo apt install imagemagick
+    9  cd Documents/GitHub/INDI/
+   10  python3 -m venv .venv
+   11  apt install python3.12-venv
+   12  sudo apt install python3.12-venv
+   13  python3 -m venv .venv
+   14  source .venv/bin/activate
+   15  pip install -U pip setuptools wheel pip-tools
+   16  pip-compile --output-file=requirements_linux.txt
+   17  pip-sync requirements_linux.txt 
+   18  python main.py /home/pf/Documents/DTI_data/STEAM_sys/
+   19  xhost +
+   20  python main.py /home/pf/Documents/DTI_data/STEAM_sys/
+   21  pip-compile --output-file=requirements_linux.txt
+   22  sudo apt-get install python3-tk python3-dev
+   23  pip-compile --output-file=requirements_linux.txt
+   24  pip-sync requirements_linux.txt 
+   25  python main.py /home/pf/Documents/DTI_data/STEAM_sys/
+   26  history
+
 ```
 
 Install miniforge:
@@ -112,7 +145,7 @@ Or alternatively, if you have a CUDA compatible GPU for Win or Linux:
 
 ```bash
 conda env create -f environment-gpu.yml
-``` -->
+```
 
 #### Installation Windows 10 with conda
 
