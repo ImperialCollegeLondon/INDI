@@ -14,7 +14,7 @@
                 "PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT": "5"
             },
             "args": [
-                "/Users/pf/WORK/WORK_2/CIMA_scans/complex_averaging/Vol7/complex_data"
+                "PATH"
             ],
         }
     ]

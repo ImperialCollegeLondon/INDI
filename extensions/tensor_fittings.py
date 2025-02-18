@@ -235,7 +235,6 @@ def dipy_tensor_fit(
     Tensor array and info dictionary
 
     """
-    import dipy.denoise.noise_estimate as ne
     import dipy.reconst.dti as dti
     from dipy.core.gradients import gradient_table
 
@@ -265,20 +264,20 @@ def dipy_tensor_fit(
         image_data = image_data[..., np.newaxis]
         image_data = image_data.transpose(1, 2, 3, 0)
         # t0 = time.time()
-        if not quick_mode:
-            sigma = ne.estimate_sigma(image_data)
-            info["tensor fitting sigma"][str(slice_idx).zfill(2)] = (
-                "%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma)
-            )
-            logger.debug(
-                "Mean sigma for slice "
-                + str(slice_idx).zfill(2)
-                + ": "
-                + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
-            )
+        # if not quick_mode:
+        #     sigma = ne.estimate_sigma(image_data)
+        #     info["tensor fitting sigma"][str(slice_idx).zfill(2)] = (
+        #         "%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma)
+        #     )
+        #     logger.debug(
+        #         "Mean sigma for slice "
+        #         + str(slice_idx).zfill(2)
+        #         + ": "
+        #         + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
+        #     )
 
         if method == "NLLS" or method == "RESTORE":
-            tenmodel = dti.TensorModel(gtab, fit_method=method, sigma=sigma, return_S0_hat=True)
+            tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
         else:
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
 

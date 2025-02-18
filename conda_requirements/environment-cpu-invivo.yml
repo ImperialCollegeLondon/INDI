@@ -1,0 +1,40 @@
+name: indi-in-vivo
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - matplotlib
+  - pandas
+  - ca-certificates
+  - certifi
+  - openssl
+  - mayavi
+  - scipy
+  - scikit-learn
+  - scikit-image
+  - dipy==1.9.0
+  - pydicom
+  - xarray
+  - tqdm
+  - pre-commit
+  - pyyaml
+  - einops
+  - hydra-core
+  - timm
+  - pytest
+  - black
+  - pywavelets
+  - py7zr==0.22.0
+  - python-dotenv
+  - pyarrow
+  - pytorch
+  - torchvision
+  - opencv
+  - pip
+  - python=3.11
+  - pip:
+    - tensorflow==2.14
+    - itk-elastix==0.21.0
+    - pyautogui==0.9.54
+    - brukerapi==0.1.9
+

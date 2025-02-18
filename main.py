@@ -15,7 +15,6 @@ import pyautogui
 from extensions.complex_averaging import complex_averaging
 from extensions.crop_fov import crop_fov, record_image_registration
 from extensions.extensions import (
-    denoise_tensor,
     export_results,
     get_cardiac_coordinates_short_axis,
     get_colourmaps,
@@ -30,13 +29,13 @@ from extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from extensions.get_eigensystem import get_eigensystem
 from extensions.get_fa_md import get_fa_md
 from extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
-from extensions.heart_segmentation import heart_segmentation
+from extensions.heart_segmentation import get_average_images, heart_segmentation
 from extensions.image_registration import image_registration
 from extensions.initial_setup import initial_setup
+from extensions.phase_correction_for_complex_averaging import phase_correction_for_complex_averaging
 from extensions.read_data.read_and_pre_process_data import read_data
 from extensions.select_outliers import select_outliers
 from extensions.tensor_fittings import dipy_tensor_fit
-from extensions.u_net_segmentation import get_average_images
 
 # # for debugging numpy warnings
 # np.seterr(all="raise")
@@ -49,7 +48,8 @@ matplotlib.rcParams["font.size"] = 5
 # to run efficiently
 matplotlib.rcParams["toolbar"] = "None"
 # Faster interactive matplotlib
-matplotlib.use("qtagg")
+if sys.platform != "darwin":
+    matplotlib.use("qtagg")
 
 # script path
 abspath = os.path.abspath(sys.argv[0])
@@ -96,6 +96,12 @@ for current_folder in all_to_be_analysed_folders:
     if settings["workflow_mode"] == "anon":
         logger.info("Anonymisation of data only mode is True. Stopping here.")
         continue
+
+    # =========================================================
+    # phase correction for complex averaging
+    # =========================================================
+    if settings["complex_data"]:
+        data = phase_correction_for_complex_averaging(data, logger, settings)
 
     # =========================================================
     # DWIs registration
@@ -231,6 +237,11 @@ for current_folder in all_to_be_analysed_folders:
     # Denoise tensor with uformer models
     # =========================================================
     if settings["uformer_denoise"]:
+        try:
+            from extensions.uformer_denoising import denoise_tensor
+        except ImportError:
+            logger.error("Could not import uformer_denoising module")
+            raise ImportError("Could not import uformer_denoising module. Please install torch")
         logger.info("Denoising tensor with uformer model: breatholds " + str(settings["uformer_breatholds"]))
         dti["tensor"] = denoise_tensor(dti["tensor"], settings)
     else:

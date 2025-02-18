@@ -46,9 +46,9 @@ See [YAML settings](docs/YAML_settings.md) for run configuration details.
 
 Software has been tested on:
 
-- macOS 15.0 with python 3.11
-- Ubuntu 22.04 with python 3.11
-- Windows 11 with python 3.11
+- macOS 15.0 with python 3.12
+- Ubuntu 24.04 with python 3.12
+- Windows 10 with python 3.12
 
 ### Clone the repository
 
@@ -60,7 +60,9 @@ Then clone the repository.
 git clone https://github.com/ImperialCollegeLondon/INDI.git
 ```
 
-#### Installation in macOS (Intel and Apple silicon) with pip
+---
+
+### Installation in macOS (Intel and Apple silicon)
 
 You may need to instal Xcode and Xcode’s Command Line Tools package as well, with this command:
 
@@ -70,10 +72,10 @@ xcode-select --install
 
 Then install [homebrew](https://brew.sh/).
 
-With homebrew install python 3.11:
+With homebrew install python 3.12:
 
 ```bash
-brew install python@3.11
+brew install python@3.12
 ```
 
 Also install imagemagick:
@@ -85,13 +87,15 @@ brew install imagemagick
 Install the python environment in the INDI root directory:
 
 ```bash
-python3.11 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -U pip setuptools wheel pip-tools
-pip install -r requirements.txt
+pip-sync requirements_mac.txt
 ```
 
-#### Installation in Ubuntu 22.04 with conda
+---
+
+### Installation in Ubuntu 24.04
 
 install imagemagick:
 
@@ -99,43 +103,60 @@ install imagemagick:
 sudo apt install imagemagick
 ```
 
+install development tools:
+
+```bash
+sudo apt install git-all
+sudo apt install build-essential
+sudo apt install python3.12-venv
+sudo apt-get install python3-tk python3-dev
+```
+
+Create the python environment in the INDI root directory:
+
+```bash
+ppython3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip setuptools wheel pip-tools
+pip-sync requirements_linux.txt
+```
+
+You may need to allow the display to show matplotlib windows with the following terminal command:
+
+```bash
+xhost +
+```
+
+---
+
+### Installation Windows 10 with conda
+
 Install miniforge:
 [Miniforge](https://github.com/conda-forge/miniforge)
 
-Install the python environment with conda:
+Create a new environment with conda:
 
 ```bash
-conda env create -f environment-cpu.yml
+conda create --name indi python=3.12
+conda activate indi
 ```
 
-Or alternatively, if you have a CUDA compatible GPU for Win or Linux:
+Then install the required packages:
 
 ```bash
-conda env create -f environment-gpu.yml
-```
-
-#### Installation Windows 11 with conda
-
-Install miniforge:
-[Miniforge](https://github.com/conda-forge/miniforge)
-
-Install the python environment with conda:
-
-```bash
-conda env create -f environment-cpu.yml
-```
-
-Or alternatively, if you have a CUDA compatible GPU for Win or Linux:
-
-```bash
-conda env create -f environment-gpu.yml
+pip install -U pip setuptools wheel pip-tools
+pip-sync requirements_win.txt
 ```
 
 Install [imagemagick](https://imagemagick.org/).
 
-### Development
+---
 
-For development, also install the git hook scripts:
+### For development
+
+Additional packages are required for development:
+
+#### Install pre-commit
 
 ```bash
 pre-commit install
@@ -148,6 +169,17 @@ pre-commit run --all-files
 ```
 
 This is required to ensure code quality and style before committing code changes.
+
+#### Update requirements
+
+The packages are pinned to specific versions in the `requirements.in` file. If you want to update the packages, you can do so with the following command (change the requirements file name according to the OS):
+
+```bash
+pip-compile --output-file=requirements_mac.txt
+pip-sync requirements_mac.txt
+```
+
+---
 
 ## Basic usage example
 
