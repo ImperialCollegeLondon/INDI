@@ -32,7 +32,7 @@ cycler==0.12.1
     # via matplotlib
 deepdiff==8.2.0
     # via trx-python
-dipy==1.10.0
+dipy==1.9.0
     # via -r requirements.in
 distlib==0.3.9
     # via virtualenv
