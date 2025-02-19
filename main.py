@@ -55,6 +55,11 @@ if sys.platform != "darwin":
 abspath = os.path.abspath(sys.argv[0])
 script_path = os.path.dirname(abspath)
 
+# In TensorFlow 2.16+, to keep using Keras 2, you can first install tf_keras, and then export the environment
+# variable TF_USE_LEGACY_KERAS=1. This will direct TensorFlow 2.16+ to resolve tf.keras to the locally-installed
+# tf_keras package.
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
 # ITK
 # import itk
 
