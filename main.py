@@ -42,7 +42,7 @@ from extensions.tensor_fittings import dipy_tensor_fit
 
 # matplotlib
 # better looking
-matplotlib.rcParams["font.size"] = 5
+matplotlib.rcParams["font.size"] = 10
 # more suitable for manuscripts
 # matplotlib.rcParams["font.size"] = 15
 # to run efficiently
@@ -268,7 +268,9 @@ for current_folder in all_to_be_analysed_folders:
     # =========================================================
     # Get dti["fa"] and dti["md"] maps
     # =========================================================
-    dti["md"], dti["fa"], info = get_fa_md(dti["eigenvalues"], info, mask_3c, slices, logger)
+    dti["md"], dti["fa"], dti["mode"], dti["frob_norm"], dti["mag_anisotropy"], info = get_fa_md(
+        dti["eigenvalues"], info, mask_3c, slices, logger
+    )
 
     # =========================================================
     # Get cardiac coordinates

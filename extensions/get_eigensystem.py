@@ -58,7 +58,7 @@ def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: N
     plt.tick_params(axis="both", which="major", labelsize=5)
     plt.tight_layout(pad=1.0)
     plt.savefig(
-        os.path.join(settings["results"], "LV_eigenvalues_histograms.png"),
+        os.path.join(settings["debug_folder"], "LV_eigenvalues_histograms.png"),
         dpi=200,
         pad_inches=0,
         transparent=False,
