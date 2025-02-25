@@ -28,8 +28,8 @@ def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, pref
     plt.plot(residuals)
     plt.xlabel("image #")
     plt.ylabel("residuals")
-    plt.tick_params(axis="both", which="major", labelsize=5)
-    plt.title("Tensor residuals (average of all myocardial voxels)", fontsize=7)
+    plt.tick_params(axis="both", which="major")
+    plt.title("Tensor residuals (average of all myocardial voxels)")
     plt.tight_layout(pad=1.0)
     plt.savefig(
         os.path.join(
@@ -66,9 +66,9 @@ def plot_residuals_map(
     plt.subplot(1, 1, 1)
     plt.imshow(average_images[slice_idx], cmap="Greys_r")
     plt.imshow(residuals, alpha=alphas_whole_heart)
-    cbar = plt.colorbar(fraction=0.046, pad=0.04)
-    cbar.ax.tick_params(labelsize=5)
-    plt.title("Tensor residuals (average of all DWIs)", fontsize=7)
+    plt.colorbar(fraction=0.046, pad=0.04)
+    # cbar.ax.tick_params(labelsize=5)
+    plt.title("Tensor residuals (average of all DWIs)")
     plt.axis("off")
     plt.tight_layout(pad=1.0)
     plt.savefig(

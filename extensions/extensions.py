@@ -753,9 +753,9 @@ def get_ha_line_profiles(
         # plt.plot(average_lp, linewidth=2, color="black", label="mean")
         plt.errorbar(x, average_lp, std_lp, linewidth=2, color="black", label="mean", elinewidth=0.5)
         plt.plot(x, y_pred, linewidth=1, color="red", linestyle="--", label="fit")
-        plt.xlabel("normalised wall from endo to epi", fontsize=7)
-        plt.ylabel("HA (degrees)", fontsize=7)
-        plt.tick_params(axis="both", which="major", labelsize=5)
+        plt.xlabel("normalised wall from endo to epi")
+        plt.ylabel("HA (degrees)")
+        plt.tick_params(axis="both", which="major")
         plt.title(
             "Linear fit (Rsq = "
             + "%.2f" % r_sq
@@ -764,10 +764,9 @@ def get_ha_line_profiles(
             + " std = "
             + "%.2f" % np.mean(std_lp)
             + ")",
-            fontsize=7,
         )
         plt.ylim(-90, 90)
-        plt.legend(fontsize=7)
+        plt.legend()
         plt.tight_layout(pad=1.0)
         plt.savefig(
             os.path.join(
