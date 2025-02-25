@@ -176,6 +176,9 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     maps["mask"] = mask_3c
     maps["s0"] = dti["s0"]
     maps["mag_image"] = average_images
+    maps["mode"] = dti["mode"]
+    maps["frob_norm"] = dti["frob_norm"]
+    maps["mag_anisotropy"] = dti["mag_anisotropy"]
 
     save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
 
@@ -1129,149 +1132,57 @@ def plot_results_maps(
         folder id string to use on the filename
     """
 
-    # plt.style.use("seaborn-deep")
-    colors = ["tab:orange", "tab:green", "tab:blue", "tab:red", "tab:brown", "tab:olive"]
-    # plot results small montage for each slice
-    for slice_idx in slices:
-        alphas_whole_heart = np.copy(mask_3c[slice_idx])
-        alphas_whole_heart[alphas_whole_heart > 0.1] = 1
-
-        alphas_myocardium = np.copy(mask_3c[slice_idx])
-        alphas_myocardium[alphas_myocardium == 2] = 0
-        alphas_myocardium[alphas_myocardium > 0.1] = 1
-
-        plt.figure(figsize=(10, 5))
-
-        # FA map
-        plt.subplot(2, 4, 1)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(
-            dti["fa"][slice_idx],
-            alpha=alphas_whole_heart,
-            vmin=0,
-            vmax=1,
-            cmap=colormaps["FA"],
-        )
-        plt.colorbar(fraction=0.046, pad=0.04)
-        plt.axis("off")
-        plt.title("FA")
-
-        # FA histogram
-        vals = dti["fa"][slice_idx][alphas_myocardium > 0]
-        bins = np.linspace(0, 1, 40)
-        weights = np.ones_like(vals) / len(vals)
-        plt.subplot(2, 4, 5)
-        plt.hist(vals, bins=bins, weights=weights, rwidth=0.95, color=colors[0])
-        plt.title("FA histogram")
-
-        # MD map
-        plt.subplot(2, 4, 2)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(
-            dti["md"][slice_idx] * 1e3,
-            alpha=alphas_whole_heart,
-            vmin=settings["md_scale"][0],
-            vmax=settings["md_scale"][1],
-            cmap=colormaps["MD"],
-        )
-        plt.colorbar(fraction=0.046, pad=0.04)
-        plt.axis("off")
-        plt.title("MD")
-
-        # MD histogram
-        vals = 1e3 * dti["md"][slice_idx][alphas_myocardium > 0]
-        bins = np.linspace(settings["md_scale"][0], settings["md_scale"][1], 40)
-        weights = np.ones_like(vals) / len(vals)
-        plt.subplot(2, 4, 6)
-        plt.hist(vals, bins=bins, weights=weights, rwidth=0.95, color=colors[1])
-        plt.title("MD histogram")
-
-        # HA map
-        plt.subplot(2, 4, 3)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(
-            dti["ha"][slice_idx],
-            alpha=alphas_myocardium,
-            vmin=-90,
-            vmax=90,
-            cmap=colormaps["HA"],
-        )
-        plt.colorbar(fraction=0.046, pad=0.04)
-        plt.axis("off")
-        plt.title("HA")
-
-        # HA histogram
-        vals = dti["ha"][slice_idx][alphas_myocardium > 0]
-        bins = np.linspace(-90, 90, 40)
-        weights = np.ones_like(vals) / len(vals)
-        plt.subplot(2, 4, 7)
-        plt.hist(vals, bins=bins, weights=weights, rwidth=0.95, color=colors[2])
-        plt.title("HA histogram")
-
-        # E2A map
-        plt.subplot(2, 4, 4)
-        plt.imshow(average_images[slice_idx], cmap="Greys_r")
-        plt.imshow(
-            abs(dti["e2a"][slice_idx]),
-            alpha=alphas_myocardium,
-            vmin=0,
-            vmax=90,
-            cmap=colormaps["abs_E2A"],
-        )
-        plt.colorbar(fraction=0.046, pad=0.04)
-        plt.axis("off")
-        plt.title("|E2A|")
-
-        # E2A histogram
-        vals = dti["e2a"][slice_idx][alphas_myocardium > 0]
-        bins = np.linspace(-90, 90, 40)
-        weights = np.ones_like(vals) / len(vals)
-        plt.subplot(2, 4, 8)
-        plt.hist(vals, bins=bins, weights=weights, rwidth=0.95, color=colors[3])
-        plt.title("E2A histogram")
-
-        plt.tight_layout(pad=1.0)
-        fname = os.path.join(
-            settings["results"],
-            "tensor_parameter_maps_" + folder_id + "_slice_" + str(slice_idx).zfill(2) + ".png",
-        )
-        # On windows there is a maximun path lenght of ~256 characters
-        if os.name == "nt" and len(os.path.abspath(fname)) > 250:
-            fname = os.path.join(
-                settings["results"],
-                "tensor_parameter_maps_" + "_slice_" + str(slice_idx).zfill(2) + ".png",
-            )
-        plt.savefig(fname, dpi=300, pad_inches=0, transparent=False)
-        plt.close()
-
-    # also plot maps individually
     params = {}
-
-    params["FA"] = {}
-    params["FA"]["var_name"] = "fa"
-    params["FA"]["vmin_max"] = [0, 1]
-    params["FA"]["cmap"] = colormaps["FA"]
-    params["FA"]["hist_color"] = colors[0]
-    params["FA"]["title"] = "Fractional anisotropy"
-    params["FA"]["units"] = "[]"
-    params["FA"]["scale"] = 1
-    params["FA"]["abs"] = False
 
     params["MD"] = {}
     params["MD"]["var_name"] = "md"
     params["MD"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
     params["MD"]["cmap"] = colormaps["MD"]
-    params["MD"]["hist_color"] = colors[1]
     params["MD"]["title"] = "Mean diffusivity"
     params["MD"]["units"] = "10^{-3} mm^2s^{-1}"
     params["MD"]["scale"] = 1000
     params["MD"]["abs"] = False
 
+    params["MAG_ANISOTROPY"] = {}
+    params["MAG_ANISOTROPY"]["var_name"] = "mag_anisotropy"
+    params["MAG_ANISOTROPY"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
+    params["MAG_ANISOTROPY"]["cmap"] = "viridis"
+    params["MAG_ANISOTROPY"]["title"] = "Mag anisotropy"
+    params["MAG_ANISOTROPY"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["MAG_ANISOTROPY"]["scale"] = 1000
+    params["MAG_ANISOTROPY"]["abs"] = False
+
+    params["MODE"] = {}
+    params["MODE"]["var_name"] = "mode"
+    params["MODE"]["vmin_max"] = [-1, 1]
+    params["MODE"]["cmap"] = "plasma"
+    params["MODE"]["title"] = "Tensor mode"
+    params["MODE"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["MODE"]["scale"] = 1
+    params["MODE"]["abs"] = False
+
+    params["FA"] = {}
+    params["FA"]["var_name"] = "fa"
+    params["FA"]["vmin_max"] = [0, 1]
+    params["FA"]["cmap"] = colormaps["FA"]
+    params["FA"]["title"] = "Fractional anisotropy"
+    params["FA"]["units"] = "[]"
+    params["FA"]["scale"] = 1
+    params["FA"]["abs"] = False
+
+    params["FROB_NORM"] = {}
+    params["FROB_NORM"]["var_name"] = "frob_norm"
+    params["FROB_NORM"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
+    params["FROB_NORM"]["cmap"] = "inferno"
+    params["FROB_NORM"]["title"] = "Frobenius norm"
+    params["FROB_NORM"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["FROB_NORM"]["scale"] = 1000
+    params["FROB_NORM"]["abs"] = False
+
     params["HA"] = {}
     params["HA"]["var_name"] = "ha"
     params["HA"]["vmin_max"] = [-90, 90]
     params["HA"]["cmap"] = colormaps["HA"]
-    params["HA"]["hist_color"] = colors[2]
     params["HA"]["title"] = "Helix angle"
     params["HA"]["units"] = "degrees"
     params["HA"]["scale"] = 1
@@ -1281,7 +1192,6 @@ def plot_results_maps(
     params["TA"]["var_name"] = "ta"
     params["TA"]["vmin_max"] = [-90, 90]
     params["TA"]["cmap"] = "twilight_shifted"
-    params["TA"]["hist_color"] = colors[5]
     params["TA"]["title"] = "Transverse angle"
     params["TA"]["units"] = "degrees"
     params["TA"]["scale"] = 1
@@ -1291,7 +1201,6 @@ def plot_results_maps(
     params["E2A"]["var_name"] = "e2a"
     params["E2A"]["vmin_max"] = [-90, 90]
     params["E2A"]["cmap"] = "twilight_shifted"
-    params["E2A"]["hist_color"] = colors[4]
     params["E2A"]["title"] = "Sheetlet angle"
     params["E2A"]["units"] = "degrees"
     params["E2A"]["scale"] = 1
@@ -1301,12 +1210,79 @@ def plot_results_maps(
     params["abs_E2A"]["var_name"] = "e2a"
     params["abs_E2A"]["vmin_max"] = [0, 90]
     params["abs_E2A"]["cmap"] = colormaps["abs_E2A"]
-    params["abs_E2A"]["hist_color"] = colors[3]
     params["abs_E2A"]["title"] = "Absolute sheetlet angle"
     params["abs_E2A"]["units"] = "degrees"
     params["abs_E2A"]["scale"] = 1
     params["abs_E2A"]["abs"] = True
 
+    # # plot montage 1, histograms and maps for all metrics
+    # for slice_idx in slices:
+    #     alphas_whole_heart = np.copy(mask_3c[slice_idx])
+    #     alphas_whole_heart[alphas_whole_heart > 0.1] = 1
+
+    #     alphas_myocardium = np.copy(mask_3c[slice_idx])
+    #     alphas_myocardium[alphas_myocardium == 2] = 0
+    #     alphas_myocardium[alphas_myocardium > 0.1] = 1
+
+    #     plt.figure(figsize=(15, 5))
+
+    #     for idx, param in enumerate(params):
+    #         # plot maps
+    #         plt.subplot(2, len(params), idx + 1)
+    #         plt.imshow(average_images[slice_idx], cmap="Greys_r")
+    #         if params[param]["abs"]:
+    #             plt.imshow(
+    #                 np.abs(dti[params[param]["var_name"]][slice_idx] * params[param]["scale"]),
+    #                 alpha=alphas_whole_heart,
+    #                 vmin=params[param]["vmin_max"][0],
+    #                 vmax=params[param]["vmin_max"][1],
+    #                 cmap=params[param]["cmap"],
+    #             )
+    #         else:
+    #             plt.imshow(
+    #                 dti[params[param]["var_name"]][slice_idx] * params[param]["scale"],
+    #                 alpha=alphas_whole_heart,
+    #                 vmin=params[param]["vmin_max"][0],
+    #                 vmax=params[param]["vmin_max"][1],
+    #                 cmap=params[param]["cmap"],
+    #             )
+    #         plt.colorbar(fraction=0.046, pad=0.04)
+    #         plt.axis("off")
+    #         plt.title(params[param]["title"])
+
+    #         # plot histograms
+    #         plt.subplot(2, len(params), idx + 1 + len(params))
+    #         if params[param]["abs"]:
+    #             vals = abs(dti[params[param]["var_name"]][slice_idx][alphas_myocardium > 0] * params[param]["scale"])
+    #         else:
+    #             vals = dti[params[param]["var_name"]][slice_idx][alphas_myocardium > 0] * params[param]["scale"]
+    #         bins = np.linspace(params[param]["vmin_max"][0], params[param]["vmin_max"][1], 40)
+    #         weights = np.ones_like(vals) / len(vals)
+    #         n, bins, patches = plt.hist(vals, bins=bins, weights=weights, rwidth=0.95)
+    #         bin_centers = 0.5 * (bins[:-1] + bins[1:])
+    #         # scale values to interval [0,1]
+    #         col = bin_centers - min(bin_centers)
+    #         col /= max(col)
+    #         cm = plt.cm.get_cmap(params[param]["cmap"])
+    #         for c, p in zip(col, patches):
+    #             plt.setp(p, "facecolor", cm(c))
+    #         plt.title(params[param]["title"])
+
+    #     plt.tight_layout(pad=1.0)
+    #     fname = os.path.join(
+    #         settings["results"],
+    #         "tensor_parameter_maps_" + folder_id + "_slice_" + str(slice_idx).zfill(2) + ".png",
+    #     )
+    #     # On windows there is a maximun path lenght of ~256 characters
+    #     if os.name == "nt" and len(os.path.abspath(fname)) > 250:
+    #         fname = os.path.join(
+    #             settings["results"],
+    #             "tensor_parameter_maps_" + "_slice_" + str(slice_idx).zfill(2) + ".png",
+    #         )
+    #     plt.savefig(fname, dpi=300, pad_inches=0, transparent=False)
+    #     plt.close()
+
+    # Also plots maps individually
     for slice_idx in slices:
         alphas_whole_heart = np.copy(mask_3c[slice_idx])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
@@ -1357,7 +1333,14 @@ def plot_results_maps(
                 vals = dti[params[param]["var_name"]][slice_idx][alphas_myocardium > 0] * params[param]["scale"]
             bins = np.linspace(params[param]["vmin_max"][0], params[param]["vmin_max"][1], 40)
             weights = np.ones_like(vals) / len(vals)
-            plt.hist(vals, bins=bins, weights=weights, rwidth=0.95, color=params[param]["hist_color"])
+            n, bins, patches = plt.hist(vals, bins=bins, weights=weights, rwidth=0.95)
+            bin_centers = 0.5 * (bins[:-1] + bins[1:])
+            # scale values to interval [0,1]
+            col = bin_centers - min(bin_centers)
+            col /= max(col)
+            cm = plt.cm.get_cmap(params[param]["cmap"])
+            for c, p in zip(col, patches):
+                plt.setp(p, "facecolor", cm(c))
             plt.title(params[param]["title"])
             plt.savefig(
                 os.path.join(
@@ -1701,8 +1684,10 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
     dti["abs_e2a"] = np.abs(dti["e2a"])
     dti["abs_ta"] = np.abs(dti["ta"])
     dti["md_1e3"] = dti["md"] * 1000
-    var_list = ["fa", "md_1e3", "ha", "e2a", "ta", "abs_e2a", "abs_ta"]
-    str_list = ["FA", "MD", "HA", "E2A", "TA", "|E2A|", "|TA|"]
+    dti["frob_norm_1e3"] = dti["frob_norm"] * 1000
+    dti["mag_anisotropy_1e3"] = dti["mag_anisotropy"] * 1000
+    var_list = ["fa", "mode", "md_1e3", "frob_norm_1e3", "mag_anisotropy_1e3", "ha", "e2a", "ta", "abs_e2a", "abs_ta"]
+    str_list = ["FA", "MODE", "MD", "NORM", "MAG_ANISOTROPY", "HA", "E2A", "TA", "|E2A|", "|TA|"]
     # global values
     table_global = []
     table_global.append(["Global", np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])

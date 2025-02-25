@@ -33,8 +33,9 @@ def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, pref
     plt.tight_layout(pad=1.0)
     plt.savefig(
         os.path.join(
-            settings["debug_folder"],
-            "tensor_residuals_" + prefix + "_slice_" + str(slice_idx).zfill(2) + ".png",
+            settings["results"],
+            "results_b",
+            "tensor_residuals" + prefix + "_slice_" + str(slice_idx).zfill(2) + ".png",
         ),
         dpi=200,
         pad_inches=0,
@@ -72,8 +73,9 @@ def plot_residuals_map(
     plt.tight_layout(pad=1.0)
     plt.savefig(
         os.path.join(
-            settings["debug_folder"],
-            "tensor_residuals_map_" + prefix + "_slice_" + str(slice_idx).zfill(2) + ".png",
+            settings["results"],
+            "results_b",
+            "tensor_residuals_map" + prefix + "_slice_" + str(slice_idx).zfill(2) + ".png",
         ),
         dpi=200,
         pad_inches=0,
