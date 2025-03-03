@@ -3,7 +3,7 @@ from typing import Union
 import numpy as np
 import torch
 
-from extensions.uformer_tensor_denoising.utils import IndependentEnsemble
+from indi.extensions.uformer_tensor_denoising.utils import IndependentEnsemble
 
 MODELS = {
     (1, "1BH", "BH1"): "/usr/local/dtcmr/pytorch_tensor_denoising/state_dict_1bh.pth",

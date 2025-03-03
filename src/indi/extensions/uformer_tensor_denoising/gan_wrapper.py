@@ -1,6 +1,6 @@
 from torch import nn
 
-from extensions.uformer_tensor_denoising.utils import instantiate
+from indi.extensions.uformer_tensor_denoising.utils import instantiate
 
 
 class GANUFormerModelWrapper(nn.Module):

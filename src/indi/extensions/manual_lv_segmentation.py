@@ -9,7 +9,7 @@ import numpy as np
 from matplotlib.widgets import Button, Slider
 from numpy.typing import NDArray
 
-from .polygon_selector import PolygonSelectorSpline
+from indi.extensions.polygon_selector import PolygonSelectorSpline
 
 
 def get_sa_contours(lv_mask):

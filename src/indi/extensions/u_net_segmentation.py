@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from scipy import ndimage
 from tensorflow.keras import models
 
-from extensions.extensions import clean_mask, crop_pad_rotate_array
+from indi.extensions.extensions import clean_mask, crop_pad_rotate_array
 
 
 def denoise_images(img: NDArray, settings: dict, slices: NDArray) -> NDArray:

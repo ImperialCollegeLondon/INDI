@@ -19,7 +19,7 @@ import scipy
 import yaml
 from tqdm import tqdm
 
-from extensions.extensions import mag_to_rad, rad_to_mag
+from indi.extensions.extensions import mag_to_rad, rad_to_mag
 
 
 # get DICOM header fields
@@ -178,7 +178,7 @@ def get_data_from_dicoms(
     get_manufacturer(dicom_header, logger)
 
     # read yaml file with fields to keep
-    with open(os.path.join(settings["code_path"], "extensions", "read_data", "fields_to_keep.yaml"), "r") as stream:
+    with open(os.path.join(os.path.dirname(__file__), "fields_to_keep.yaml"), "r") as stream:
         to_keep = yaml.safe_load(stream)
 
     # keep only the fields we defined in the yaml file above

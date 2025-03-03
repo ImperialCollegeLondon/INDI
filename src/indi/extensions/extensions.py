@@ -23,7 +23,7 @@ from skimage.measure import label, regionprops_table
 from sklearn.linear_model import LinearRegression
 from tvtk.api import tvtk, write_data
 
-from extensions.manual_lv_segmentation import get_sa_contours
+from indi.extensions.manual_lv_segmentation import get_sa_contours
 
 
 def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
@@ -525,7 +525,7 @@ def create_2d_montage(img_stack: NDArray) -> NDArray:
     return montage
 
 
-def get_colourmaps(script_path: str) -> dict:
+def get_colourmaps() -> dict:
     """
     Load the custom colormap RGB values
 
@@ -538,20 +538,21 @@ def get_colourmaps(script_path: str) -> dict:
     Dictionary with Listed Colormaps
 
     """
+    script_path = os.path.dirname(__file__)
     colormaps = {}
-    MD = np.loadtxt(os.path.join(script_path, "extensions", "colourmaps_data", "MD.txt"))
+    MD = np.loadtxt(os.path.join(script_path, "colourmaps_data", "MD.txt"))
     md_cmap = matplotlib.colors.ListedColormap(MD)
     colormaps["MD"] = md_cmap
     ################
-    FA = np.loadtxt(os.path.join(script_path, "extensions", "colourmaps_data", "FA.txt"))
+    FA = np.loadtxt(os.path.join(script_path, "colourmaps_data", "FA.txt"))
     fa_cmap = matplotlib.colors.ListedColormap(FA)
     colormaps["FA"] = fa_cmap
     ################
-    E2A = np.loadtxt(os.path.join(script_path, "extensions", "colourmaps_data", "abs_E2A.txt"))
+    E2A = np.loadtxt(os.path.join(script_path, "colourmaps_data", "abs_E2A.txt"))
     abs_e2a_cmap = matplotlib.colors.ListedColormap(E2A)
     colormaps["abs_E2A"] = abs_e2a_cmap
 
-    HA = np.loadtxt(os.path.join(script_path, "extensions", "colourmaps_data", "HA.txt"))
+    HA = np.loadtxt(os.path.join(script_path, "colourmaps_data", "HA.txt"))
     ha_cmap = matplotlib.colors.ListedColormap(HA)
     colormaps["HA"] = ha_cmap
 
@@ -1643,7 +1644,7 @@ def export_results(
             os.system('powershell.exe "Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process')
             run_command = (
                 "powershell.exe "
-                + os.path.join(settings["code_path"], "extensions", "montage_script_windows.ps1")
+                + os.path.join(os.path.dirname(__file__), "montage_script_windows.ps1")
                 + " "
                 + os.path.abspath(settings["results"])
                 + " "
@@ -1654,7 +1655,7 @@ def export_results(
         else:
             run_command = (
                 "bash "
-                + os.path.join(settings["code_path"], "extensions", "montage_script.sh")
+                + os.path.join(os.path.dirname(__file__), "montage_script.sh")
                 + " "
                 + os.path.abspath(settings["results"])
                 + " "

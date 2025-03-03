@@ -1,8 +1,8 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from extensions.extensions import crop_pad_rotate_array, reshape_tensor_from_6_to_3x3
-from extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
+from indi.extensions.extensions import crop_pad_rotate_array, reshape_tensor_from_6_to_3x3
+from indi.extensions.uformer_tensor_denoising.uformer_tensor_denoising import main as uformer_main
 
 
 def denoise_tensor(D: NDArray, settings: dict) -> NDArray:

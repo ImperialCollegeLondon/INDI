@@ -6,17 +6,17 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
-from extensions.get_tensor_orientation_maps import get_ha_e2a_maps
-from extensions.manual_lv_segmentation import (
+from indi.extensions.extensions import close_small_holes, get_cylindrical_coordinates_short_axis
+from indi.extensions.get_tensor_orientation_maps import get_ha_e2a_maps
+from indi.extensions.manual_lv_segmentation import (
     get_epi_contour,
     get_mask_from_poly,
     get_sa_contours,
     manual_lv_segmentation,
     plot_manual_lv_segmentation,
 )
-from extensions.polygon_selector import spline_interpolate_contour
-from extensions.tensor_fittings import dipy_tensor_fit
+from indi.extensions.polygon_selector import spline_interpolate_contour
+from indi.extensions.tensor_fittings import dipy_tensor_fit
 
 
 def get_average_images(

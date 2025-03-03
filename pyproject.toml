@@ -1,3 +1,72 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools", "setuptools-scm"]
+
+
+[project]
+name = "INDI"
+authors = [
+  { name = "Pedro-Filipe Pedro Ferreira", email = "p.f.ferreira05@imperial.ac.uk" },
+  { name = "Alberto Di Biase", email = "adibiase@ic.ac.uk" },
+]
+classifiers = [
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Typing :: Typed",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Natural Language :: English",
+]
+
+dependencies = [
+  "brukerapi",
+  "dipy==1.9.0",
+  "h5py",
+  "imageio",
+  "itk-elastix",
+  "joblib",
+  "keras",
+  "matplotlib",
+  "mayavi @ https://github.com/enthought/mayavi/zipball/master",
+  "numpy==1.26.4",
+  "opencv-python",
+  "pandas",
+  "pillow",
+  "py7zr",
+  "PyAutoGUI",
+  "pydicom",
+  "PyQt6",
+  "pystackreg",
+  "PyYAML",
+  "scipy",
+  "tqdm",
+  "vtk",
+  "xarray",
+  "scikit-image",
+  "scikit-learn",
+  "python-dotenv",
+  "PyWavelets",
+  "pynrrd",
+  "python-gdcm",
+]
+description = "INDI is a command line tool to process in-vivo cardiac diffusion tensor imaging."
+keywords = []
+license = { file = "LICENSE.md" }
+readme = "README.md"
+requires-python = ">=3.10"
+version = "1.0.0"
+
+[project.optional-dependencies]
+ai = ["tensorflow==2.18.0", "tf_keras==2.18.0"]
+dev = ["black", "pre-commit", "pytest", "pytest-cov"]
+
+[project.scripts]
+indi = "indi.scripts.main:main"
+
 [tool.black]
 line-length = 119
 exclude = '''

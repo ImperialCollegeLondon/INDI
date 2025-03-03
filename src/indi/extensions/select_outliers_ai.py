@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from extensions.dwis_classifier import dwis_classifier
-from extensions.extensions import crop_pad_rotate_array
+from indi.extensions.dwis_classifier import dwis_classifier
+from indi.extensions.extensions import crop_pad_rotate_array
 
 
 def remove_outliers_ai(

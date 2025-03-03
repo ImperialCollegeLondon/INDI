@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from extensions.extensions import get_window
-from extensions.read_data.read_and_pre_process_data import create_2d_montage_from_database
+from indi.extensions.extensions import get_window
+from indi.extensions.read_data.read_and_pre_process_data import create_2d_montage_from_database
 
 
 def manual_image_removal(

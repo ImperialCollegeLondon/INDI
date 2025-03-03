@@ -17,7 +17,7 @@ import scipy.ndimage
 from dotenv import dotenv_values
 from numpy.typing import NDArray
 
-from extensions.read_data.dicom_to_h5_csv import (
+from indi.extensions.read_data.dicom_to_h5_csv import (
     add_missing_columns,
     check_global_info,
     get_data_from_dicoms,

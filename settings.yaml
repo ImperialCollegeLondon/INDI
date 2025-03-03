@@ -6,7 +6,8 @@
 # WORKFLOWS
 # ========================================================================================
 # Startup folder
-start_folder:
+start_folder: /Users/adibiase/Documents/data/se_2/
+# start_folder:
 # anon, reg, main
 workflow_mode: main
 # se, steam

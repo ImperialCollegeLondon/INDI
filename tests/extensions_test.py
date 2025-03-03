@@ -4,8 +4,8 @@ import os
 import numpy as np
 import pandas as pd
 
-from extensions.extensions import get_cylindrical_coordinates_short_axis, get_snr_maps
-from extensions.get_fa_md import get_fa_md
+from indi.extensions.extensions import get_cylindrical_coordinates_short_axis, get_snr_maps
+from indi.extensions.get_fa_md import get_fa_md
 
 
 def test_get_fa_md():
