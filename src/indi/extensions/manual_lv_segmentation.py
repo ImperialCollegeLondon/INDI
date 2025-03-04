@@ -644,32 +644,33 @@ def manual_lv_segmentation(
     # add the buttons to the figure
 
     # epi button
-    epi_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "epicardium.png"))
+    script_path = os.path.dirname(__file__)
+    epi_icon = plt.imread(os.path.join(script_path, "assets", "icons", "epicardium.png"))
     ax_epi = fig.add_axes([0.05, 0.75, 0.10, 0.10], label="epi_btn")
     button_epi = Button(ax_epi, label="", image=epi_icon, hovercolor="#FFFFFF00")
     button_epi.on_clicked(actions.segment_epi)
 
     # endo button
-    endo_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "endocardium.png"))
+    endo_icon = plt.imread(os.path.join(script_path, "assets", "icons", "endocardium.png"))
     ax_endo = fig.add_axes([0.05, 0.60, 0.10, 0.10], label="endo_btn")
     button_endo = Button(ax_endo, label="", image=endo_icon, hovercolor="#FFFFFF00")
     button_endo.on_clicked(actions.segment_endo)
 
     # insertion points button
-    ip_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "insertion_points.png"))
+    ip_icon = plt.imread(os.path.join(script_path, "assets", "icons", "insertion_points.png"))
     ax_ip = fig.add_axes([0.05, 0.45, 0.10, 0.10], label="ip_btn")
     button_ip = Button(ax_ip, label="", image=ip_icon, hovercolor="#FFFFFF00")
     button_ip.on_clicked(actions.pick_ip)
 
     # swap images button
-    si_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "swap_images.png"))
+    si_icon = plt.imread(os.path.join(script_path, "assets", "icons", "swap_images.png"))
     ax_swap_images = fig.add_axes([0.05, 0.30, 0.10, 0.10], label="si_btn")
     ax_swap_images.axis("off")
     button_si = Button(ax_swap_images, label="", image=si_icon, hovercolor="#FFFFFF00")
     button_si.on_clicked(actions.swap_images)
 
     # ha/md map button
-    hm_icon = plt.imread(os.path.join(settings["code_path"], "assets", "icons", "ha_md.png"))
+    hm_icon = plt.imread(os.path.join(script_path, "assets", "icons", "ha_md.png"))
     ax_ha_md = fig.add_axes([0.05, 0.15, 0.10, 0.10], label="hm_btn")
     ax_ha_md.axis("off")
     button_hm = Button(ax_ha_md, label="", image=hm_icon, hovercolor="#FFFFFF00")

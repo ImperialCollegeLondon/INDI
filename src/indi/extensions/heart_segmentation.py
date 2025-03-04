@@ -151,7 +151,7 @@ def heart_segmentation(
     if settings["u_net_segmentation"]:
         logger.info("U-Net segmentation is True")
         try:
-            from extensions.u_net_segmentation import plot_segmentation_unet, u_net_segment_heart
+            from indi.extensions.u_net_segmentation import plot_segmentation_unet, u_net_segment_heart
         except ModuleNotFoundError:
             logger.error("U-Net segmentation is not available. Please install the required packages.")
             raise ModuleNotFoundError("U-Net segmentation is not available. Please install tensorflow.")

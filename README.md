@@ -149,6 +149,15 @@ Install [imagemagick](https://imagemagick.org/).
 
 ---
 
+### Installing optional AI modules (experimental)
+
+We have automatic an automatic segmentation module. More details on how to configure it are in `docs/documentation.md`.
+To use them you first need to install the AI optional dependencies with:
+
+```bash
+pip install ".[ai]"
+```
+
 ### For development
 
 Install INDI in editable mode with optional dependencies
