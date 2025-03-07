@@ -47,10 +47,7 @@ def phase_correction_for_complex_averaging(data: pd.DataFrame, logger: logging.L
         for i in range(n_lin):
             for j in range(n_col):
                 filter[i, j] = np.exp(
-                    -(
-                        (((i - n_lin // 2) ** 2) / (2 * sigma_lin**2))
-                        + (((j - n_col // 2) ** 2) / (2 * sigma_col**2))
-                    )
+                    -((((i - n_lin // 2) ** 2) / (2 * sigma_lin**2)) + (((j - n_col // 2) ** 2) / (2 * sigma_col**2)))
                 )
 
         return filter

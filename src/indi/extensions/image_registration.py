@@ -90,26 +90,23 @@ def registration_loop(
     # ============================================================
     # Elastix Registration config files
     # ============================================================
+    script_path = os.path.dirname(__file__)
     if settings["registration"] == "elastix_rigid":
         parameter_object = itk.ParameterObject.New()
-        parameter_object.AddParameterFile(
-            os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_rigid.txt")
-        )
+        parameter_object.AddParameterFile(os.path.join(script_path, "image_registration_recipes", "Elastix_rigid.txt"))
         if settings["registration_speed"] == "slow":
             parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
             parameter_object.SetParameter("NumberOfResolutions", "4")
 
     if settings["registration"] == "elastix_affine":
         parameter_object = itk.ParameterObject.New()
-        parameter_object.AddParameterFile(
-            os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_rigid.txt")
-        )
+        parameter_object.AddParameterFile(os.path.join(script_path, "image_registration_recipes", "Elastix_rigid.txt"))
         if settings["registration_speed"] == "slow":
             parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
             parameter_object.SetParameter("NumberOfResolutions", "4")
 
         parameter_object.AddParameterFile(
-            os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_affine.txt")
+            os.path.join(script_path, "image_registration_recipes", "Elastix_affine.txt")
         )
         if settings["registration_speed"] == "slow":
             parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
@@ -117,22 +114,20 @@ def registration_loop(
 
     if settings["registration"] == "elastix_non_rigid":
         parameter_object = itk.ParameterObject.New()
+        parameter_object.AddParameterFile(os.path.join(script_path, "image_registration_recipes", "Elastix_rigid.txt"))
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
+
         parameter_object.AddParameterFile(
-            os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_rigid.txt")
+            os.path.join(script_path, "image_registration_recipes", "Elastix_affine.txt")
         )
         if settings["registration_speed"] == "slow":
             parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
             parameter_object.SetParameter("NumberOfResolutions", "4")
 
         parameter_object.AddParameterFile(
-            os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_affine.txt")
-        )
-        if settings["registration_speed"] == "slow":
-            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
-            parameter_object.SetParameter("NumberOfResolutions", "4")
-
-        parameter_object.AddParameterFile(
-            os.path.join(settings["code_path"], "extensions", "image_registration_recipes", "Elastix_bspline.txt")
+            os.path.join(script_path, "image_registration_recipes", "Elastix_bspline.txt")
         )
         if settings["registration_speed"] == "slow":
             parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
@@ -155,8 +150,7 @@ def registration_loop(
         parameter_object = itk.ParameterObject.New()
         parameter_object.AddParameterFile(
             os.path.join(
-                settings["code_path"],
-                "extensions",
+                script_path,
                 "image_registration_recipes",
                 "Elastix_groupwise.txt",
             )
@@ -443,8 +437,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
             parameter_object = itk.ParameterObject.New()
             parameter_object.AddParameterFile(
                 os.path.join(
-                    settings["code_path"],
-                    "extensions",
+                    os.path.dirname(os.path.dirname(__file__)),
                     "image_registration_recipes",
                     "Elastix_groupwise.txt",
                 )

@@ -89,8 +89,7 @@ Install the python environment in the INDI root directory:
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -U pip setuptools wheel pip-tools
-pip-sync requirements_mac.txt
+pip install .
 ```
 
 ---
@@ -115,10 +114,9 @@ sudo apt-get install python3-tk python3-dev
 Create the python environment in the INDI root directory:
 
 ```bash
-ppython3 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -U pip setuptools wheel pip-tools
-pip-sync requirements_linux.txt
+pip install .
 ```
 
 You may need to allow the display to show matplotlib windows with the following terminal command:
@@ -144,17 +142,31 @@ conda activate indi
 Then install the required packages:
 
 ```bash
-pip install -U pip setuptools wheel pip-tools
-pip-sync requirements_win.txt
+pip install .
 ```
 
 Install [imagemagick](https://imagemagick.org/).
 
 ---
 
+### Installing optional AI modules (experimental)
+
+We have an ensemble of U-Net models trained to segment the cardiac borders of STEAM data. More details on how to configure it are in `docs/documentation.md`.
+To use them you first need to install the AI optional dependencies with:
+
+```bash
+pip install ".[ai]"
+```
+
+---
+
 ### For development
 
-Additional packages are required for development:
+Install INDI in editable mode with optional dependencies
+
+```bash
+pip install -e ".[dev]"
+```
 
 #### Install pre-commit
 
@@ -189,16 +201,20 @@ The `test_phantom_cdti_dicoms` folder contains a subfolder named `diffusion_imag
 
 INDI always looks recursively for subfolders named `diffusion_images`. The DICOM files must be inside this folder.
 
-Before running we should have a look at the `settings.yaml` file, and check if the parameters makes sense. See [YAML settings](docs/YAML_settings.md) for more information. For this phantom example, the default settings should be fine.
+Before running we should have a look at the `settings.yaml` file, and check if the parameters makes sense. See [YAML settings](docs/YAML_settings.md) for more information. Change the start_folder field to the path for the data. For this phantom example, the default settings should be fine.
 
 Then run in the INDI python environment:
 
 ```bash
-python main.py <data_path>
+indi /path/to/settings/file
 ```
 
-Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the
-DICOM files.
+In the `settings.yaml` file, we need to specify in the first option `start_folder`, a path to a folder that must contain at least a subfolder named `diffusion_images` with all the
+DICOM files. Alternatively, you can specify the path using the `--start_folder` option. The full command would be:
+
+```
+indi path/to/settings.yaml [--start_folder /path/to/start/folder]
+```
 
 In the video tutorial below we show how to run INDI with the phantom data:
 

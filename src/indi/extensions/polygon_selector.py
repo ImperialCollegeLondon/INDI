@@ -122,7 +122,7 @@ class PolygonSelectorSpline(_SelectorWidget):
         grab_range=10,
         draw_bounding_box=False,
         box_handle_props=None,
-        box_props=None
+        box_props=None,
     ):
         # The state modifiers 'move', 'square', and 'center' are expected by
         # _SelectorWidget but are not supported by PolygonSelector

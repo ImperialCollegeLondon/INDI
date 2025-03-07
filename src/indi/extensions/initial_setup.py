@@ -1,14 +1,29 @@
 """initial setup for the pipeline"""
 
+import argparse
 import glob
 import logging
 import os
-import sys
 
 import yaml
 
 
-def solve_conflicts(settings: dict, logger: logging.Logger) -> dict:
+def parse_args():
+    parser = argparse.ArgumentParser(description="Pipeline for processing diffusion images")
+
+    parser.add_argument("settings", type=str, help="path to the settings YAML file")
+
+    parser.add_argument(
+        "--start_folder",
+        type=str,
+        default=None,
+        help="path to the folder where the diffusion images are stored",
+    )
+
+    return parser.parse_args()
+
+
+def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Logger) -> dict:
     """solve conflicts in YAML file
 
     Parameters
@@ -51,17 +66,17 @@ def solve_conflicts(settings: dict, logger: logging.Logger) -> dict:
         logger.info("uformer_denoise set to False!")
 
     # check we have a path defined in either the YAML file or as a command argument
-    if not settings["start_folder"] and len(sys.argv) == 1:
+    if not settings["start_folder"] and not args.start_folder:
         logger.error("No path defined in YAML file or command argument!")
-        sys.exit(1)
+        raise ValueError("No path defined in YAML file or command argument!")
     # if path exists in the command argument then overwrite any path given in YAML file
-    if len(sys.argv) > 1:
-        settings["start_folder"] = sys.argv[1]
+    if args.start_folder:
+        settings["start_folder"] = args.start_folder
         logger.info("Path defined in command argument!")
     # finally check if path exists
     if not os.path.exists(settings["start_folder"]):
         logger.error("Start path does not exist!")
-        sys.exit(1)
+        raise ValueError("Start path does not exist!")
 
     return settings
 
@@ -99,9 +114,11 @@ def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, l
     # dictionary to hold dti data
     dti = {}
 
+    args = parse_args()
+
     # read settings from YAML file
     settings = {}
-    with open(os.path.join(script_path, "settings.yaml"), "r") as handle:
+    with open(os.path.join(args.settings), "r") as handle:
         settings = yaml.safe_load(handle)
 
     # add root path of the code
@@ -115,7 +132,7 @@ def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, l
     logger.addHandler(console_handler)
 
     # solve conflicts from different settings:
-    settings = solve_conflicts(settings, logger)
+    settings = solve_conflicts(settings, args, logger)
 
     # move to the start folder
     # os.chdir(settings["start_folder"])

@@ -1,6 +1,6 @@
 from torch import nn
 
-from extensions.uformer_tensor_denoising.utils import instantiate
+from indi.extensions.uformer_tensor_denoising.utils import instantiate
 
 
 class GANUFormerModelWrapper(nn.Module):
@@ -9,8 +9,7 @@ class GANUFormerModelWrapper(nn.Module):
         self.generator = instantiate(generator)
         self.discriminator = instantiate(discriminator)
 
-    def init_weights(self):
-        ...
+    def init_weights(self): ...
 
     def parameters(self, **kwargs):
         return {

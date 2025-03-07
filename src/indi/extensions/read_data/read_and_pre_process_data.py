@@ -17,7 +17,7 @@ import scipy.ndimage
 from dotenv import dotenv_values
 from numpy.typing import NDArray
 
-from extensions.read_data.dicom_to_h5_csv import (
+from indi.extensions.read_data.dicom_to_h5_csv import (
     add_missing_columns,
     check_global_info,
     get_data_from_dicoms,
@@ -772,9 +772,9 @@ def create_2d_montage_from_database(
             cc_img_stack = np.reshape(
                 cc_img_stack, (cc_img_stack.shape[0], cc_img_stack.shape[1] * cc_img_stack.shape[2]), order="F"
             )
-            montage[
-                idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_img_stack.shape[1]
-            ] = cc_img_stack
+            montage[idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_img_stack.shape[1]] = (
+                cc_img_stack
+            )
 
             if list_to_highlight:
                 # repeat for mask
@@ -783,9 +783,9 @@ def create_2d_montage_from_database(
                 cc_mask_stack = np.reshape(
                     cc_mask_stack, (cc_mask_stack.shape[0], cc_mask_stack.shape[1] * cc_mask_stack.shape[2]), order="F"
                 )
-                montage_mask[
-                    idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]
-                ] = cc_mask_stack
+                montage_mask[idx * info["img_size"][0] : (idx + 1) * info["img_size"][0], : cc_mask_stack.shape[1]] = (
+                    cc_mask_stack
+                )
 
         # create RGB image of montage and increase brightness
         if image_label == "image":
