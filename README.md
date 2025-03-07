@@ -210,7 +210,11 @@ indi /path/to/settings/file
 ```
 
 In the `settings.yaml` file, we need to specify in the first option `start_folder`, a path to a folder that must contain at least a subfolder named `diffusion_images` with all the
-DICOM files.
+DICOM files. Alternatively, you can specify the path using the `--start_folder` option. The full command would be:
+
+```
+indi path/to/settings.yaml [--start_folder /path/to/start/folder]
+```
 
 In the video tutorial below we show how to run INDI with the phantom data:
 
