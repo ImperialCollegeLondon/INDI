@@ -9,8 +9,7 @@ class GANUFormerModelWrapper(nn.Module):
         self.generator = instantiate(generator)
         self.discriminator = instantiate(discriminator)
 
-    def init_weights(self):
-        ...
+    def init_weights(self): ...
 
     def parameters(self, **kwargs):
         return {

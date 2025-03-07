@@ -157,6 +157,7 @@ To use them you first need to install the AI optional dependencies with:
 ```bash
 pip install ".[ai]"
 ```
+
 ---
 
 ### For development
@@ -208,7 +209,7 @@ Then run in the INDI python environment:
 indi /path/to/settings/file
 ```
 
-Where `<data_path>` is a folder that must contain at least a subfolder named `diffusion_images` with all the
+In the `settings.yaml` file, we need to specify in the first option `start_folder`, a path to a folder that must contain at least a subfolder named `diffusion_images` with all the
 DICOM files.
 
 In the video tutorial below we show how to run INDI with the phantom data:

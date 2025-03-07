@@ -61,7 +61,14 @@ requires-python = ">=3.10"
 version = "1.0.0"
 
 [project.optional-dependencies]
-ai = ["tensorflow==2.18.0", "tf_keras==2.18.0"]
+ai = [
+"tensorflow==2.18.0 ; platform_system=='Darwin' and platform_machine=='arm64'",
+"tensorflow==2.16.2 ; platform_system=='Darwin' and platform_machine=='x86_64'",
+"tensorflow==2.18.0 ; platform_system != 'Darwin'",
+"tf_keras==2.18.0 ; platform_system=='Darwin' and platform_machine=='arm64'",
+"tf_keras==2.16.0 ; platform_system=='Darwin' and platform_machine=='x86_64'",
+"tf_keras==2.18.0 ; platform_system != 'Darwin'",
+]
 dev = ["black", "pre-commit", "pytest", "pytest-cov"]
 
 [project.scripts]
