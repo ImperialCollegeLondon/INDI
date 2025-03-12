@@ -1,7 +1,7 @@
 # INDI (in-vivo diffusion)
 
 <p align="center">
-<img src="assets/images/sa_e1_small.png">
+<img src="assets/logo/indi_logo.png">
 </p>
 
 <p align="center">
@@ -19,9 +19,9 @@ Post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 
 ## Introduction
 
-This software is a post-processing pipeline designed for in-vivo cardiac diffusion tensor imaging.
-It currently accepts Siemens and Philips diffusion weighted DICOM data, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export).
-It also supports both STEAM and spin-echo data.
+This software offers a Python post-processing pipeline designed for in-vivo cardiac diffusion tensor imaging data.
+It currently accepts Siemens and Philips diffusion weighted DICOMs, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export).
+It also supports both STEAM and spin-echo sequences.
 
 After the data is loaded, the pipeline performs the following steps:
 
@@ -33,20 +33,19 @@ After the data is loaded, the pipeline performs the following steps:
 
 ![workflow](assets/images/summary_figure.png)
 
-INDI runs from the command line, and when processing a dataset for the first time,
-INDI will require user input (pop-up matplotlib windows) which will be saved for future runs.
+INDI runs from the command line, and when processing a dataset for the first time, it will require user input (pop-up matplotlib windows) which will be saved for future runs.
 
 For more details:
 
-See [documentation](docs/documentation.md) for details on the post-processing pipeline.
+See [documentation](docs/documentation.md) for details on the post-processing pipeline (under development 🚧).
 
-See [YAML settings](docs/YAML_settings.md) for run configuration details.
+See [YAML settings](docs/YAML_settings.md) for run configuration details (under development 🚧).
 
 ## Installation
 
 Software has been tested on:
 
-- macOS 15.0 with python 3.12
+- macOS 15 with python 3.12
 - Ubuntu 24.04 with python 3.12
 - Windows 10 with python 3.12
 
@@ -84,7 +83,7 @@ Also install imagemagick:
 brew install imagemagick
 ```
 
-Install the python environment in the INDI root directory:
+Finally, install the python environment in the INDI root directory:
 
 ```bash
 python3.12 -m venv .venv
@@ -182,14 +181,14 @@ pre-commit run --all-files
 
 This is required to ensure code quality and style before committing code changes.
 
-#### Update requirements
+<!-- #### Update and pin requirements
 
-The packages are pinned to specific versions in the `requirements.in` file. If you want to update the packages, you can do so with the following command (change the requirements file name according to the OS):
+Some packages are pinned to specific versions in the `requirements.in` file. If you want to update the packages, you can do so with the following command (change the requirements file name according to the OS):
 
 ```bash
 pip-compile --output-file=requirements_mac.txt
 pip-sync requirements_mac.txt
-```
+``` -->
 
 ---
 
@@ -197,11 +196,9 @@ pip-sync requirements_mac.txt
 
 We are going to post-process a synthetic phantom dataset with non-rigid distortions. Please unzip [the phantom data](docs/test_phantom_cdti_dicoms.zip).
 
-The `test_phantom_cdti_dicoms` folder contains a subfolder named `diffusion_images` with the cdti simulated DICOMs. The DICOM files contain noisy diffusion weighted images with periodic non-rigid distortions, simulating a typical in-vivo scan.
+The `test_phantom_cdti_dicoms` folder contains a subfolder named `diffusion_images` with the cDTI simulated DICOMs. The DICOM files contain noisy diffusion weighted images with periodic non-rigid distortions, simulating a typical in-vivo scan. INDI always looks recursively for subfolders named `diffusion_images`. The DICOM files must be inside a folder with this name.
 
-INDI always looks recursively for subfolders named `diffusion_images`. The DICOM files must be inside this folder.
-
-Before running we should have a look at the `settings.yaml` file, and check if the parameters makes sense. See [YAML settings](docs/YAML_settings.md) for more information. Change the start_folder field to the path for the data. For this phantom example, the default settings should be fine.
+Before running we should have a look at the `settings.yaml` file, and check if the parameters makes sense. See [YAML settings](docs/YAML_settings.md) for more information. Change the start_folder field to the path for the data. For this phantom example, the default settings for all the other options should be fine.
 
 Then run in the INDI python environment:
 
@@ -212,7 +209,7 @@ indi /path/to/settings/file
 In the `settings.yaml` file, we need to specify in the first option `start_folder`, a path to a folder that must contain at least a subfolder named `diffusion_images` with all the
 DICOM files. Alternatively, you can specify the path using the `--start_folder` option. The full command would be:
 
-```
+```bash
 indi path/to/settings.yaml [--start_folder /path/to/start/folder]
 ```
 
