@@ -1331,7 +1331,7 @@ def read_and_process_dicoms(
         [move_file(item) for item in dicom_list]
 
         # load password from .env file
-        env_vars = dotenv_values(os.path.join(settings["code_path"], ".env"))
+        env_vars = dotenv_values(os.path.join(os.getcwd(), ".env"))
 
         # now encrypt folder with 7zip
         with py7zr.SevenZipFile(
