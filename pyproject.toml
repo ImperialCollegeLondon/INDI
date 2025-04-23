@@ -68,6 +68,10 @@ ai = [
 "tf_keras==2.18.0 ; platform_system=='Darwin' and platform_machine=='arm64'",
 "tf_keras==2.16.0 ; platform_system=='Darwin' and platform_machine=='x86_64'",
 "tf_keras==2.18.0 ; platform_system != 'Darwin'",
+"torch", 
+"hydra_core",
+"einops",
+"timm",
 ]
 dev = ["black", "pre-commit", "pytest", "pytest-cov"]
 
