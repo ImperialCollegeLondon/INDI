@@ -385,6 +385,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
 
     ref_images = {}
     if settings["registration"] != "elastix_groupwise":
+
         # get unique b-values
         b_values = current_entries["b_value_original"].unique()
         # sort b-values
@@ -393,25 +394,41 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
         index_pos = current_entries.index[current_entries["b_value_original"] == b_values[0]].tolist()
         n_images = len(index_pos)
 
-        if n_images < 2 or settings["registration_reference_method"] == "best":
+        if (
+            n_images < 2
+            or settings["registration_reference_method"] == "best"
+            or settings["registration_reference_method"] == "first"
+        ):
+
             if n_images < 2:
                 logger.info(
                     "Slice "
                     + str(slice_idx).zfill(2)
                     + ": only one image found for the lowest b-value, using that image as reference"
                 )
-            else:
-                logger.info(
-                    "Slice "
-                    + str(slice_idx).zfill(2)
-                    + ": using the strongest image as reference, registration_reference_method = best"
-                )
 
             # stack all possible reference images
             image_stack = np.stack(current_entries["image"][index_pos].values)
             image_stack_sum = np.sum(image_stack, axis=(1, 2))
-            # get the image with the most signal
-            c_img = current_entries.at[index_pos[np.argmax(image_stack_sum)], "image"]
+
+            if settings["registration_reference_method"] == "best":
+                logger.info(
+                    "Slice "
+                    + str(slice_idx).zfill(2)
+                    + ": using the brightest image as reference, registration_reference_method = best"
+                )
+                # get the image with the most signal
+                c_img = current_entries.at[index_pos[np.argmax(image_stack_sum)], "image"]
+
+            elif settings["registration_reference_method"] == "first":
+                logger.info(
+                    "Slice "
+                    + str(slice_idx).zfill(2)
+                    + ": using the first image as reference, registration_reference_method = first"
+                )
+                # get the first image
+                c_img = current_entries.at[index_pos[0], "image"]
+
             # normalise 0 to 1
             c_img = (c_img - np.min(c_img)) / (np.max(c_img) - np.min(c_img))
 
@@ -422,7 +439,8 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
             ref_images["index"] = index_pos[np.argmax(image_stack_sum)]
             ref_images["n_images"] = len(current_entries)
             ref_images["groupwise_reg_info"] = {}
-        else:
+
+        elif settings["registration_reference_method"] == "groupwise":
             logger.info(
                 "Slice "
                 + str(slice_idx).zfill(2)
@@ -430,6 +448,7 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
                 + str(n_images)
                 + " images found for the lowest b-value, registering them groupwise for a reference. Please hold..."
             )
+
             # stack all images to be registered
             image_stack = np.stack(current_entries["image"][index_pos].values)
 
