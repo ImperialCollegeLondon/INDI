@@ -30,6 +30,7 @@ from indi.extensions.get_eigensystem import get_eigensystem
 from indi.extensions.get_fa_md import get_fa_md
 from indi.extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
 from indi.extensions.heart_segmentation import get_average_images, heart_segmentation
+from indi.extensions.image_denoising import image_denoising
 from indi.extensions.image_registration import image_registration
 from indi.extensions.initial_setup import initial_setup
 from indi.extensions.phase_correction_for_complex_averaging import phase_correction_for_complex_averaging
@@ -108,6 +109,12 @@ def main():
         # =========================================================
         if settings["complex_data"]:
             data = phase_correction_for_complex_averaging(data, logger, settings)
+
+        # =========================================================
+        # NLM image denoising of all DWIs
+        # =========================================================
+        if settings["image_denoising"]:
+            data = image_denoising(data, logger, settings)
 
         # =========================================================
         # DWIs registration
