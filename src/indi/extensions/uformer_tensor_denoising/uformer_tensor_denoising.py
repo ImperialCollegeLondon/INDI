@@ -5,10 +5,14 @@ import torch
 
 from indi.extensions.uformer_tensor_denoising.utils import IndependentEnsemble
 
+# need to have the line below, otherwise I get a python error:
+# /opt/homebrew/Cellar/python@3.11/3.11.12/Frameworks/Python.framework/Versions/3.11/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up
+torch.set_num_threads(1)
+
 MODELS = {
-    (1, "1BH", "BH1"): "/usr/local/dtcmr/pytorch_tensor_denoising/state_dict_1bh.pth",
-    (3, "3BH", "BH3"): "/usr/local/dtcmr/pytorch_tensor_denoising/state_dict_3bh.pth",
-    (5, "5BH", "BH5"): "/usr/local/dtcmr/pytorch_tensor_denoising/state_dict_5bh.pth",
+    (1, "1BH", "BH1"): "/usr/local/dtcmr/transformer_tensor_denoising/state_dict_1bh.pth",
+    (3, "3BH", "BH3"): "/usr/local/dtcmr/transformer_tensor_denoising/state_dict_3bh.pth",
+    (5, "5BH", "BH5"): "/usr/local/dtcmr/transformer_tensor_denoising/state_dict_5bh.pth",
 }
 
 SHIFT = torch.tensor(
@@ -41,7 +45,7 @@ MODEL_CONFIG = {
         "image_size": 128,
         "initial_channels": 16,
         "_convert_": "all",
-        "_target_": "extensions.uformer_tensor_denoising.discriminator.DiscriminatorForVGG",
+        "_target_": "indi.extensions.uformer_tensor_denoising.discriminator.DiscriminatorForVGG",
     },
     "generator": {
         "img_size": 128,
@@ -63,10 +67,10 @@ MODEL_CONFIG = {
         "token_mlp": "leff",
         "se_layer": False,
         "_convert_": "all",
-        "_target_": "extensions.uformer_tensor_denoising.uformer.Uformer",
+        "_target_": "indi.extensions.uformer_tensor_denoising.uformer.Uformer",
     },
     "_convert_": "all",
-    "_target_": "extensions.uformer_tensor_denoising.gan_wrapper.GANUFormerModelWrapper",
+    "_target_": "indi.extensions.uformer_tensor_denoising.gan_wrapper.GANUFormerModelWrapper",
 }
 
 

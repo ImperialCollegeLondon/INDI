@@ -136,7 +136,7 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
             sg.point_data.get_array(counter).name = tensor_str
             sg.point_data.update()
             counter += 1
-    write_data(sg, os.path.join(folder_path, name + ".vtk"))
+    write_data(sg, os.path.join(folder_path, name))
 
 
 def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray):
