@@ -24,19 +24,16 @@ from indi.extensions.extensions import mag_to_rad, rad_to_mag
 
 # get DICOM header fields
 def dictify(ds: pydicom.dataset.Dataset) -> dict:
-    """
-    Turn a pydicom Dataset into a dict with keys derived from the Element tags.
+    """Turn a pydicom Dataset into a dict with keys derived from the Element tags.
     Private info is not collected, because we cannot access it with the keyword.
     So we need to manually fish the diffusion information in the old DICOMs.
 
-    Parameters
-    ----------
-    ds : pydicom.dataset.Dataset
-        The Dataset to dictify
+    Args:
+      ds: The Dataset to dictify
 
-    Returns
-    -------
-    DICOM header as a dict
+    Returns:
+      output: A dictionary with the DICOM header information
+
     """
 
     output = dict()
@@ -56,18 +53,16 @@ def dictify(ds: pydicom.dataset.Dataset) -> dict:
 
 
 def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = ""):
-    """
-    Flatten a multilevel dictionary.
+    """Flatten a multilevel dictionary.
 
-    Parameters
-    ----------
-    input_dict : multilevel dictionary
-    separator : separator string to use
-    prefix : prefix to use
+    Args:
+      input_dict: multilevel dictionary
+      separator: separator string to use
+      prefix: prefix to use
 
-    Returns
-    -------
-    flattened dictionary
+    Returns:
+        output_dict: flattened dictionary
+
     """
     output_dict = {}
     for key, value in input_dict.items():
@@ -95,17 +90,14 @@ def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = ""):
 
 
 def simplify_global_dict(c_dicom_header: dict, dicom_type: str) -> dict:
-    """
-    Simplify the dictionary keys by removing some common strings
+    """Simplify the dictionary keys by removing some common strings
 
-    Parameters
-    ----------
-    c_dicom_header
-    dicom_type
+    Args:
+      c_dicom_header: input DICOM header dictionary
+      dicom_type: DICOM type (legacy or enhanced)
 
-    Returns
-    -------
-    c_dicom_header
+    Returns:
+        c_dicom_header: simplified DICOM header dictionary
 
     """
     if dicom_type == "legacy":
@@ -132,26 +124,20 @@ def simplify_global_dict(c_dicom_header: dict, dicom_type: str) -> dict:
 def get_data_from_dicoms(
     dicom_files: list, settings: dict, logger: logging.Logger, image_type: str = "mag"
 ) -> pd.DataFrame:
-    """
-    From a list of DICOM files get:
+    """From a list of DICOM files get:
+
     - header information in a dataframe
     - pixel arrays from DICOM files.
 
-    Parameters
-    ----------
-    dicom_files : list
-        List of DICOM files
-    settings : dict
-        Settings dictionary
-    logger : logging.Logger
-        Logger
-    image_type : str
-        Image type, either "mag" or "phase"
+    Args:
+      dicom_files: List of DICOM files
+      settings: Settings dictionary
+      logger: Logger
+      image_type: Image type, either "mag" or "phase"
 
-    Returns
-    -------
-    header_table : pd.DataFrame
-        Table with header information
+    Returns:
+      header_table: DataFrame with header information
+
     """
 
     # get full paths of the DICOM files
@@ -217,19 +203,17 @@ def get_data_from_dicoms(
     return header_table
 
 
-def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict, pd.DataFrame]:
-    """
-    Check that some columns are unique in the table and merge them into the info dictionary.
+def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> tuple[dict, pd.DataFrame]:
+    """Check that some columns are unique in the table and merge them into the info dictionary.
 
-    Parameters
-    ----------
-    data
-    info
-    logger
+    Args:
+      data: Image data
+      info: Info dictionary
+      logger: Logger
 
-    Returns
-    -------
-    info dict
+    Returns:
+      info: Info dictionary with merged header information
+      data: DataFrame with header information
 
     """
 
@@ -315,16 +299,14 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> [dict,
 
 
 def scale_dicom_pixel_values(data: pd.DataFrame) -> pd.DataFrame:
-    """
-    Scale pixel values using RescaleSlope and RescaleIntercept columns if they exist in the header.
+    """Scale pixel values using RescaleSlope and RescaleIntercept columns if they exist in the header.
 
-    Parameters
-    ----------
-    dataframe
+    Args:
+        data: DataFrame with image data
 
-    Returns
-    -------
-    dataframe with scaled pixel values
+    Returns:
+        data: DataFrame with scaled pixel values
+
     """
     # check that RescaleSlope and RescaleIntercept columns exist
     if "RescaleSlope" in data.columns and "RescaleIntercept" in data.columns:
@@ -339,20 +321,17 @@ def scale_dicom_pixel_values(data: pd.DataFrame) -> pd.DataFrame:
 def interpolate_dicom_pixel_values(
     data: pd.DataFrame, info: dict, logger: logging, image_type: str = "mag"
 ) -> [pd.DataFrame, dict]:
-    """
-    Interpolate pixel values if the largest dimension is smaller than 192.
+    """Interpolate pixel values if the largest dimension is smaller than 192.
 
-    Parameters
-    ----------
-    data
-    info
-    logger
-    image_type
+    Args:
+      data: DataFrame with image data
+      info: Info dictionary
+      logger: Logger
+      image_type: Image type, either "mag" or "phase"
 
-    Returns
-    -------
-    dataframe with interpolated pixel values
-    info dictionary
+    Returns:
+      data: DataFrame with interpolated pixel values
+      info: Info dictionary with updated Rows and Columns values
 
     """
 
@@ -396,19 +375,16 @@ def interpolate_dicom_pixel_values(
 
 
 def tweak_directions(data: pd.DataFrame) -> pd.DataFrame:
-    """
-    Tweak the directions in the table. If a direction is a list of NaNs, then
+    """Tweak the directions in the table. If a direction is a list of NaNs, then
     change to a null vector (0,0,0).
 
-    Parameters
-    ----------
-    data
+    Args:
+      data: DataFrame with image data
 
-    Returns
-    -------
-    data
+    Returns:
+        data: DataFrame with tweaked directions
+
     """
-
     # add new column to table to indicate if the directions are in the image plane
     data["dir_in_image_plane"] = False
 
@@ -421,16 +397,14 @@ def tweak_directions(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_missing_columns(data: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add missing required columns to the table.
+    """Add missing required columns to the table.
     More columns can be added here if needed.
 
-    Parameters
-    ----------
-    data
+    Args:
+      data: DataFrame with image data
 
-    Returns
-    -------
+    Returns:
+        data: DataFrame with added columns
 
     """
     list_of_fields = ["series_description"]
@@ -443,18 +417,17 @@ def add_missing_columns(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_dicom_version(global_dicom_header: pydicom.dataset.Dataset, logger: logging) -> [str, int]:
-    """
-    Get the DICOM version:
+    """Get the DICOM version:
     - legacy
     - enhanced
 
-    Parameters
-    ----------
-    global_dicom_header
+    Args:
+      global_dicom_header: pydicom.dataset.Dataset:
+      logger: logger
 
-    Returns
-    dicom_type and n_images_per_file
-    -------
+    Returns:
+      dicom_type: either "legacy" or "enhanced"
+      n_images_per_file: number of images per DICOM file
 
     """
     dicom_type = None
@@ -474,16 +447,12 @@ def get_dicom_version(global_dicom_header: pydicom.dataset.Dataset, logger: logg
 
 
 def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
-    """
-    Get manufacturer from the DICOM header.
+    """Get manufacturer from the DICOM header.
+    Why this does not return a value?
 
-    Parameters
-    ----------
-    header
-    logger
-
-    Returns
-    -------
+    Args:
+      header: Dataset header
+      logger: logger
 
     """
     if "Manufacturer" in header:
@@ -503,19 +472,16 @@ def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
 
 
 def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
-    """
-    Rename important columns in the table.
+    """Rename important columns in the table.
     This will also have the effect of naming some columns the same string for both
     legacy and enhanced DICOMs.
 
-    Parameters
-    ----------
-    dicom_type
-    table_frame
+    Args:
+      dicom_type: either "legacy" or "enhanced"
+      table_frame: dataframe with image data
 
-    Returns
-    -------
-    table_frame
+    Returns:
+        table_frame: dataframe with renamed columns
 
     """
     if dicom_type == "enhanced":
@@ -565,16 +531,13 @@ def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def reorder_columns(table_frame: pd.DataFrame) -> pd.DataFrame:
-    """
-    Move some columns to the start of the table for easier access to the most important columns.
+    """Move some columns to the start of the table for easier access to the most important columns.
 
-    Parameters
-    ----------
-    table_frame
+    Args:
+      table_frame: dataframe with image data
 
-    Returns
-    -------
-    table_frame
+    Returns:
+        table_frame: dataframe with reordered columns
 
     """
 
@@ -605,18 +568,16 @@ def read_all_dicom_files(
     n_images_per_file: int,
     header_field_list: list,
 ) -> pd.DataFrame:
-    """
-    Read all DICOM files and extract header information to a dataframe
+    """Read all DICOM files and extract header information to a dataframe
 
-    Parameters
-    ----------
-    dicom_files
-    dicom_type
-    n_images_per_file
-    header_field_list
+    Args:
+      dicom_files: list of DICOM files
+      dicom_type: DICOM type (legacy or enhanced)
+      n_images_per_file: number of images per DICOM file
+      header_field_list: list of fields to keep in the header
 
-    Returns
-    -------
+    Returns:
+        header_table: DataFrame with header information
 
     """
     # loop through all DICOM files
@@ -704,17 +665,14 @@ def read_all_dicom_files(
 
 
 def simplify_per_frame_dictionary(c_dict: dict, frame_idx: int) -> dict:
-    """
-    Simplify the dictionary keys by removing some recurrent strings
+    """Simplify the dictionary keys by removing some recurrent strings
 
-    Parameters
-    ----------
-    c_dict
-    frame_idx
+    Args:
+      c_dict: input dictionary
+      frame_idx: frame index
 
-    Returns
-    -------
-    c_dict
+    Returns:
+        c_dict: simplified dictionary
 
     """
     c_dict = {

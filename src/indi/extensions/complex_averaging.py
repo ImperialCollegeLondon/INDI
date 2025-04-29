@@ -5,18 +5,14 @@ import pandas as pd
 
 
 def complex_averaging(data: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
-    """
-    Performs complex averaging of the data
+    """Performs complex averaging of the data
 
-    Parameters
-    ----------
-    data: dataframe with data
-    logger: logger
+    Args:
+      data: dataframe with data
+      logger: logge
 
-    Returns
-    -------
-    dataframe with complex averaged data
-
+    Returns:
+      data: dataframe with complex averaged data
     """
 
     logger.debug("Complex averaging.")

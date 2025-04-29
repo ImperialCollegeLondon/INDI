@@ -21,34 +21,32 @@ def crop_images(
     logger: logging.Logger,
     settings: dict,
 ) -> tuple[dict, pd.DataFrame, NDArray, dict, NDArray, dict, dict, NDArray]:
-    """
-    Crop images to the heart region as defined by the segmentation
+    """Crop images to the heart region as defined by the segmentation
 
-    Parameters
-    ----------
-    dti: dict with DTI maps
-    data: dataframe with the diffusion images
-    mask_3c: segmentation mask of the heart
-    reg_mask: registration mask
-    segmentation: segmentation information
-    slices: array with slice positions
-    average_images: average image of each slice
-    ref_images: reference images
-    info: useful info dictionary
-    logger: logger
-    settings: dict
+    Args:
+      dti: dict with DTI maps
+      data: dataframe with the diffusion images
+      mask_3c: segmentation mask of the heart
+      reg_mask: registration mask
+      segmentation: segmentation information
+      slices: array with slice positions
+      average_images: average image of each slice
+      ref_images: reference images
+      info: dictionary with general information
+      logger: logger
+      settings: dictionary with settings
 
-    Returns
-    -------
-    dti: dict with dti maps
-    data: dataframe with the diffusion images now cropped.
-    mask_3c: U-Net mask of the heart now cropped.
-    reg_mask: registration mask
-    segmentation: dict with segmentation info
-    average_images: average image of each slice now cropped.
-    ref_images: reference_images used in the registration
-    info: dictionary with useful stuff, here updates the image size to the cropped one.
-    crop_mask: logical mask with the crop.
+    Returns:
+      dti: Updated dictionary with DTI maps
+      data: Updated dataframe with the diffusion images
+      mask_3c: Updated segmentation mask of the heart
+      reg_mask: Updated registration mask
+      segmentation: Updated segmentation
+      average_images: Updated average image
+      ref_images: Updated reference images
+      info: updated info dict
+      crop_mask: mask of the cropped images
+
     """
 
     global_crop_mask = sum(mask_3c[i] for i in range(mask_3c.shape[0]))
@@ -146,19 +144,17 @@ def record_image_registration(
     settings: dict,
     logger: logging.Logger,
 ):
-    """
-    Save registration results as line profiles, animated GIF,
+    """Save registration results as line profiles, animated GIF,
     and optionally as montages for each frame
 
-    Parameters
-    ----------
-    registration_image_data: dict with registration info: images before and after registration,
-        and also displacement field, and grid image with displacement field applied to it
-    img_post_reg: images after registration
-    mask: U-Net mask of the heart
-    slices: array with slice position arrays
-    settings: dictionary with useful info
-    logger: logger
+    Args:
+      registration_image_data: dictionary with registration
+      ref_images: reference images
+      mask: segmentation mask
+      slices: array with slice positions
+      settings: dictionary with settings
+      logger: logger
+
     """
 
     # import imageio
@@ -363,35 +359,31 @@ def crop_fov(
     logger: logging.Logger,
     settings: dict,
 ) -> tuple[dict, pd.DataFrame, NDArray, dict, NDArray, dict, NDArray]:
-    """
-    Crop images to the heart region as defined by the segmentation
+    """Crop images to the heart region as defined by the segmentation
 
-    Parameters
-    ----------
-    dti: dictionary with DTI data
-    data: dataframe with the diffusion images
-    mask_3c: segmentation mask of the heart
-    reg_mask: registration mask
-    segmentation: segmentation information
-    slices: array with slice positions
-    average_images: average image of each slice
-    registration_image_data: dict with registration info: images before and after registration,
-        and also displacement field, and grid image with displacement field applied to it
-    ref_images: reference images
-    info: useful info dictionary
-    logger: logger
-    settings: dictionary with useful info
+    Args:
+      dti: dictionary with DTI data
+      data: dataframe with the diffusion images
+      mask_3c: segmentation mask of the heart
+      reg_mask: registration mask
+      segmentation: segmentation information
+      slices: array with slice positions
+      average_images: average image of each slice
+      registration_image_data: dict with registration info: images before and after registration and also displacement field, and grid image with displacement field applied to it
+      ref_images: reference images
+      info: useful info dictionary
+      logger: logger
+      settings: dictionary with useful info
 
-    Returns
-    -------
-    dti: dictionary with DTI data
-    data: dataframe with the diffusion images now cropped.
-    mask_3c: U-Net mask of the heart now cropped.
-    reg_mask: registration mask cropped.
-    segmentation: segmentation information now cropped.
-    average_images: average image of each slice now cropped.
-    info: dictionary with useful stuff, here updates the image size to the cropped one.
-    crop_mask: logical mask with the crop.
+    Returns:
+        dti: updated dictionary with DTI data
+        data: updated dataframe with the diffusion images
+        mask_3c: updated segmentation mask of the heart
+        reg_mask: updated registration mask
+        segmentation: updated segmentation
+        average_images: updated average image
+        info: updated info dict
+        crop_mask: mask of the cropped images
 
     """
     dti, data, mask_3c, reg_mask, segmentation, average_images, ref_images, info, crop_mask = crop_images(
