@@ -7,7 +7,6 @@
 # ========================================================================================
 # Startup folder
 start_folder: PATH
-# start_folder:
 # anon, reg, main
 workflow_mode: main
 # se, steam
@@ -29,7 +28,7 @@ registration_extra_debug: False
 registration: elastix_non_rigid
 # fast, slow
 registration_speed: fast
-# best, groupwise
+# first, best, groupwise
 registration_reference_method: best
 
 # ========================================================================================
@@ -48,6 +47,12 @@ remove_outliers_manually_pre: True
 # True, False
 # NOT WORKING WELL AT THE MOMENT
 remove_outliers_with_ai: False
+
+# ========================================================================================
+# DWIs NLM DENOISING
+# ========================================================================================
+# True, False
+image_denoising: False
 
 # ========================================================================================
 # MISC
@@ -84,7 +89,7 @@ u_net_segmentation: False
 n_ensemble: 5
 
 # ========================================================================================
-# TENSOR DENOISING
+# TENSOR DENOISING (EXPERIMENTAL)
 # ========================================================================================
 # True, False
 uformer_denoise: False
