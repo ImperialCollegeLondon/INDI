@@ -164,7 +164,18 @@ pip install ".[ai]"
 Install INDI in editable mode with optional dependencies
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,doc]"
+```
+
+#### Documentation
+
+>[!NOTE]
+> Documentation is work in progress
+
+The documentation can be served locally with
+
+```bash
+mkdocs serve
 ```
 
 #### Install pre-commit
