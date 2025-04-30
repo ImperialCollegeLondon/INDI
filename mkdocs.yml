@@ -1,0 +1,27 @@
+site_name: INDI
+watch: [src]
+
+theme:
+  name: "material"
+
+plugins:
+- mkdocstrings:
+    default_handler: python
+    handlers:
+      python:
+        options:
+          show_source: true
+          show_root_heading: true
+          show_category_heading: true
+          show_submodules: true
+          merge_init_into_class: true
+        paths: [src]
+
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - github-callouts
+

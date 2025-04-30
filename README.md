@@ -31,7 +31,7 @@ After the data is loaded, the pipeline performs the following steps:
 - Segmentation
 - Export results
 
-![workflow](assets/images/summary_figure.png)
+![workflow](docs/assets/images/summary_figure.png)
 
 INDI runs from the command line, and when processing a dataset for the first time, it will require user input (pop-up matplotlib windows) which will be saved for future runs.
 
@@ -164,7 +164,18 @@ pip install ".[ai]"
 Install INDI in editable mode with optional dependencies
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,doc]"
+```
+
+#### Documentation
+
+>[!NOTE]
+> Documentation is work in progress
+
+The documentation can be served locally with
+
+```bash
+mkdocs serve
 ```
 
 #### Install pre-commit
@@ -215,7 +226,7 @@ indi path/to/settings.yaml [--start_folder /path/to/start/folder]
 
 In the video tutorial below we show how to run INDI with the phantom data:
 
-[![Watch the video tutorial](assets/images/indi_tutorial_movie_screenshot.png)](https://1drv.ms/v/s!Ah-7Qw9tn52siW8SQZYX0RjRPdKG?e=Pwq85B)
+[![Watch the video tutorial](docs/assets/images/indi_tutorial_movie_screenshot.png)](https://1drv.ms/v/s!Ah-7Qw9tn52siW8SQZYX0RjRPdKG?e=Pwq85B)
 
 ## License
 
@@ -232,4 +243,4 @@ Royal Brompton Hospital**".
 - Chan Zuckerberg Initiative DAF, an advised fund of the Silicon Valley Community Foundation: 2024-337787.
 - EPSRC Healthcare Technologies EP/X014010/1.
 
-![funding](assets/images/grant_logos.png)
+![funding](docs/assets/images/grant_logos.png)
