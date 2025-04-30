@@ -7,22 +7,18 @@ import logging
 
 
 def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) -> pd.DataFrame:
-    """Denoise with an NLM filter all the DWIs in the dataframe.
-    The denoised images are saved in the original dataframe, replacing the original images.
+    """Denoise all DWIs in the DataFrame using a Non-Local Means (NLM) filter.
 
-    Parameters
-    ----------
-    data : dataframe
-        table with images and all relevant information
-    logger : logger
-    settings : dict
-        dictionary with settings
+    The denoised images replace the original images in the input DataFrame.
 
+    Args:
+        data (pd.DataFrame): DataFrame containing DWI images and related metadata.
+        logger (logging.Logger): Logger instance for debug output.
+        settings (dict): Dictionary of configuration settings. Must include 'debug'
+            (bool) and optionally 'debug_folder' (str) if debug is True.
 
-    Returns
-    -------
-    dataframe
-        table with denoised images
+    Returns:
+        data (pd.DataFrame): DataFrame with denoised images replacing original images.
     """
 
     logger.debug("Image denoising with NLM")
