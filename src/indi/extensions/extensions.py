@@ -29,15 +29,16 @@ from indi.extensions.manual_lv_segmentation import get_sa_contours
 def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
     """
 
-    Parameters
-    ----------
-    vectors: dictionary with all the vectors fields
-    tensors: dictionary with all the tensor fields
-    scalars: dictionary with all the scalar maps
-    info: dict
-    name: filename
-    folder_path: save path
+    Args:
+      vectors: dict with vector fields to save
+      tensors: dict with tensor fields to save
+      scalars: dict with scalar fields to save
+      info: dictionary with info
+      name: name of the file
+      folder_path: path to the folder where to save the file
 
+    Returns:
+        None
     """
 
     # shape of the vector field
@@ -140,17 +141,17 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
 
 
 def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray):
-    """
-    Organise the data in order for the DTI maps to be exported in VTK format
+    """Organise the data in order for the DTI maps to be exported in VTK format
 
-    Parameters
-    ----------
-    dti: object with all DTI maps
-    info: dictionary with info
-    settings: dictionary with info
-    mask_3c: numpy array with LV and RV mask
-    average_images: Array with average image for each slice
+    Args:
+      dti: dict with DTI maps
+      info: dict with info
+      settings: dict with settings
+      mask_3c: Array with the segmentation mask
+      average_images: Array with the average images
 
+    Returns:
+        None
 
     """
     vectors = {}
@@ -183,21 +184,22 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
 
 
-def clean_image(img: NDArray, slices: NDArray, factor: float = 0.5, blur: bool = False) -> [NDArray, NDArray, float]:
-    """
+def clean_image(
+    img: NDArray, slices: NDArray, factor: float = 0.5, blur: bool = False
+) -> tuple[NDArray, NDArray, NDArray]:
+    """Clean the image background by thresholding the image using Otsu's method.
 
-    Parameters
-    ----------
-    img: image, array of floats scaled [0 1]
-    slices: array with slice integers
-    factor: Threshold reduction factor [0 1]. 1 means no reduction. Defaults to 0.5.
-    blur image option
+    Args:
+        img: image, array of floats scaled [0 1]
+        slices: array with slice integers
+        factor: Threshold reduction factor [0 1]. 1 means no reduction. Defaults to 0.5.)
+        blur: option to blur the image
 
-    Returns
-    -------
-    clean_img (NDArray): cleaned image
-    mask (NDArray): threshold mask
-    thresh (float): threshold value used = Otsu's x factor
+    Returns:
+        clean_img: cleaned image
+        mask: threshold mask
+        thresh: threshold value used = Otsu's x factor
+
     """
 
     n_slices = img.shape[0]
@@ -222,16 +224,13 @@ def clean_image(img: NDArray, slices: NDArray, factor: float = 0.5, blur: bool =
 
 
 def close_small_holes(mask: NDArray) -> NDArray:
-    """
-    Close small holes in the mask and add them to the rest of heart mask
+    """Close small holes in the mask and add them to the rest of heart mask
 
-    Parameters
-    ----------
-    mask: mask with 0: background, 1: LV, 2: rest of heart
+    Args:
+      mask: mask with 0: background, 1: LV, 2: rest of heart
 
-    Returns
-    -------
-    mask with holes filled
+    Returns:
+        mask: NDArray: mask with holes filled
 
     """
     # convert mask to binary
@@ -248,20 +247,17 @@ def close_small_holes(mask: NDArray) -> NDArray:
     return mask
 
 
-def get_cylindrical_coordinates_short_axis(
-    mask: NDArray,
-) -> [dict]:
+def get_cylindrical_coordinates_short_axis(mask: NDArray) -> dict:
     """
     Function to calculate an approximate version of the local cardiac coordinates for a short-axis plane
     (radial, circumferential, and longitudinal vectors). They will be cylindrical coordinates with the
     centre on the FOV centre and the z-axis perpendicular to the image plane.
 
-    mask: mask to where to calculate the vectors
+    Args:
+        mask: mask to where to calculate the vectors
 
-
-    Returns
-    -------
-    heart_coordinates as a dictionary with radi, circ, long arrays
+    Returns:
+        heart_coordinates: a dictionary with radi, circ, long arrays
     """
 
     # the three orthogonal vectors
@@ -345,24 +341,25 @@ def get_cardiac_coordinates_short_axis(
     dti: dict,
     average_images: NDArray,
     info: dict,
-) -> [dict, dict]:
+) -> tuple[dict, dict]:
     """
     Function to calculate the local cardiac coordinates for a short-axis plane
     (radial, circumferential, and longitudinal vectors)
 
-    mask: hearts masks
-    segmentation: dict with segmentation info
-    slices: array with slice integers
-    n_slices: int with number of slices
-    settings: dict
-    dti: dictionary with DTI maps
-    average_images: normalised average image per slice
-    info: dict
+    Args:
+        mask: hearts masks
+        segmentation: dict with segmentation info
+        slices: array with slice integers
+        n_slices: int with number of slices
+        settings: dict
+        dti: dictionary with DTI maps
+        average_images: normalised average image per slice
+        info: dict
 
-    Returns
-    -------
-    heart_coordinates as a dictionary with radi, circ, long arrays
-    lv_centres: dictionary with the LV centres for each slice
+    Returns:
+        heart_coordinates: as a dictionary with radi, circ, long arrays
+        lv_centres: dictionary with the LV centres for each slice
+        phi_matrix: dictionary with the phi matrix for each slice
     """
     lv_centres = np.zeros([n_slices, 2], dtype=int)
 
@@ -488,16 +485,13 @@ def get_cardiac_coordinates_short_axis(
 
 
 def create_2d_montage(img_stack: NDArray) -> NDArray:
-    """
-    Creates a 2D montage of a 3D array of images
+    """Creates a 2D montage of a 3D array of images
 
-    Parameters
-    ----------
-    img_stack: 3d image stack
+    Args:
+        img_stack: 3d image stack
 
-    Returns
-    -------
-    2D image montage
+    Returns:
+        montage: 2D image montage
     """
     n_images = img_stack.shape[0]
     n_rows = img_stack.shape[1]
@@ -529,13 +523,8 @@ def get_colourmaps() -> dict:
     """
     Load the custom colormap RGB values
 
-    Parameters
-    ----------
-    script_path : path to text files with the colormaps info
-
-    Returns
-    -------
-    Dictionary with Listed Colormaps
+    Returns:
+        Dictionary with Listed Colormaps
 
     """
     script_path = os.path.dirname(__file__)
@@ -563,18 +552,17 @@ def fix_angle_wrap(lp: NDArray, angle_jump=90) -> NDArray:
     """
     Remove points and all subsequent points where the line profile differs from 90 deg
     or more from the previous point.
+
     The line profile is divided in two, and the analyses start from the meso point
     towards the endo and epi separately. Angle wrap is more common towards the
     endo and epi borders.
 
-    Parameters
-    ----------
-    lp: line profile before fix
-    angle_jump: angle jump threshold
+    Args:
+        lp: line profile before fix
+        angle_jump: angle jump threshold
 
-    Returns
-    -------
-    line profile after fix
+    Returns:
+        lp_new: line profile after fix
 
     """
     # # OLD_METHOD
@@ -608,35 +596,29 @@ def fix_angle_wrap(lp: NDArray, angle_jump=90) -> NDArray:
 
 
 def rad_to_mag(img: NDArray, max_value: int = 4096) -> NDArray:
+    """Convert image array from radians to magnitude
+
+    Args:
+      img: input image in radians
+      max_value: max value of the image
+
+    Returns:
+        img: image in magnitude
     """
-    Convert image array from radians to magnitude
 
-    Parameters
-    ----------
-    img
-    max_value
-
-    Returns
-    -------
-    img
-
-    """
     img = max_value * img / np.pi
     return img
 
 
 def mag_to_rad(img: NDArray, max_value: int = 4096) -> NDArray:
-    """
-    Convert image array from magnitude to radians
+    """Convert image array from magnitude to radians
 
-    Parameters
-    ----------
-    img
-    max_value
+    Args:
+        img: input image in magnitude
+        max_value: max value of the image
 
-    Returns
-    -------
-    img
+    Returns:
+        img: image in radians
 
     """
     img = np.pi * img / max_value
@@ -645,23 +627,22 @@ def mag_to_rad(img: NDArray, max_value: int = 4096) -> NDArray:
 
 def get_ha_line_profiles(
     HA: NDArray, lv_centres: dict, slices: NDArray, mask_3c: NDArray, segmentation: dict, settings: dict, info: dict
-) -> [dict, dict]:
+) -> tuple[dict, dict]:
     """
     Get the HA line profiles and also Wall Thickness
 
-    Parameters
-    ----------
-    HA: array with HA values
-    lv_centres: dictionary with the LV centres for each slice
-    slices: list of slices
-    mask_3c: U-Net segmentation
-    segmentation: dict with segmentation information on the contours of the LV
-    settings: settings
-    info: useful info
+    Args
+        HA: array with HA values
+        lv_centres: dictionary with the LV centres for each slice
+        slices: list of slices
+        mask_3c: U-Net segmentation
+        segmentation: dict with segmentation information on the contours of the LV
+        settings: settings
+        info: useful info
 
-    Returns
-    -------
-    Dictionaries with HA line profiles and Wall thickness
+    Returns:
+        ha_lines_profiles: dictionary with HA line profiles
+        wall_thickness: dictionary with wall thickness
 
     """
     # lenth of line profile interpolation (from endo to epi)
@@ -785,18 +766,15 @@ def get_ha_line_profiles(
 
 
 def clean_mask(mask: NDArray) -> NDArray:
+    """Clean a mask to leave only the biggest blob
+
+    Args:
+        mask: input mask
+
+    Returns:
+        clean_mask: mask with only the biggest blob
+
     """
-    Clean a mask to leave only the biggest blob
-
-    Parameters
-    ----------
-    mask: input mask
-
-    Returns
-    -------
-    clean_mask
-    """
-
     img_size = np.shape(mask)
     clean_mask = np.zeros([img_size[0], img_size[1], img_size[2]])
 
@@ -827,22 +805,22 @@ def get_snr_maps(
     logger: logging.Logger,
     info: dict,
 ) -> Tuple[dict, NDArray, dict, dict]:
-    """
-    Save the SNR maps.
+    """Save the SNR maps.
 
-    Parameters
-    ----------
-    data: dataframe with the diffusion images and info
-    mask: U-Net mask of the heart
-    average_images: array with average images
-    slices: array with slice integers
-    settings: dictionary with useful info
-    logger
-    info: dictionary with useful info
+    Args:
+        data: dataframe with the diffusion images and info
+        mask: U-Net mask of the heart
+        average_images: array with average images
+        slices: array with slice integers
+        settings: dictionary with useful info
+        logger: logger object
+        info: dictionary with useful info
 
-    Returns
-    -------
-    snr maps, noise maps, and LV snr for b0
+    Returns:
+        snr: dictionary for each slice with nested dictionaries for each diffusion config
+        noise: dictionary for each slice with nested dictionaries for each diffusion config
+        snr_b0_lv: dictionary with the median and IQR of the SNR for b0 images
+        info: updated dictionary with useful info
     """
 
     img_size = data.loc[0, "image"].shape
@@ -953,21 +931,16 @@ def get_snr_maps(
     return snr, noise, snr_b0_lv, info
 
 
-def get_window(img: NDArray, mask: NDArray) -> (float, float):
-    """
-    Get the window for the image
+def get_window(img: NDArray, mask: NDArray) -> tuple[float, float]:
+    """Get the window for the image as 3 std from the mean
 
-    Parameters
-    ----------
-    img : NDArray
-        image
-    mask : NDArray
-        mask
+    Args:
+        img: input image
+        mask: mask to get the window
 
-    Returns
-    -------
-    (float, float)
-        window vmin and vmax values
+    Returns:
+        vmin
+        vmax
     """
 
     # check if mask is not empty
@@ -989,37 +962,28 @@ def get_window(img: NDArray, mask: NDArray) -> (float, float):
 
 
 def crop_pad_rotate_array(img: NDArray, correct_size: list, allow_rotation: bool = False) -> NDArray:
-    """
-    Crop or pad array to the required size
+    """Crop or pad array to the required size
 
-    Parameters
-    ----------
-    array
-    correct_size
-    allow_rotation
+    Args:
+        img: input image
+        correct_size: desired size
+        allow_rotation: allow rotation of the image by  90 deg to match the size
 
-    Returns
-    -------
-    resized array
+    Returns:
+        img: croped or padded image
     """
 
     def crop_and_pad_along_axis(array: np.ndarray, target_length: int, axis: int = 0) -> np.ndarray:
-        """
-        Crop or pad array to desired length along specific axis
+        """Crop or pad array to desired length along specific axis
 
-        Parameters
-        ----------
-        array : np.ndarray
-            input array
-        target_length : int
-            desired length
-        axis : int, optional
-            axis to pad or crop, by default 0
+        Args:
+            array: input array
+            target_length: desired length
+            axis: axis to pad or crop, by default 0
 
         Returns
-        -------
-        np.ndarray
-            cropped or pad array
+            array: cropped or padded array
+
         """
         # target length and array length need to be both even or both odd
         # if not, then pad array with 0s in this dimension
@@ -1071,18 +1035,13 @@ def crop_pad_rotate_array(img: NDArray, correct_size: list, allow_rotation: bool
 
 
 def reshape_tensor_from_6_to_3x3(D6: NDArray) -> NDArray:
-    """
-    Reshape tensor from 6 to 3x3
+    """Reshape tensor from 6 to 3x3
 
-    Parameters
-    ----------
-    D : NDArray
-        tensor with 6 components
+    Args:
+        D6: tensor with 6 components
 
-    Returns
-    -------
-    NDArray
-        tensor with 3x3 components
+    Returns:
+        D33: tensor with 3x3 components
     """
 
     D33 = np.zeros((D6.shape[0], D6.shape[1], D6.shape[2], 3, 3))
@@ -1103,33 +1062,24 @@ def plot_results_maps(
     slices: NDArray,
     mask_3c: NDArray,
     average_images: dict,
-    dti,
+    dti: dict,
     segmentation: dict,
     colormaps: dict,
     settings: dict,
     folder_id: str,
 ):
-    """
-    Plots the main montage of results
+    """Plots the main montage of results
 
-    Parameters
-    ----------
-    slices : NDArray
-        array with slice position as strings
-    mask_3c : NDArray
-        segmentation mask
-    average_images : dict
-        average image of each slice
-    dti : Class DTI
-        holds DTI parameters
-    segmentation : dict
-        LV segmentation info
-    colormaps : dict
-        DTI maps colormaps
-    settings : dict
-        settings
-    folder_id : str
-        folder id string to use on the filename
+    Args:
+        slices: array with slice position as strings
+        mask_3c: segmentation mask
+        average_images: average image of each slice
+        dti: dictionary DTI holds DTI parameters
+        segmentation: LV segmentation info
+        colormaps: DTI maps colormaps
+        settings: settings
+        folder_id: folder id string to use on the filename
+
     """
 
     params = {}
@@ -1442,24 +1392,16 @@ def plot_results_maps(
 
 
 def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
-    """
+    """Create an xarray dataset with the DTI maps
 
-    Create an xarray dataset with the DTI maps
+    Args:
+        info: dictionary with useful info
+        dti: DTI maps
+        crop_mask: crop mask used to get the pixel coordinates taking into account the cropping
+        slices: slice strings array
 
-    Parameters
-    ----------
-    info : dict
-        _description_
-    dti : dict
-        DTI maps
-    crop_mask : NDArray
-        crop mask used to get the pixel coordinates taking into account the cropping
-    slices : NDArray
-        slice strings array
-
-    Returns
-    -------
-    xarray dataset
+    Returns:
+        ds: xarray dataset
     """
     # create coordinates
     rows = np.linspace(1, info["original_img_size"][0], info["original_img_size"][0], dtype=int)
@@ -1515,14 +1457,12 @@ def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
 
 
 def export_to_hdf5(dti: dict, mask_3c: NDArray, settings: dict):
-    """
-    Export DTI maps to HDF5
+    """Export DTI maps to HDF5
 
-    Parameters
-    ----------
-    dti: dict with DTI maps
-    mask_3c: segmentation mask
-    settings: dict with settings
+    Args:
+        dti: dict with DTI maps
+        mask_3c: segmentation mask
+        settings: dict with settings
 
     """
     with h5py.File(os.path.join(settings["results"], "data", "DTI_maps" + ".h5"), "w") as hf:
@@ -1556,31 +1496,20 @@ def export_results(
     colormaps: dict,
     logger: logging.Logger,
 ):
-    """
+    """Export results to disk: VTK, PNGs, HDF5, pickled dictionary and YAML.
 
-    Export results to disk: VTK, PNGs, HDF5, pickled dictionary and YAML.
+    Args:
+        data: dataframe with the diffusion images and info
+        dti: DTI maps
+        info: dictionary with useful info
+        settings: dict with settings
+        mask_3c: heart segmentation mask
+        slices: array with slice position
+        average_images: normalised averaged images
+        segmentation: LV segmentation info on LV borders and insertion points
+        colormaps: DTI tailored colormaps
+        logger: logger object
 
-    Parameters
-    ----------
-    data: pd.DataFrame
-        dataframe with the diffusion images and info
-    dti : dict
-        DTI maps
-    info : dict
-        _description_
-    settings : dict
-        _description_
-    mask_3c : NDArray
-        heart segmentation mask
-    slices : NDArray
-        array with slice position strings
-    average_images : NDArray
-        normalised averaged images
-    segmentation : dict
-        LV segmentation info on LV borders and insertion points
-    colormaps : dict
-        DTI tailored colormaps
-    logger :
     """
 
     logger.info("Exporting results to disk...")
@@ -1667,17 +1596,12 @@ def export_results(
 
 
 def export_summary_table(dti: dict, settings: dict, slices: NDArray):
-    """
-    Export summary of DTI values to a csv table
+    """Export summary of DTI values to a csv table
 
-    Parameters
-    ----------
-    dti: dict
-    settings: dict
-    slices: NDArray
-
-    Returns
-    -------
+    Args:
+        dti: dictionary with DTI maps
+        settings: dictionary with settings
+        slices: array with slice position
 
     """
     # get absolute E2A and TA
@@ -1957,14 +1881,12 @@ def image_histogram_equalization(image: NDArray, number_bins: int = 256):
     Equalize histogram in numpy array image for better visualisation
     # from http://www.janeriksolem.net/histogram-equalization-with-python-and.html
 
-    Parameters
-    ----------
-    image: NDArray with grayscale image
-    number_bins: number of histogram bins
+    Args:
+        image: NDArray with grayscale image
+        number_bins: number of histogram bins
 
-    Returns
-    -------
-    NDArray with equalized image
+    Returns:
+        image_equilized: NDArray with equalized image
 
     """
 
@@ -1981,19 +1903,19 @@ def image_histogram_equalization(image: NDArray, number_bins: int = 256):
 
 def remove_slices(
     data: pd.DataFrame, slices: NDArray, segmentation: dict, logger: logging
-) -> [pd.DataFrame, NDArray, dict]:
-    """
-    Remove slices that are marked as to be removed for all entries
+) -> tuple[pd.DataFrame, NDArray, dict]:
+    """Remove slices that are marked as to be removed for all entries
 
-    Parameters
-    ----------
-    data
-    settings
-    logger
+    Args:
+        data: dataframe with the diffusion images and info
+        slices: array with slice position
+        segmentation: LV segmentation info on LV borders and insertion points
+        logger: logger object
 
-    Returns
-    -------
-    data, slices, segmentation
+    Returns:
+        data: dataframe with slices removed
+        slices: array with new slice position
+        segmentation: segmentation info with slices removed
 
     """
 
@@ -2022,20 +1944,16 @@ def remove_slices(
     return data, slices, segmentation
 
 
-def remove_outliers(data: pd.DataFrame, info: dict) -> [pd.DataFrame, dict]:
-    """
-    Remove outliers from the dataframe
-    they will be marked as True in the to_be_removed column
+def remove_outliers(data: pd.DataFrame, info: dict) -> tuple[pd.DataFrame, dict]:
+    """Remove outliers from the dataframe. They will be marked as True in the to_be_removed column
 
-    Parameters
-    ----------
-    data
-    info
+    Args:
+        data: dataframe with the diffusion images and info
+        info: dictionary with useful info
 
-    Returns
-    -------
-    data
-    info
+    Returns:
+        data: datrame with outliers removed
+        info: updated info dictionary with the number of images
 
     """
     # remove the rejected images from the dataframe
