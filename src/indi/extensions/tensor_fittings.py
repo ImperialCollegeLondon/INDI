@@ -45,7 +45,12 @@ def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, pref
 
 
 def plot_residuals_map(
-    residuals: NDArray, average_images: NDArray, mask_3c: NDArray, slice_idx: int, settings: dict, prefix: str = ""
+    residuals: NDArray,
+    average_images: NDArray,
+    mask_3c: NDArray,
+    slice_idx: int,
+    settings: dict,
+    prefix: str = "tensor_components_slice_",
 ):
     """
     Plot the tensor residuals averaged per pixel
@@ -112,7 +117,14 @@ def get_residual_z_scores(residuals: NDArray) -> tuple[ndarray, ndarray, ndarray
     return z_scores, outliers, outliers_pos
 
 
-def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray, slices: NDArray, settings: dict):
+def plot_tensor_components(
+    D: NDArray,
+    average_images: NDArray,
+    mask_3c: NDArray,
+    slices: NDArray,
+    settings: dict,
+    fname: str = "tensor_components_slice_",
+):
     """
     Plot tensor components
 
@@ -191,7 +203,7 @@ def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray
         plt.savefig(
             os.path.join(
                 settings["debug_folder"],
-                "tensor_components_slice_" + str(slice_idx).zfill(2) + ".png",
+                fname + str(slice_idx).zfill(2) + ".png",
             ),
             dpi=200,
             pad_inches=0,

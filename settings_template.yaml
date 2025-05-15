@@ -52,7 +52,21 @@ remove_outliers_with_ai: False
 # DWIs NLM DENOISING
 # ========================================================================================
 # True, False
-image_denoising: False
+image_denoising: True
+# nlm, tucker, mppca, bm3d, nlm_dipy
+denoise_method: nlm_dipy
+# denoising_settings: # for tucker
+  # threshold: 0.1
+  # tau: 0.1
+  # patch_transform: fft
+  # lambda2d: 1
+
+
+# ========================================================================================
+# TENSOR DENOISING
+# True, False
+tensor_denoising: False
+# ========================================================================================
 
 # ========================================================================================
 # MISC

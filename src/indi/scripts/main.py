@@ -36,6 +36,7 @@ from indi.extensions.initial_setup import initial_setup
 from indi.extensions.phase_correction_for_complex_averaging import phase_correction_for_complex_averaging
 from indi.extensions.read_data.read_and_pre_process_data import read_data
 from indi.extensions.select_outliers import select_outliers
+from indi.extensions.tensor_denoise import tensor_denoising
 from indi.extensions.tensor_fittings import dipy_tensor_fit
 
 
@@ -111,15 +112,15 @@ def main():
             data = phase_correction_for_complex_averaging(data, logger, settings)
 
         # =========================================================
-        # NLM image denoising of all DWIs
-        # =========================================================
-        if settings["image_denoising"]:
-            data = image_denoising(data, logger, settings)
-
-        # =========================================================
         # DWIs registration
         # =========================================================
         data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
+
+        # =========================================================
+        # NLM image denoising of all DWIs
+        # =========================================================
+        if settings["image_denoising"]:
+            data = image_denoising(data, logger, settings, info)
 
         # =========================================================
         # Option to perform only registration
@@ -247,6 +248,12 @@ def main():
             method=settings["tensor_fit_method"],
             quick_mode=False,
         )
+
+        if settings["tensor_denoising"]:
+            # =========================================================
+            # Denoise tensor with NLM
+            # =========================================================
+            dti = tensor_denoising(dti, slices, average_images, mask_3c, logger, settings)
 
         # =========================================================
         # Denoise tensor with uformer models
