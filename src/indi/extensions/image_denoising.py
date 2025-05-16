@@ -1,9 +1,10 @@
-import numpy as np
-import os
-from skimage.restoration import denoise_nl_means, estimate_sigma
-import matplotlib.pyplot as plt
-import pandas as pd
 import logging
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from skimage.restoration import denoise_nl_means, estimate_sigma
 
 
 def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) -> pd.DataFrame:

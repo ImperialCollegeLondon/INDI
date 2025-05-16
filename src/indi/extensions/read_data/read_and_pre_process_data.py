@@ -27,14 +27,18 @@ from indi.extensions.read_data.dicom_to_h5_csv import (
 )
 
 
-def data_summary_plots(data: pd.DataFrame, settings: dict):
+def data_summary_plots_and_logs(data: pd.DataFrame, settings: dict, info: dict, logger: logging.Logger):
     """
-    Summarises the data with a plot showing the b-value, direction, and slice
+    Summarises the data
 
-    Parameters
-    ----------
-    data: dataframe with all the dwi data
-    settings: dictionary with useful info
+    Produces a plot showing the b-value, direction, and slice
+    Also prints a summary of the data to the log file
+
+    Parameters:
+        data: dataframe with all the dwi data
+        settings: dictionary with useful info
+        info: dictionary with useful info
+        logger: logger for console and file
     """
 
     # get directions order as a numeric vector
@@ -78,6 +82,47 @@ def data_summary_plots(data: pd.DataFrame, settings: dict):
         transparent=False,
     )
     plt.close()
+
+    # also print a summary of the data
+    # print the number of images
+    logger.debug("Number of images: " + str(info["n_images"]))
+
+    # print the slice range
+    unique_slices = data["slice_integer"].unique()
+    logger.debug(
+        "Number of slices: "
+        + str(len(unique_slices))
+        + " ["
+        + str(unique_slices[0])
+        + " : "
+        + str(unique_slices[-1])
+        + "]"
+    )
+
+    # image dimensions
+    logger.debug("Image size: " + str(info["img_size"]))
+    # resolution
+    if len(unique_slices) > 1:
+        logger.debug("Slice spacing: " + str(info["slice_spacing"]))
+    logger.debug("Pixel spacing: " + str(info["pixel_spacing"]))
+
+    # print the diffusion protocol in detail if not too complicated
+    configs_table = data[["b_value_original", "slice_integer", "diffusion_direction_original"]]
+
+    # configurations for the first slice
+    configs_table_first_slice = configs_table.loc[configs_table["slice_integer"] == unique_slices[0]]
+    # different b-values
+    b_values = configs_table_first_slice["b_value_original"].unique()
+
+    if len(b_values) < 10:
+        logger.debug("Diffusion protocol for the first slice:")
+        for bval in b_values:
+            logger.debug(f"b-value = {bval}")
+            c_table = configs_table_first_slice.loc[configs_table_first_slice["b_value_original"] == bval]
+            logger.debug(f"   images: {len(c_table)}")
+            c_table["diffusion_direction_original"].unique()
+            logger.debug(f"   directions: {len(c_table["diffusion_direction_original"].unique())}")
+            logger.debug(f"   repetitions: {len(c_table)/len(c_table["diffusion_direction_original"].unique())}")
 
 
 def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
@@ -1057,11 +1102,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     else:
         info["img_size"] = (info["Rows"], info["Columns"])
 
-    data_summary_plots(data, settings)
-
-    logger.debug("Number of images: " + str(info["n_images"]))
-    logger.debug("Number of slices: " + str(len(slices)))
-    logger.debug("Image size: " + str(info["img_size"]))
+    data_summary_plots_and_logs(data, settings, info, logger)
 
     # =========================================================
     # display all DWIs in a montage
