@@ -9,7 +9,7 @@ def complex_averaging(data: pd.DataFrame, logger: logging.Logger) -> pd.DataFram
 
     Args:
       data: dataframe with data
-      logger: logge
+      logger: logger
 
     Returns:
       data: dataframe with complex averaged data

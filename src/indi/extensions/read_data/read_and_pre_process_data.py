@@ -129,9 +129,24 @@ def data_summary_plots_and_logs(data: pd.DataFrame, settings: dict, info: dict, 
             _ = get_diffusion_summary_for_slice(logger, unique_slices, configs_table, slice_idx)
 
 
-def get_diffusion_summary_for_slice(logger, unique_slices, configs_table, slice_idx=0):
-    # TODO add doc string
-    configs_table_this_slice = configs_table.loc[configs_table["slice_integer"] == unique_slices[slice_idx]]
+def get_diffusion_summary_for_slice(
+    logger: logging.Logger, slices: np.ndarray, configs_table: pd.DataFrame, slice_idx: int = 0
+) -> pd.DataFrame:
+    """Log the diffusion protocol for a given slice
+
+    This function will log the diffusion protocol for a given slice
+    and return a table with the same protocol.
+
+    Parameters:
+        logger: logger for console and file
+        slices: array with the slice numbers
+        configs_table: table with the diffusion protocols for all slices
+        slice_idx: slice integer to return protocol and table, by default 0
+
+    Returns:
+        pd.DataFrame: table with the diffusion protocol for the given slice
+    """
+    configs_table_this_slice = configs_table.loc[configs_table["slice_integer"] == slices[slice_idx]]
     # different b-values
     b_values = configs_table_this_slice["b_value_original"].unique()
 
