@@ -196,7 +196,7 @@ def denoise_all_tucker(data: pd.DataFrame, logger: logging.Logger, settings: dic
             "threshold": 0.5,
             "tau": 0.1,
             "patch_transform": "fft",
-            "lambda2d": 0.1,
+            "lambda2d": 1,
             "window_size": 5,
             "search_window": 11,
         }

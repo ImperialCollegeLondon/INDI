@@ -79,6 +79,7 @@ doc = ["mkdocs", "mkdocs-material", "mkdocstrings[python]", "markdown-callouts"]
 [project.scripts]
 indi = "indi.scripts.main:main"
 remove_repetitions = "indi.scripts.remove_repetitions:main"
+select_outliers = "indi.scripts.select_outliers:main"
 
 [tool.black]
 line-length = 119
