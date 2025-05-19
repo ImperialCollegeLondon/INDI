@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -290,7 +289,9 @@ def select_outliers(
             if not data_to_load["acquisition_date_time"].equals(data["acquisition_date_time"]):
                 logger.error("Data in the session file does not match the current data.")
                 logger.error("Please remove the session file and run the manual image removal again.")
-                sys.exit()
+                raise ValueError(
+                    "Data in the session file does not match the current data. Please remove the session file and run the manual image removal again."
+                )
             else:
                 # toggle to True the indices to be removed
                 for idx in data_to_load.loc[data_to_load["to_be_removed"] == True].index:

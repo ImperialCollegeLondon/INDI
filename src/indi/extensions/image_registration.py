@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 import time
 
 import cv2 as cv
@@ -215,7 +214,7 @@ def registration_loop(
     if settings["registration"] == "elastix_groupwise":
         if settings["complex_data"]:
             logger.error("Elastix groupwise registration not tested for complex data.")
-            sys.exit()
+            raise ValueError("Elastix groupwise registration not tested for complex data.")
 
         # get all images
         mov_all = np.ascontiguousarray(np.array(mov_all, dtype=np.float32))
@@ -341,7 +340,7 @@ def registration_loop(
 
             else:
                 logger.error("No method available for registration: " + settings["registration"])
-                sys.exit()
+                raise ValueError("Registration method not available: " + settings["registration"])
 
             # store registered image
             # correct for registration small errors
@@ -785,12 +784,16 @@ def image_registration(
                 ):
                     logger.error("Loaded Dataframe with registered images does not match pre-registered Dataframe!")
                     logger.error("Registration saved data needs to be deleted as something changed!")
-                    sys.exit()
+                    raise ValueError(
+                        "Loaded Dataframe with registered images does not match pre-registered Dataframe!"
+                    )
             else:
                 if not data_basic.drop(columns=["image"]).equals(data_loaded_basic.drop(columns=["image"])):
                     logger.error("Loaded Dataframe with registered images does not match pre-registered Dataframe!")
                     logger.error("Registration saved data needs to be deleted as something changed!")
-                    sys.exit()
+                    raise ValueError(
+                        "Loaded Dataframe with registered images does not match pre-registered Dataframe!"
+                    )
 
             logger.info("Passed data consistency check. Loading registered data.")
             # data matches, so now I need to replace the image column with the loaded one

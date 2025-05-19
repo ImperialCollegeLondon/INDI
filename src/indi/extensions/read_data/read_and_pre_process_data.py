@@ -1349,7 +1349,7 @@ def read_and_process_dicoms(
 
         if not data_sort.equals(data_phase_sort):
             logger.error("Magnitude and phase DICOM tables do not match!")
-            sys.exit()
+            raise ValueError("Magnitude and phase DICOM tables do not match!")
         del data_phase_sort
         del data_sort
 
