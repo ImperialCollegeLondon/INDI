@@ -349,8 +349,8 @@ def main():
             logger.info("============================================================")
 
         except Exception as e:
-            failed_folders.append(current_folder)
-            logger.error("Error in folder: " + str(current_folder))
+            failed_folders.append(os.path.dirname(current_folder))
+            logger.error("Error in folder: " + str(os.path.dirname(current_folder)))
             logger.error(e)
             logger.error("============================================================")
             logger.error("====================== ERROR ===============================")
@@ -360,8 +360,10 @@ def main():
                 raise e
 
     logger.info("============================================================")
-    logger.info("=======All folders processed ===============================")
+    logger.info("=============== All folders processed ======================")
     logger.info("============================================================")
-    logger.info("Failed folders:")
-    for folder in failed_folders:
-        logger.info(folder)
+    if len(failed_folders) > 0:
+        logger.info("============================================================")
+        logger.info("==================== FAILED FOLDERS!:")
+        for folder in failed_folders:
+            logger.info(folder)
