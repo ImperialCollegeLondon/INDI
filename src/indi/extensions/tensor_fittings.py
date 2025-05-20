@@ -13,15 +13,16 @@ from scipy import stats
 
 def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, prefix: str = ""):
     """
-    Plot the tensor residuals averaged per image
+    Plot the tensor residuals averaged per image and save the figure.
 
-    Parameters
-    ----------
-    residuals: residuals per image
-    slice_idx: slice position string
-    settings: dictionary with useful info
-    prefix: prefix for the file name
+    Args:
+        residuals (NDArray): Residuals per image (averaged over myocardial voxels).
+        slice_idx (int): Index of the slice being plotted.
+        settings (dict): Dictionary with configuration and output paths.
+        prefix (str, optional): Prefix for the output file name. Defaults to "".
 
+    Returns:
+        None
     """
     plt.figure(figsize=(5, 5))
     plt.subplot(1, 1, 1)
@@ -53,17 +54,18 @@ def plot_residuals_map(
     prefix: str = "tensor_components_slice_",
 ):
     """
-    Plot the tensor residuals averaged per pixel
+    Plot the tensor residuals averaged per pixel and save the figure.
 
-    Parameters
-    ----------
-    residuals: residuals per pixel
-    average_images
-    mask_3c
-    slice_idx: slice position string
-    settings: dictionary with useful info
-    prefix: prefix for the file name
+    Args:
+        residuals (NDArray): Residuals per pixel.
+        average_images (NDArray): Array of average images for each slice.
+        mask_3c (NDArray): 3D segmentation mask array.
+        slice_idx (int): Index of the slice being plotted.
+        settings (dict): Dictionary with configuration and output paths.
+        prefix (str, optional): Prefix for the output file name. Defaults to "".
 
+    Returns:
+        None
     """
     alphas_whole_heart = np.copy(mask_3c[slice_idx])
     alphas_whole_heart[alphas_whole_heart > 0.1] = 1
@@ -91,21 +93,17 @@ def plot_residuals_map(
 
 def get_residual_z_scores(residuals: NDArray) -> tuple[ndarray, ndarray, ndarray]:
     """
-    Get z-scores and outliers from residuals
+    Compute z-scores and identify outliers from residuals.
 
-    Parameters
-    ----------
-    residuals: array with residual values
+    Args:
+        residuals (NDArray): Array with residual values.
 
-    Returns
-    -------
-    z_scores: z-scores of the residuals for each image
-    outliers: outliers in descending order if any based on a z-score threshold
-    outliers_pos: position of any outliers
-
+    Returns:
+        tuple:
+            z_scores (NDArray): Z-scores of the residuals for each image.
+            outliers (NDArray): Boolean array indicating outliers (z-score > 3).
+            outliers_pos (NDArray): Indices of outlier positions, sorted by descending z-score.
     """
-    # find outliers from the average residual of each image
-    # get z-score and threshold
     z_scores = stats.zscore(residuals)
     # Select data points with z-scores above or below 3
     outliers = np.abs(z_scores) > 3.0
@@ -126,21 +124,18 @@ def plot_tensor_components(
     fname: str = "tensor_components_slice_",
 ):
     """
-    Plot tensor components
+    Plot and save the six unique tensor components for each slice.
 
-    Parameters
-    ----------
-    D: diffusion tensor array
-    average_images: array with average images
-    mask_3c: segmentation mask
-    slices: array with slice positions
-    settings: dictionary with useful info
+    Args:
+        D (NDArray): Diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
+        average_images (NDArray): Array with average images for each slice.
+        mask_3c (NDArray): 3D segmentation mask array.
+        slices (NDArray): Array of slice indices or positions.
+        settings (dict): Dictionary with configuration and output paths.
 
-    Returns
-    -------
-
+    Returns:
+        None
     """
-
     mask = np.copy(mask_3c)
     mask[mask == 2] = 0
 
@@ -156,7 +151,6 @@ def plot_tensor_components(
         alphas_whole_heart = np.copy(mask_3c[slice_idx])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
 
-        # imshow the tensor
         plt.figure(figsize=(15, 15))
         plt.subplot(3, 3, 1)
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
@@ -224,30 +218,29 @@ def dipy_tensor_fit(
     quick_mode=False,
 ):
     """
+    Fit a diffusion tensor model to the data using DiPy.
 
-    Fit tensor to data in dataframe. The fitting methods are
-    from DiPy:
-    - LS: Linear Least Squares
-    - WLS: Weighted Linear Least Squares
-    - NLLS: Non-Linear Least Squares
-    - RESTORE: RESTORE method
+    Supports multiple fitting methods: 'LS' (Linear Least Squares), 'WLS' (Weighted Linear Least Squares),
+    'NLLS' (Non-Linear Least Squares), and 'RESTORE'. Optionally computes and plots residuals and tensor components.
 
-    Parameters
-    ----------
-    slices: array of strings with slice positions
-    data: dataframe with all the diffusion information
-    info: dictionary with general information
-    settings: dictionary with general options
-    mask_3c: segmentation mask
-    logger: logger messages
-    method: string with the fitting method
-    quick_mode: boolean to speed up the function
+    Args:
+        slices (NDArray): Array of slice indices or positions.
+        data (pd.DataFrame): DataFrame containing diffusion-weighted image data and metadata.
+        info (dict): Dictionary with general scan and image information.
+        settings (dict): Dictionary with processing and output settings.
+        mask_3c (NDArray): 3D segmentation mask array.
+        average_images (NDArray): Array of average images for each slice.
+        logger (logging.Logger): Logger for status and debug messages.
+        method (str, optional): Tensor fitting method. Defaults to "NLLS".
+        quick_mode (bool, optional): If True, skips residual calculations and plotting. Defaults to False.
 
-    Returns
-    -------
-
-    Tensor array and info dictionary
-
+    Returns:
+        tuple:
+            tensor (NDArray): Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
+            s0 (NDArray): Estimated S0 images, shape [n_slices, rows, cols].
+            residuals_img (dict or list): Residuals per image for each slice, or empty list if not computed.
+            residuals_map (dict or list): Residuals per voxel for each slice, or empty list if not computed.
+            info (dict): Updated info dictionary with fitting statistics.
     """
     import dipy.reconst.dti as dti
     from dipy.core.gradients import gradient_table

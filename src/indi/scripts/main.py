@@ -88,52 +88,120 @@ def main():
             logger.error("Exiting, no permission to archive DICOM data.")
             sys.exit()
 
+    failed_folders = []
     for current_folder in all_to_be_analysed_folders:
         # initial setup
-        info, settings, logger = folder_loop_initial_setup(current_folder, settings, logger, log_format)
+        try:
+            info, settings, logger = folder_loop_initial_setup(current_folder, settings, logger, log_format)
 
-        # =========================================================
-        # START processing
-        # read and pre-process data
-        # =========================================================
-        [data, info, slices] = read_data(settings, info, logger)
+            # =========================================================
+            # START processing
+            # read and pre-process data
+            # =========================================================
+            [data, info, slices] = read_data(settings, info, logger)
 
-        # =========================================================
-        # Option to perform only reading of data and anonymisation
-        # =========================================================
-        if settings["workflow_mode"] == "anon":
-            logger.info("Anonymisation of data only mode is True. Stopping here.")
-            continue
+            # =========================================================
+            # Option to perform only reading of data and anonymisation
+            # =========================================================
+            if settings["workflow_mode"] == "anon":
+                logger.info("Anonymisation of data only mode is True. Stopping here.")
+                continue
 
-        # =========================================================
-        # phase correction for complex averaging
-        # =========================================================
-        if settings["complex_data"]:
-            data = phase_correction_for_complex_averaging(data, logger, settings)
+            # =========================================================
+            # phase correction for complex averaging
+            # =========================================================
+            if settings["complex_data"]:
+                data = phase_correction_for_complex_averaging(data, logger, settings)
 
-        # =========================================================
-        # DWIs registration
-        # =========================================================
-        data, registration_image_data, ref_images, reg_mask = image_registration(data, slices, info, settings, logger)
+            # =========================================================
+            # DWIs registration
+            # =========================================================
+            data, registration_image_data, ref_images, reg_mask = image_registration(
+                data, slices, info, settings, logger
+            )
 
-        # =========================================================
-        # NLM image denoising of all DWIs
-        # =========================================================
-        if settings["image_denoising"]:
-            data = image_denoising(data, logger, settings, info)
+            # =========================================================
+            # NLM image denoising of all DWIs
+            # =========================================================
+            if settings["image_denoising"]:
+                data = image_denoising(data, logger, settings, info)
 
-        # =========================================================
-        # Option to perform only registration
-        # =========================================================
-        if settings["workflow_mode"] == "reg":
-            logger.info("Registration only mode is True. Stopping here.")
-            continue
+            # =========================================================
+            # Option to perform only registration
+            # =========================================================
+            if settings["workflow_mode"] == "reg":
+                logger.info("Registration only mode is True. Stopping here.")
+                continue
 
-        # =========================================================
-        # Remove outliers (pre-segmentation)
-        # =========================================================
-        if settings["remove_outliers_manually_pre"]:
-            logger.info("Manual removal of outliers pre segmentation")
+            # =========================================================
+            # Remove outliers (pre-segmentation)
+            # =========================================================
+            if settings["remove_outliers_manually_pre"]:
+                logger.info("Manual removal of outliers pre segmentation")
+                [data, info, slices] = select_outliers(
+                    data,
+                    slices,
+                    registration_image_data,
+                    settings,
+                    info,
+                    logger,
+                    stage="pre",
+                    segmentation={},
+                    mask=reg_mask,
+                )
+            else:
+                # initialise some variables if we are not removing outliers manually
+                logger.info("Manual removal of outliers pre segmentation is False")
+                info["rejected_indices"] = []
+                info["n_images_rejected"] = 0
+
+            # =========================================================
+            # Average images
+            # =========================================================
+            # get average denoised normalised image for each slice
+            average_images = get_average_images(
+                data,
+                slices,
+                info,
+                logger,
+            )
+
+            # =========================================================
+            # Heart segmentation
+            # =========================================================
+            segmentation, mask_3c = heart_segmentation(
+                data, average_images, slices, info["n_slices"], colormaps, settings, info, logger
+            )
+
+            # =========================================================
+            # Remove non segmented slices
+            # =========================================================
+            data, slices, segmentation = remove_slices(data, slices, segmentation, logger)
+
+            # =========================================================
+            # Crop image data
+            # =========================================================
+            # crop the images to the region around the segmented area only
+            # use the same crop for all slices and then pad with 3 pixels on all sides
+            dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
+                dti,
+                data,
+                mask_3c,
+                reg_mask,
+                segmentation,
+                slices,
+                average_images,
+                registration_image_data,
+                ref_images,
+                info,
+                logger,
+                settings,
+            )
+
+            # =========================================================
+            # Remove outliers (post-segmentation)
+            # =========================================================
+            logger.info("Manual removal of outliers post segmentation")
             [data, info, slices] = select_outliers(
                 data,
                 slices,
@@ -141,212 +209,168 @@ def main():
                 settings,
                 info,
                 logger,
-                stage="pre",
-                segmentation={},
+                stage="post",
+                segmentation=segmentation,
                 mask=reg_mask,
             )
-        else:
-            # initialise some variables if we are not removing outliers manually
-            logger.info("Manual removal of outliers pre segmentation is False")
-            info["rejected_indices"] = []
-            info["n_images_rejected"] = 0
 
-        # =========================================================
-        # Average images
-        # =========================================================
-        # get average denoised normalised image for each slice
-        average_images = get_average_images(
-            data,
-            slices,
-            info,
-            logger,
-        )
-
-        # =========================================================
-        # Heart segmentation
-        # =========================================================
-        segmentation, mask_3c = heart_segmentation(
-            data, average_images, slices, info["n_slices"], colormaps, settings, info, logger
-        )
-
-        # =========================================================
-        # Remove non segmented slices
-        # =========================================================
-        data, slices, segmentation = remove_slices(data, slices, segmentation, logger)
-
-        # =========================================================
-        # Crop image data
-        # =========================================================
-        # crop the images to the region around the segmented area only
-        # use the same crop for all slices and then pad with 3 pixels on all sides
-        dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
-            dti,
-            data,
-            mask_3c,
-            reg_mask,
-            segmentation,
-            slices,
-            average_images,
-            registration_image_data,
-            ref_images,
-            info,
-            logger,
-            settings,
-        )
-
-        # =========================================================
-        # Remove outliers (post-segmentation)
-        # =========================================================
-        logger.info("Manual removal of outliers post segmentation")
-        [data, info, slices] = select_outliers(
-            data,
-            slices,
-            registration_image_data,
-            settings,
-            info,
-            logger,
-            stage="post",
-            segmentation=segmentation,
-            mask=reg_mask,
-        )
-
-        # =========================================================
-        # Remove outliers and other data from table
-        # =========================================================
-        data, info = remove_outliers(data, info)
-
-        # =========================================================
-        # Get line profile off all remaining images to
-        # assess registration
-        # =========================================================
-        record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
-
-        # =========================================================
-        # Get SNR maps
-        # =========================================================
-        [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(
-            data, mask_3c, average_images, slices, settings, logger, info
-        )
-
-        # =========================================================
-        # complex averaging
-        # =========================================================
-        if settings["complex_data"]:
-            data = complex_averaging(data, logger)
-
-        # =========================================================
-        # Calculate tensor
-        # =========================================================
-        dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], info = dipy_tensor_fit(
-            slices,
-            data,
-            info,
-            settings,
-            mask_3c,
-            average_images,
-            logger,
-            method=settings["tensor_fit_method"],
-            quick_mode=False,
-        )
-
-        if settings["tensor_denoising"]:
             # =========================================================
-            # Denoise tensor with NLM
+            # Remove outliers and other data from table
             # =========================================================
-            dti = tensor_denoising(dti, slices, average_images, mask_3c, logger, settings)
+            data, info = remove_outliers(data, info)
 
-        # =========================================================
-        # Denoise tensor with uformer models
-        # =========================================================
-        if settings["uformer_denoise"]:
-            try:
-                from indi.extensions.uformer_denoising import denoise_tensor
-            except ImportError:
-                logger.error("Could not import uformer_denoising module")
-                raise ImportError("Could not import uformer_denoising module. Please install torch")
-            logger.info("Denoising tensor with uformer model: breatholds " + str(settings["uformer_breatholds"]))
-            dti["tensor"] = denoise_tensor(dti["tensor"], settings)
-        else:
-            logger.info("Denoising tensor with uformer model is False")
+            # =========================================================
+            # Get line profile off all remaining images to
+            # assess registration
+            # =========================================================
+            record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
 
-        # =========================================================
-        # Get Eigensystems
-        # =========================================================
-        dti, info = get_eigensystem(
-            dti,
-            slices,
-            info,
-            average_images,
-            settings,
-            mask_3c,
-            logger,
-        )
+            # =========================================================
+            # Get SNR maps
+            # =========================================================
+            [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(
+                data, mask_3c, average_images, slices, settings, logger, info
+            )
 
-        # =========================================================
-        # Get dti["fa"] and dti["md"] maps
-        # =========================================================
-        dti["md"], dti["fa"], dti["mode"], dti["frob_norm"], dti["mag_anisotropy"], info = get_fa_md(
-            dti["eigenvalues"], info, mask_3c, slices, logger
-        )
+            # =========================================================
+            # complex averaging
+            # =========================================================
+            if settings["complex_data"]:
+                data = complex_averaging(data, logger)
 
-        # =========================================================
-        # Get cardiac coordinates
-        # =========================================================
-        local_cardiac_coordinates, lv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
-            mask_3c, segmentation, slices, info["n_slices"], settings, dti, average_images, info
-        )
+            # =========================================================
+            # Calculate tensor
+            # =========================================================
+            dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], info = dipy_tensor_fit(
+                slices,
+                data,
+                info,
+                settings,
+                mask_3c,
+                average_images,
+                logger,
+                method=settings["tensor_fit_method"],
+                quick_mode=False,
+            )
 
-        # =========================================================
-        # Segment heart
-        # =========================================================
-        dti["lv_sectors"] = get_lv_segments(segmentation, phi_matrix, mask_3c, lv_centres, slices, logger)
+            if settings["tensor_denoising"]:
+                # =========================================================
+                # Denoise tensor with NLM
+                # =========================================================
+                dti = tensor_denoising(dti, slices, average_images, mask_3c, logger, settings)
 
-        # =========================================================
-        # Get dti["ha"] and dti["e2a"] maps
-        # =========================================================
-        dti["ha"], dti["ta"], dti["e2a"], info = get_tensor_orientation_maps(
-            slices, mask_3c, local_cardiac_coordinates, dti, settings, info, logger
-        )
+            # =========================================================
+            # Denoise tensor with uformer models
+            # =========================================================
+            if settings["uformer_denoise"]:
+                try:
+                    from indi.extensions.uformer_denoising import denoise_tensor
+                except ImportError:
+                    logger.error("Could not import uformer_denoising module")
+                    raise ImportError("Could not import uformer_denoising module. Please install torch")
+                logger.info("Denoising tensor with uformer model: breatholds " + str(settings["uformer_breatholds"]))
+                dti["tensor"] = denoise_tensor(dti["tensor"], settings)
+            else:
+                logger.info("Denoising tensor with uformer model is False")
 
-        # =========================================================
-        # Get HA line profiles
-        # =========================================================
-        dti["ha_line_profiles"], dti["wall_thickness"] = get_ha_line_profiles(
-            dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info
-        )
+            # =========================================================
+            # Get Eigensystems
+            # =========================================================
+            dti, info = get_eigensystem(
+                dti,
+                slices,
+                info,
+                average_images,
+                settings,
+                mask_3c,
+                logger,
+            )
 
-        # =========================================================
-        # Copy diffusion maps to an xarray dataset
-        # =========================================================
-        # ds = get_xarray(info, dti, crop_mask, slices)
+            # =========================================================
+            # Get dti["fa"] and dti["md"] maps
+            # =========================================================
+            dti["md"], dti["fa"], dti["mode"], dti["frob_norm"], dti["mag_anisotropy"], info = get_fa_md(
+                dti["eigenvalues"], info, mask_3c, slices, logger
+            )
 
-        # =========================================================
-        # Plot main results and save data
-        # =========================================================
-        export_results(data, dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps, logger)
+            # =========================================================
+            # Get cardiac coordinates
+            # =========================================================
+            local_cardiac_coordinates, lv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
+                mask_3c, segmentation, slices, info["n_slices"], settings, dti, average_images, info
+            )
 
-        # =========================================================
-        # Cleanup before the next folder
-        # =========================================================
-        logger.info("Cleaning up before the next folder")
-        del (
-            average_images,
-            crop_mask,
-            data,
-            info,
-            local_cardiac_coordinates,
-            lv_centres,
-            mask_3c,
-            noise,
-            phi_matrix,
-            ref_images,
-            registration_image_data,
-            segmentation,
-            slices,
-            snr_b0_lv,
-        )
-        dti = {}
+            # =========================================================
+            # Segment heart
+            # =========================================================
+            dti["lv_sectors"] = get_lv_segments(segmentation, phi_matrix, mask_3c, lv_centres, slices, logger)
 
+            # =========================================================
+            # Get dti["ha"] and dti["e2a"] maps
+            # =========================================================
+            dti["ha"], dti["ta"], dti["e2a"], info = get_tensor_orientation_maps(
+                slices, mask_3c, local_cardiac_coordinates, dti, settings, info, logger
+            )
+
+            # =========================================================
+            # Get HA line profiles
+            # =========================================================
+            dti["ha_line_profiles"], dti["wall_thickness"] = get_ha_line_profiles(
+                dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info
+            )
+
+            # =========================================================
+            # Copy diffusion maps to an xarray dataset
+            # =========================================================
+            # ds = get_xarray(info, dti, crop_mask, slices)
+
+            # =========================================================
+            # Plot main results and save data
+            # =========================================================
+            export_results(data, dti, info, settings, mask_3c, slices, average_images, segmentation, colormaps, logger)
+
+            # =========================================================
+            # Cleanup before the next folder
+            # =========================================================
+            logger.info("Cleaning up before the next folder")
+            del (
+                average_images,
+                crop_mask,
+                data,
+                info,
+                local_cardiac_coordinates,
+                lv_centres,
+                mask_3c,
+                noise,
+                phi_matrix,
+                ref_images,
+                registration_image_data,
+                segmentation,
+                slices,
+                snr_b0_lv,
+            )
+            dti = {}
+
+            logger.info("============================================================")
+            logger.info("====================== FINISHED ============================")
+            logger.info("============================================================")
+
+        except Exception as e:
+            failed_folders.append(os.path.dirname(current_folder))
+            logger.error("Error in folder: " + str(os.path.dirname(current_folder)))
+            logger.error(e)
+            logger.error("============================================================")
+            logger.error("====================== ERROR ===============================")
+            logger.error("============================================================")
+            # Raise the error if there is only one folder to be analysed to debug.
+            if len(all_to_be_analysed_folders) == 1:
+                raise e
+
+    logger.info("============================================================")
+    logger.info("=============== All folders processed ======================")
+    logger.info("============================================================")
+    if len(failed_folders) > 0:
         logger.info("============================================================")
-        logger.info("====================== FINISHED ============================")
-        logger.info("============================================================")
+        logger.info("==================== FAILED FOLDERS!:")
+        for folder in failed_folders:
+            logger.info(folder)

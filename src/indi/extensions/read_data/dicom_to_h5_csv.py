@@ -251,7 +251,7 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> tuple[
                     header_info[field] = data[field].values[0]
                 else:
                     logger.error("Field " + field + " is not unique in table.")
-                    sys.exit()
+                    raise ValueError("Error: Field " + field + " is not unique in table.")
             elif field == "image_comments":
                 strings = data[field].values
                 rr_int_values = []
@@ -283,11 +283,11 @@ def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> tuple[
                     header_info[field] = data[field].values[0]
                 else:
                     logger.error("Field " + field + " is not unique in table.")
-                    sys.exit()
+                    raise ValueError("Error: Field " + field + " is not unique in table.")
 
             else:
                 logger.error("Field " + field + " is not unique in table.")
-                sys.exit()
+                raise ValueError("Error: Field " + field + " is not unique in table.")
 
     # merge header info into info
     info = {**info, **header_info}
@@ -346,7 +346,7 @@ def interpolate_dicom_pixel_values(
             info[field] = data[field].values[0]
         else:
             logger.error("Field " + field + " is not unique in table.")
-            sys.exit()
+            raise ValueError("Error: Field " + field + " is not unique in table.")
 
     def interpolate_img(img, image_type):
         if image_type == "mag":

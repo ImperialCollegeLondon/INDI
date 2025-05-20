@@ -27,14 +27,18 @@ from indi.extensions.read_data.dicom_to_h5_csv import (
 )
 
 
-def data_summary_plots(data: pd.DataFrame, settings: dict):
+def data_summary_plots_and_logs(data: pd.DataFrame, settings: dict, info: dict, logger: logging.Logger):
     """
-    Summarises the data with a plot showing the b-value, direction, and slice
+    Summarises the data
 
-    Parameters
-    ----------
-    data: dataframe with all the dwi data
-    settings: dictionary with useful info
+    Produces a plot showing the b-value, direction, and slice
+    Also prints a summary of the data to the log file
+
+    Parameters:
+        data: dataframe with all the dwi data
+        settings: dictionary with useful info
+        info: dictionary with useful info
+        logger: logger for console and file
     """
 
     # get directions order as a numeric vector
@@ -78,6 +82,85 @@ def data_summary_plots(data: pd.DataFrame, settings: dict):
         transparent=False,
     )
     plt.close()
+
+    # also print a summary of the data
+    # print the number of images
+    logger.debug("Number of images: " + str(info["n_images"]))
+
+    # print the slice range
+    unique_slices = data["slice_integer"].unique()
+    logger.debug(
+        "Number of slices: "
+        + str(len(unique_slices))
+        + " ["
+        + str(unique_slices[0])
+        + " : "
+        + str(unique_slices[-1])
+        + "]"
+    )
+
+    # image dimensions
+    logger.debug("Image size: " + str(info["img_size"]))
+    # resolution
+    logger.debug(f"Slice spacing: {info["slice_spacing"]:0.2f}")
+    logger.debug("Pixel spacing: " + str(info["pixel_spacing"]))
+
+    # print the diffusion protocol in detail if not too complicated
+    configs_table = data[["b_value_original", "slice_integer", "diffusion_direction_original"]]
+
+    # configuration summary for slice X
+    configs_table_first_slice = get_diffusion_summary_for_slice(logger, unique_slices, configs_table, 0)
+
+    # check if there are other slices, if so then check if they have the same config
+    # remove slice integer column
+    configs_table_first_slice = configs_table_first_slice.drop(columns=["slice_integer"])
+
+    # loop through all slices and check if directions and b-values are the same
+    for slice_idx in unique_slices:
+        c_table = configs_table.loc[configs_table["slice_integer"] == slice_idx]
+        # check if b-values and directions are the same, if not print summary for this slice
+        if not np.array_equal(
+            np.sort(c_table["b_value_original"].values), np.sort(configs_table_first_slice["b_value_original"].values)
+        ) or not np.array_equal(
+            np.sort(c_table["diffusion_direction_original"].values),
+            np.sort(configs_table_first_slice["diffusion_direction_original"].values),
+        ):
+            logger.debug("Different diffusion protocol for slice " + str(slice_idx))
+            _ = get_diffusion_summary_for_slice(logger, unique_slices, configs_table, slice_idx)
+
+
+def get_diffusion_summary_for_slice(
+    logger: logging.Logger, slices: np.ndarray, configs_table: pd.DataFrame, slice_idx: int = 0
+) -> pd.DataFrame:
+    """Log the diffusion protocol for a given slice
+
+    This function will log the diffusion protocol for a given slice
+    and return a table with the same protocol.
+
+    Parameters:
+        logger: logger for console and file
+        slices: array with the slice numbers
+        configs_table: table with the diffusion protocols for all slices
+        slice_idx: slice integer to return protocol and table, by default 0
+
+    Returns:
+        pd.DataFrame: table with the diffusion protocol for the given slice
+    """
+    configs_table_this_slice = configs_table.loc[configs_table["slice_integer"] == slices[slice_idx]]
+    # different b-values
+    b_values = configs_table_this_slice["b_value_original"].unique()
+
+    if len(b_values) < 10:
+        logger.debug("Diffusion protocol for slice: " + str(slice_idx))
+        for bval in b_values:
+            logger.debug(f"b-value = {bval}")
+            c_table = configs_table_this_slice.loc[configs_table_this_slice["b_value_original"] == bval]
+            logger.debug(f"   images: {len(c_table)}")
+            c_table["diffusion_direction_original"].unique()
+            logger.debug(f"   directions: {len(c_table["diffusion_direction_original"].unique())}")
+            logger.debug(f"   repetitions: {len(c_table)/len(c_table["diffusion_direction_original"].unique())}")
+
+    return configs_table_this_slice
 
 
 def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
@@ -909,9 +992,13 @@ def reorder_by_slice(
     """
     # round the image position values (sometimes there are small differences)
     # round image position to the first significant digit decimal place in the slice thickness
-    slice_thickness = float(info["slice_thickness"])
-    decimal_place = abs(int(math.log10(abs(slice_thickness)))) + 1
-    data["image_position"] = data["image_position"].apply(lambda x: tuple(np.round(x, decimal_place)))
+    try:
+        slice_thickness = float(info["slice_thickness"])
+        decimal_place = abs(int(math.log10(abs(slice_thickness)))) + 1
+        data["image_position"] = data["image_position"].apply(lambda x: tuple(np.round(x, decimal_place)))
+    except KeyError:
+        # No slice thickness in the header
+        data["image_position"] = data["image_position"].apply(lambda x: tuple(x))
 
     # determine if we can use z, or y or x to sort the slices
     unique_positions = np.array(list(data.image_position.unique()))
@@ -961,6 +1048,27 @@ def reorder_by_slice(
     # n_slices = len(slices)
     # leave this with the original number of slices
     info["n_slices"] = n_slices
+
+    # calculate distances between slices
+    if n_slices > 1:
+        # To sort the positions we assume that the positions follow a line in 3D space. We calculate the distance to the
+        # middle point of the array of positions and sort the positions by this signed distance. The sign of the distance
+        # is given by the dot product of the normal to the plane defined by the first and last position and the vector.
+        # This plane is perpendicular to the line defined by the positions.
+
+        def sign(x):
+            return 2 * (x >= 0) - 1
+
+        normal = unique_positions[0] - unique_positions[-1]
+        mid_pos_idx = len(unique_positions) // 2
+        d = unique_positions[mid_pos_idx]
+        distance = sign(np.dot(unique_positions - d, normal)) * np.linalg.norm(unique_positions - d, axis=1)
+        unique_positions = unique_positions[np.argsort(distance), :]
+        spacing_z = np.linalg.norm(unique_positions[1:] - unique_positions[:-1], axis=1)
+        slice_spacing = np.mean(spacing_z)
+        info["slice_spacing"] = slice_spacing
+    else:
+        info["slice_spacing"] = 0
 
     return data, info, slices, n_slices
 
@@ -1057,11 +1165,7 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     else:
         info["img_size"] = (info["Rows"], info["Columns"])
 
-    data_summary_plots(data, settings)
-
-    logger.debug("Number of images: " + str(info["n_images"]))
-    logger.debug("Number of slices: " + str(len(slices)))
-    logger.debug("Image size: " + str(info["img_size"]))
+    data_summary_plots_and_logs(data, settings, info, logger)
 
     # =========================================================
     # display all DWIs in a montage
@@ -1245,7 +1349,7 @@ def read_and_process_dicoms(
 
         if not data_sort.equals(data_phase_sort):
             logger.error("Magnitude and phase DICOM tables do not match!")
-            sys.exit()
+            raise ValueError("Magnitude and phase DICOM tables do not match!")
         del data_phase_sort
         del data_sort
 
