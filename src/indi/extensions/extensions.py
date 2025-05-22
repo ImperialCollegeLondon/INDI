@@ -1571,27 +1571,9 @@ def export_results(
     for slice_idx in slices:
         if os.name == "nt":
             os.system('powershell.exe "Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process')
-            run_command = (
-                "powershell.exe "
-                + os.path.join(os.path.dirname(__file__), "montage_script_windows.ps1")
-                + " "
-                + os.path.abspath(settings["results"])
-                + " "
-                + str(slice_idx).zfill(2)
-                + " "
-                + folder_id
-            )
+            run_command = f"powershell.exe {os.path.join(os.path.dirname(__file__), 'montage_script_windows.ps1')} {os.path.abspath(settings['results'])} {str(slice_idx).zfill(2)} {folder_id}"
         else:
-            run_command = (
-                "bash "
-                + os.path.join(os.path.dirname(__file__), "montage_script.sh")
-                + " "
-                + os.path.abspath(settings["results"])
-                + " "
-                + str(slice_idx).zfill(2)
-                + " "
-                + folder_id
-            )
+            run_command = f"bash {os.path.join(os.path.dirname(__file__), "montage_script.sh")} '{os.path.abspath(settings["results"])}' {str(slice_idx).zfill(2)} {folder_id}"
         os.system(run_command)
 
 

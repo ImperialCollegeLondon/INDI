@@ -6,9 +6,10 @@ import numpy as np
 import pandas as pd
 from denoise.denoise_bm4d import bm4d_denoise
 from denoise.patch_denoise import locally_low_rank_tucker
+from dipy.denoise.adaptive_soft_matching import adaptive_soft_matching
 from dipy.denoise.localpca import mppca
-from dipy.denoise.nlmeans import nlmeans
-from dipy.denoise.noise_estimate import piesno
+from dipy.denoise.noise_estimate import estimate_sigma as estimate_sigma_dipy
+from dipy.denoise.non_local_means import non_local_means
 from skimage.restoration import denoise_nl_means, estimate_sigma
 from tqdm import tqdm
 
@@ -61,29 +62,46 @@ def denoise_all_nlm_dipy(data: pd.DataFrame, logger: logging.Logger, info: dict)
     logger.debug("Image denoising with NLM dipy")
     slices = data["slice_integer"].unique()
 
-    image_stack = np.zeros((len(slices), info["img_size"][0], info["img_size"][1], info["n_images"]))
-    for i, slice_idx in enumerate(slices):
-        # get a stack of all the DWIs
-        image_stack[i] = np.stack(data[data["slice_integer"] == slice_idx]["image"].values, axis=-1)
+    image_array = []
+    for slice in slices:
+        # get the images for this slice
+        image = np.stack(data[data["slice_integer"] == slice]["image"].values)
+        image_array.append(image)
 
-    sigma_est = piesno(image_stack, 1)
-    denoise_image_stack = np.empty_like(image_stack)
-    for i in tqdm(range(len(slices)), desc="Denoising images", unit="image"):
-        # get a stack of all the DWIs
-        denoise_image_stack[i] = nlmeans(
-            image_stack[i], sigma_est[i], patch_radius=3, block_radius=7, mask=None, num_threads=1
+    image_array = np.stack(image_array, axis=3)
+    image_array = np.transpose(image_array, (1, 2, 3, 0))
+    print("image_array shape", image_array.shape)
+
+    # in this method we need to denoise each diffusion direction separately
+    denoised_arr = np.zeros(image_array.shape)
+    for diff_idx in range(image_array.shape[3]):
+        sigma = estimate_sigma_dipy(image_array[..., diff_idx])
+        mask = image_array[..., diff_idx] > 0
+        den_small = non_local_means(
+            image_array[..., diff_idx],
+            sigma=sigma,
+            mask=mask,
+            patch_radius=1,
+            block_radius=1,
+            rician=True,
         )
+        den_large = non_local_means(
+            image_array[..., diff_idx],
+            sigma=sigma,
+            mask=mask,
+            patch_radius=2,
+            block_radius=1,
+            rician=True,
+        )
+        denoised_arr[..., diff_idx] = adaptive_soft_matching(image_array[..., diff_idx], den_small, den_large, sigma)
 
-    for i, slice_idx in enumerate(slices):
-        # denoise the images
+        denoise_image_stack = np.reshape(denoised_arr, (denoised_arr.shape[0], denoised_arr.shape[1], -1))
+        denoise_image_stack = np.transpose(denoise_image_stack, (2, 0, 1))
 
-        denoised_slice = denoise_image_stack[i]
-        denoised_slice = np.transpose(denoised_slice, (2, 0, 1))
         # save the denoised images in the original dataframe
-        df_temp = pd.DataFrame.from_records(
-            denoised_slice[:, None], columns=["image"], index=data[data["slice_integer"] == slice_idx].index
-        )
-        data.loc[data["slice_integer"] == slice_idx, "image"] = df_temp
+        df_temp = pd.DataFrame.from_records(denoise_image_stack[:, None])
+        df_temp.index = data.index
+        data["image"] = df_temp
 
     return data
 
@@ -172,7 +190,7 @@ def denoise_all_tucker(data: pd.DataFrame, logger: logging.Logger, settings: dic
             # get the images for this slice
             image_stack = np.stack(data[data["slice_integer"] == slice_idx]["image"].values, axis=-1)
 
-        np.save(os.path.join(settings["debug_folder"], f"slice_{slice_idx}.npy"), image_stack)
+        # np.save(os.path.join(settings["debug_folder"], f"slice_{slice_idx}.npy"), image_stack)
 
         # normalize the images to [0, 1]
         if settings["complex_data"]:

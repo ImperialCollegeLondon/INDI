@@ -121,17 +121,17 @@ def main():
             )
 
             # =========================================================
-            # NLM image denoising of all DWIs
-            # =========================================================
-            if settings["image_denoising"]:
-                data = image_denoising(data, logger, settings, info)
-
-            # =========================================================
             # Option to perform only registration
             # =========================================================
             if settings["workflow_mode"] == "reg":
                 logger.info("Registration only mode is True. Stopping here.")
                 continue
+
+            # =========================================================
+            # NLM image denoising of all DWIs
+            # =========================================================
+            if settings["image_denoising"]:
+                data = image_denoising(data, logger, settings, info)
 
             # =========================================================
             # Remove outliers (pre-segmentation)
