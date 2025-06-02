@@ -156,6 +156,12 @@ def get_diffusion_summary_for_slice(
             logger.debug(f"b-value = {bval}")
             c_table = configs_table_this_slice.loc[configs_table_this_slice["b_value_original"] == bval]
             logger.debug(f"   images: {len(c_table)}")
+            # check if column contains lists or tuples
+            if isinstance(c_table["diffusion_direction_original"].iloc[0], (list, tuple)):
+                # convert to tuples if they are lists
+                c_table["diffusion_direction_original"] = c_table["diffusion_direction_original"].apply(
+                    lambda x: tuple(x) if isinstance(x, list) else x
+                )
             c_table["diffusion_direction_original"].unique()
             logger.debug(f"   directions: {len(c_table["diffusion_direction_original"].unique())}")
             logger.debug(f"   repetitions: {len(c_table)/len(c_table["diffusion_direction_original"].unique())}")
