@@ -6,15 +6,16 @@ import numpy as np
 import pandas as pd
 from denoise.denoise_bm4d import bm4d_denoise
 from denoise.patch_denoise import locally_low_rank_tucker
+from dipy.core.gradients import gradient_table
 from dipy.denoise.adaptive_soft_matching import adaptive_soft_matching
-from dipy.denoise.localpca import mppca
+from dipy.denoise.localpca import localpca, mppca  # noqa
 from dipy.denoise.noise_estimate import estimate_sigma as estimate_sigma_dipy
 from dipy.denoise.non_local_means import non_local_means
 from skimage.restoration import denoise_nl_means, estimate_sigma
 from tqdm import tqdm
 
 
-def denoise_all_mppca(data: pd.DataFrame, logger: logging.Logger, info: dict) -> pd.DataFrame:
+def denoise_all_mppca(data: pd.DataFrame, settings: dict, logger: logging.Logger, info: dict) -> pd.DataFrame:
     """Denoise all DWIs in the DataFrame using a Multi-Patch PCA (MPPCA) filter.
     The denoised images replace the original images in the input DataFrame.
     Args:
@@ -31,9 +32,24 @@ def denoise_all_mppca(data: pd.DataFrame, logger: logging.Logger, info: dict) ->
     for i, slice_idx in enumerate(slices):
         # get a stack of all the DWIs
         image_stack[i] = np.stack(data[data["slice_integer"] == slice_idx]["image"].values, axis=-1)
+        current_entries = data.loc[data["slice_integer"] == slice_idx]
 
-    # denoise with a multi-patch PCA filter
-    denoise_image_stack = mppca(image_stack)
+        # remove any images that have been marked to be removed
+        current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
+
+        bvals = current_entries["b_value"].values
+        bvecs = np.vstack(current_entries["diffusion_direction"])
+        gtab = gradient_table(bvals, bvecs, atol=0.5)  # noqa
+
+    denosing_settings = {
+        "patch_radius": 5,
+        # "tau_factor": None,
+        # "gtab": gtab,
+    }
+    if "denoising_settings" in settings:
+        denosing_settings.update(settings["denoising_settings"])
+    # denoise_image_stack = localpca(image_stack, **denosing_settings)
+    denoise_image_stack = mppca(image_stack, **denosing_settings)
 
     for i, slice_idx in enumerate(slices):
         # denoise the images
@@ -124,6 +140,7 @@ def denoise_all_nlm(data: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
     # denoise with a non-local means filter
     denoise_image_stack = np.zeros(image_stack.shape)
     # NLM parameters
+
     patch_kw = dict(
         patch_size=10,
         patch_distance=20,
@@ -135,7 +152,7 @@ def denoise_all_nlm(data: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
     for i in tqdm(range(len(denoise_image_stack)), desc="Denoising images", unit="image"):
         sigma_est = estimate_sigma(image_stack[i], channel_axis=None)
         denoise_image_stack[i] = denoise_nl_means(
-            image_stack[i], h=4 * sigma_est, sigma=sigma_est, fast_mode=False, **patch_kw
+            image_stack[i], h=6 * sigma_est, sigma=sigma_est, fast_mode=False, **patch_kw
         )
 
     # save the denoised images in the original dataframe
@@ -165,7 +182,7 @@ def denoise_all_bm4d(data: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame
 
     # denoise the images
     for i in tqdm(range(len(denoise_image_stack)), desc="Denoising images", unit="image"):
-        sigma_est = estimate_sigma(image_stack[i], channel_axis=None)
+        sigma_est = estimate_sigma_dipy(image_stack[i : i + 1], N=1)
         denoise_image_stack[i] = bm4d_denoise(image_stack[i], sigma_est)
 
     # save the denoised images in the original dataframe
@@ -277,7 +294,7 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
     if settings["denoise_method"] == "nlm":
         data = denoise_all_nlm(data, logger)
     elif settings["denoise_method"] == "mppca":
-        data = denoise_all_mppca(data, logger, info)
+        data = denoise_all_mppca(data, settings, logger, info)
     elif settings["denoise_method"] == "tucker":
         data = denoise_all_tucker(data, logger, settings)
     elif settings["denoise_method"] == "bm4d":
@@ -300,15 +317,19 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
         random_numbers.sort()
 
         # display the images
-        fig, axes = plt.subplots(2, 5, figsize=(15, 5))
-        for i, ax in enumerate(axes.flat):
-            if i < 5:
-                ax.imshow(image_stack[random_numbers[i]], cmap="gray")
-                ax.set_title(f"Original {random_numbers[i]}")
-            else:
-                ax.imshow(denoise_image_stack[random_numbers[i - 5]], cmap="gray")
-                ax.set_title(f"Denoised {random_numbers[i - 5]}")
-            ax.axis("off")
+        fig, axes = plt.subplots(3, 5, figsize=(15, 5))
+        for i in range(5):
+            axes[0, i].imshow(image_stack[random_numbers[i]], cmap="gray")
+            axes[0, i].set_title(f"Original {random_numbers[i]}")
+            axes[0, i].axis("off")
+            axes[1, i].imshow(denoise_image_stack[random_numbers[i]], cmap="gray")
+            axes[1, i].set_title(f"Denoised {random_numbers[i]}")
+            axes[1, i].axis("off")
+            axes[2, i].imshow(
+                np.abs(denoise_image_stack[random_numbers[i]] - image_stack[random_numbers[i]]), cmap="gray"
+            )
+            axes[2, i].set_title(f"Difference {random_numbers[i]}")
+            axes[2, i].axis("off")
         plt.savefig(
             os.path.join(
                 settings["debug_folder"],
