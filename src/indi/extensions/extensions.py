@@ -892,26 +892,25 @@ def get_bullseye_map(
         distance_map_transmural = np.zeros(binary_mask.shape)
 
         # get coordinates of the pixels in the binary mask
-        coords = np.array(np.where(binary_mask != 0)).T
-        # Build spatial indices for endo and epi contours
-        from scipy.spatial import cKDTree
-
-        endo_tree = cKDTree(endo_contour_interp)
-        epi_tree = cKDTree(epi_contour_interp)
-        # Query nearest distances for all pixels in the binary mask
-        distances_endo, _ = endo_tree.query(coords)
-        distances_epi, _ = epi_tree.query(coords)
-        # Populate distance maps
-        distance_map_endo[coords[:, 0], coords[:, 1]] = distances_endo
-        distance_map_epi[coords[:, 0], coords[:, 1]] = distances_epi
-        # Calculate the normalized transmural distance
-        distance_map_transmural[coords[:, 0], coords[:, 1]] = distances_endo / (distances_endo + distances_epi)
+        coords = np.where(binary_mask != 0)
+        for point_idx in range(len(coords[0])):
+            # get the closest point from endo_contour
+            x1, y1 = coords[1][point_idx], coords[0][point_idx]
+            dist = np.sqrt((endo_contour_interp[:, 0] - x1) ** 2 + (endo_contour_interp[:, 1] - y1) ** 2)
+            distance = np.min(dist)
+            distance_map_endo[y1, x1] = distance
+            # get the closest point from epi_contour
+            dist = np.sqrt((epi_contour_interp[:, 0] - x1) ** 2 + (epi_contour_interp[:, 1] - y1) ** 2)
+            distance = np.min(dist)
+            distance_map_epi[y1, x1] = distance
+            # calculate the normalised transmural distance
+            distance_map_transmural[y1, x1] = (distance_map_endo[y1, x1]) / (
+                distance_map_epi[y1, x1] + distance_map_endo[y1, x1]
+            )
 
         distance_map_endo[binary_mask == 0] = np.nan
         distance_map_epi[binary_mask == 0] = np.nan
         distance_map_transmural[binary_mask == 0] = np.nan
-        # # normalise map
-        # distance_map = distance_map / np.nanmax(distance_map)
 
         # store the bullseye map
         bullseye_maps[slice_idx] = bull_map
