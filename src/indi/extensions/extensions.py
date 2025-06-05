@@ -7,6 +7,7 @@ import pickle
 import subprocess
 import sys
 from typing import Tuple
+from typing import Any
 
 import h5py
 import matplotlib
@@ -24,6 +25,7 @@ from sklearn.linear_model import LinearRegression
 from tvtk.api import tvtk, write_data
 
 from indi.extensions.manual_lv_segmentation import get_sa_contours
+from indi.extensions.polygon_selector import spline_interpolate_contour
 
 
 def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
@@ -763,6 +765,156 @@ def get_ha_line_profiles(
         plt.close()
 
     return ha_lines_profiles, wall_thickness
+
+
+def get_bullseye_map(
+    lv_centres: dict,
+    slices: NDArray,
+    mask_3c: NDArray,
+    average_images: NDArray,
+    segmentation: dict,
+    settings: dict,
+    info: dict,
+    ventricle="LV",
+) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]]]:
+    """
+    Get the Bullseye and Distance maps
+
+    Parameters
+    ----------
+    lv_centres: dictionary with the LV centres for each slice
+    slices: list of slices
+    mask_3c: U-Net segmentation
+    average_images: average images
+    segmentation: dict with segmentation information on the contours of the LV
+    settings: settings
+    info: useful info
+    ventricle: ventricle name
+
+    Returns
+    -------
+    Dictionaries with Bullseye and Distance maps
+
+    """
+    # dictionary to store the data in a dict for each slice
+    bullseye_maps = {}
+    distance_maps = {}
+
+    # loop over each slice
+    for i, slice_idx in enumerate(slices):
+        # current U-Net mask
+        c_mask = np.copy(mask_3c[slice_idx])
+        # make the mask binary, remove RV and all non LV myocardium is 0
+        c_mask[c_mask == 2] = 0
+        # make mask uint8 to be used with cv2
+        c_mask = np.array(c_mask * 255, dtype=np.uint8)
+
+        # get the contours of the epicardium and endocardium
+        if segmentation[slice_idx]["endocardium"].size != 0:
+            epi_contour, endo_contour = get_sa_contours(c_mask)
+        else:
+            # if we don't have the endocardium segmented, there is no reason
+            # to get the HA line profile information
+            # epi_contour = get_epi_contour(c_mask)
+            distance_maps[slice_idx] = np.zeros(c_mask.shape)
+            bullseye_maps[slice_idx] = np.zeros(c_mask.shape)
+            continue
+
+        # ================================================================
+        # bulls eye map with 4 segments
+        epi_contour_interp = spline_interpolate_contour(epi_contour, 1000, join_ends=False)
+        endo_contour_interp = spline_interpolate_contour(endo_contour, 1000, join_ends=False)
+        # order the countour points by the angle with the centre of the LV
+        y_center, x_center = lv_centres[slice_idx]
+
+        # loop over slices and get the phi_matrix for each slice
+        # get the angle of each point in the epi and endo contours
+        phi_matrix_epi = []
+        phi_matrix_endo = []
+        for coords in epi_contour_interp:
+            phi_matrix_epi.append(-np.arctan2(coords[0] - x_center, coords[1] - y_center))
+        for coords in endo_contour_interp:
+            phi_matrix_endo.append(-np.arctan2(coords[0] - x_center, coords[1] - y_center))
+
+        # reorder the contours according to the phi_matrix
+        pos = np.argsort(phi_matrix_epi)
+        epi_contour_interp = epi_contour_interp[pos]
+        pos = np.argsort(phi_matrix_endo)
+        endo_contour_interp = endo_contour_interp[pos]
+
+        # create the new contours
+        mid_contour = (endo_contour_interp + epi_contour_interp) / 2
+        endo_mid = (mid_contour + endo_contour_interp) / 2
+        epi_mid = (mid_contour + epi_contour_interp) / 2
+
+        # create mask from the contours
+        binary_mask = np.copy(mask_3c[slice_idx])
+        binary_mask[binary_mask != 1] = 0
+        ring_1 = np.zeros(binary_mask.shape)
+        ring_1 = cv2.fillPoly(ring_1, [np.array(epi_mid, np.int32)], 1)
+        ring_1[binary_mask == 0] = np.nan
+
+        ring_2 = np.zeros(binary_mask.shape)
+        ring_2 = cv2.fillPoly(ring_2, [np.array(mid_contour, np.int32)], 1)
+        ring_2[binary_mask == 0] = np.nan
+
+        ring_3 = np.zeros(binary_mask.shape)
+        ring_3 = cv2.fillPoly(ring_3, [np.array(endo_mid, np.int32)], 1)
+        ring_3[binary_mask == 0] = np.nan
+
+        bull_map = binary_mask * 4 - ring_1 - ring_2 - ring_3
+
+        distance_map = np.zeros(binary_mask.shape)
+        # get coordinates of the pixels in the binary mask
+        binary_mask_2 = np.copy(mask_3c[slice_idx])
+        coords = np.where(binary_mask_2 != 0)
+        for point_idx in range(len(coords[0])):
+            # get the closest point form epi_contour
+            x1, y1 = coords[1][point_idx], coords[0][point_idx]
+            dist = np.sqrt((endo_contour[:, 0] - x1) ** 2 + (endo_contour[:, 1] - y1) ** 2)
+            distance = np.min(dist)
+            distance_map[y1, x1] = distance
+        distance_map[binary_mask_2 == 0] = np.nan
+        # normalise map
+        distance_map = distance_map / np.nanmax(distance_map)
+
+        # store the bullseye map
+        bullseye_maps[slice_idx] = bull_map
+        distance_maps[slice_idx] = distance_map
+
+        # plot the bulls eye maps
+        if settings["debug"]:
+            cmap = matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("Set3").colors[1:5])
+            alphas_whole_heart = np.copy(mask_3c[slice_idx])
+            alphas_whole_heart[alphas_whole_heart > 0.1] = 1
+            fig, ax = plt.subplots(1, 2)
+            ax[0].imshow(average_images[slice_idx], cmap="Greys_r")
+            i = ax[0].imshow(bull_map, alpha=alphas_whole_heart, cmap=cmap, vmin=1, vmax=4)
+            cbar = plt.colorbar(i, fraction=0.046, pad=0.04)
+            cbar.set_ticks([1, 2, 3, 4])
+            cbar.set_ticklabels(["1", "2", "3", "4"])
+            cbar.ax.tick_params(labelsize=5)
+            ax[0].axis("off")
+            ax[0].set_title("Bullseye")
+            ax[1].imshow(average_images[slice_idx], cmap="Greys_r")
+            i = ax[1].imshow(distance_map, alpha=alphas_whole_heart, cmap="Reds")
+            cbar = plt.colorbar(i, fraction=0.046, pad=0.04)
+            cbar.ax.tick_params(labelsize=5)
+            ax[1].axis("off")
+            ax[1].set_title("Distance")
+            plt.tight_layout(pad=1.0)
+            plt.savefig(
+                os.path.join(
+                    settings["debug_folder"],
+                    f"{ventricle}_bullseye_map_" + "slice_" + str(slice_idx).zfill(3) + ".png",
+                ),
+                dpi=200,
+                pad_inches=0,
+                transparent=False,
+            )
+            plt.close()
+
+    return bullseye_maps, distance_maps
 
 
 def clean_mask(mask: NDArray) -> NDArray:

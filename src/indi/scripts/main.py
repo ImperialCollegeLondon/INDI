@@ -312,6 +312,10 @@ def main():
                 dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info
             )
 
+            dti["bullseye"], dti["distance"] = get_bullseye_map(
+                lv_centres, slices, mask_3c, average_images, segmentation, self.settings, info
+            )
+
             # =========================================================
             # Copy diffusion maps to an xarray dataset
             # =========================================================
