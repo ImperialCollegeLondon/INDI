@@ -19,6 +19,7 @@ from indi.extensions.extensions import (
     get_cardiac_coordinates_short_axis,
     get_colourmaps,
     get_ha_line_profiles,
+    get_bullseye_map,
     get_lv_segments,
     get_snr_maps,
     query_yes_no,
@@ -312,8 +313,8 @@ def main():
                 dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info
             )
 
-            dti["bullseye"], dti["distance"] = get_bullseye_map(
-                lv_centres, slices, mask_3c, average_images, segmentation, self.settings, info
+            dti["bullseye"], dti["distance_endo"], dti["distance_epi"], dti["distance_transmural"] = get_bullseye_map(
+                lv_centres, slices, mask_3c, average_images, segmentation, settings, info
             )
 
             # =========================================================

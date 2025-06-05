@@ -8,6 +8,7 @@ import subprocess
 import sys
 from typing import Tuple
 from typing import Any
+import cv2
 
 import h5py
 import matplotlib
@@ -24,7 +25,7 @@ from skimage.measure import label, regionprops_table
 from sklearn.linear_model import LinearRegression
 from tvtk.api import tvtk, write_data
 
-from indi.extensions.manual_lv_segmentation import get_sa_contours
+from indi.extensions.manual_lv_segmentation import get_sa_contours, get_epi_contour
 from indi.extensions.polygon_selector import spline_interpolate_contour
 
 
@@ -798,7 +799,9 @@ def get_bullseye_map(
     """
     # dictionary to store the data in a dict for each slice
     bullseye_maps = {}
-    distance_maps = {}
+    distance_endo_maps = {}
+    distance_epi_maps = {}
+    distance_transmural_maps = {}
 
     # loop over each slice
     for i, slice_idx in enumerate(slices):
@@ -815,15 +818,22 @@ def get_bullseye_map(
         else:
             # if we don't have the endocardium segmented, there is no reason
             # to get the HA line profile information
-            # epi_contour = get_epi_contour(c_mask)
-            distance_maps[slice_idx] = np.zeros(c_mask.shape)
-            bullseye_maps[slice_idx] = np.zeros(c_mask.shape)
-            continue
+            epi_contour = get_epi_contour(c_mask)
+            # endo_contour is going to be the centroid of the LV mask
+            endo_contour = np.array(
+                [
+                    [int(lv_centres[slice_idx][1]), int(lv_centres[slice_idx][0])],
+                ]
+            )
 
         # ================================================================
-        # bulls eye map with 4 segments
+        # bulls eye map with 3 segments
         epi_contour_interp = spline_interpolate_contour(epi_contour, 1000, join_ends=False)
-        endo_contour_interp = spline_interpolate_contour(endo_contour, 1000, join_ends=False)
+        if endo_contour.shape[0] > 4:
+            endo_contour_interp = spline_interpolate_contour(endo_contour, 1000, join_ends=False)
+        else:
+            endo_contour_interp = endo_contour.copy()
+
         # order the countour points by the angle with the centre of the LV
         y_center, x_center = lv_centres[slice_idx]
 
@@ -843,9 +853,8 @@ def get_bullseye_map(
         endo_contour_interp = endo_contour_interp[pos]
 
         # create the new contours
-        mid_contour = (endo_contour_interp + epi_contour_interp) / 2
-        endo_mid = (mid_contour + endo_contour_interp) / 2
-        epi_mid = (mid_contour + epi_contour_interp) / 2
+        endo_mid = (epi_contour_interp - endo_contour_interp) * (1 / 3) + endo_contour_interp
+        epi_mid = (epi_contour_interp - endo_contour_interp) * (2 / 3) + endo_contour_interp
 
         # create mask from the contours
         binary_mask = np.copy(mask_3c[slice_idx])
@@ -855,53 +864,76 @@ def get_bullseye_map(
         ring_1[binary_mask == 0] = np.nan
 
         ring_2 = np.zeros(binary_mask.shape)
-        ring_2 = cv2.fillPoly(ring_2, [np.array(mid_contour, np.int32)], 1)
+        ring_2 = cv2.fillPoly(ring_2, [np.array(endo_mid, np.int32)], 1)
         ring_2[binary_mask == 0] = np.nan
 
-        ring_3 = np.zeros(binary_mask.shape)
-        ring_3 = cv2.fillPoly(ring_3, [np.array(endo_mid, np.int32)], 1)
-        ring_3[binary_mask == 0] = np.nan
+        # ring_3 = np.zeros(binary_mask.shape)
+        # ring_3 = cv2.fillPoly(ring_3, [np.array(endo_mid, np.int32)], 1)
+        # ring_3[binary_mask == 0] = np.nan
 
-        bull_map = binary_mask * 4 - ring_1 - ring_2 - ring_3
+        # bull_map = binary_mask * 4 - ring_1 - ring_2 - ring_3
 
-        distance_map = np.zeros(binary_mask.shape)
+        bull_map = binary_mask * 3 - ring_1 - ring_2
+
+        # calculate three distance maps
+        # distance_map_endo: distance from the endocardium
+        # distance_map_epi: distance from the epicardium
+        # distance_map_transmural: relative distance radially from the endocardium to the epicardium
+        distance_map_endo = np.zeros(binary_mask.shape)
+        distance_map_epi = np.zeros(binary_mask.shape)
+        distance_map_transmural = np.zeros(binary_mask.shape)
+
         # get coordinates of the pixels in the binary mask
-        binary_mask_2 = np.copy(mask_3c[slice_idx])
-        coords = np.where(binary_mask_2 != 0)
+        coords = np.where(binary_mask != 0)
         for point_idx in range(len(coords[0])):
-            # get the closest point form epi_contour
+            # get the closest point from endo_contour
             x1, y1 = coords[1][point_idx], coords[0][point_idx]
-            dist = np.sqrt((endo_contour[:, 0] - x1) ** 2 + (endo_contour[:, 1] - y1) ** 2)
+            dist = np.sqrt((endo_contour_interp[:, 0] - x1) ** 2 + (endo_contour_interp[:, 1] - y1) ** 2)
             distance = np.min(dist)
-            distance_map[y1, x1] = distance
-        distance_map[binary_mask_2 == 0] = np.nan
-        # normalise map
-        distance_map = distance_map / np.nanmax(distance_map)
+            distance_map_endo[y1, x1] = distance
+            # get the closest point from epi_contour
+            dist = np.sqrt((epi_contour_interp[:, 0] - x1) ** 2 + (epi_contour_interp[:, 1] - y1) ** 2)
+            distance = np.min(dist)
+            distance_map_epi[y1, x1] = distance
+            # calculate the normalised transmural distance
+            distance_map_transmural[y1, x1] = (distance_map_endo[y1, x1]) / (
+                distance_map_epi[y1, x1] + distance_map_endo[y1, x1]
+            )
+            # normalise the transmural distance
+            # wall_thickness = np.nanmax(distance_map_transmural)
+
+        distance_map_endo[binary_mask == 0] = np.nan
+        distance_map_epi[binary_mask == 0] = np.nan
+        distance_map_transmural[binary_mask == 0] = np.nan
+        # # normalise map
+        # distance_map = distance_map / np.nanmax(distance_map)
 
         # store the bullseye map
         bullseye_maps[slice_idx] = bull_map
-        distance_maps[slice_idx] = distance_map
+        distance_endo_maps[slice_idx] = distance_map_endo
+        distance_epi_maps[slice_idx] = distance_map_epi
+        distance_transmural_maps[slice_idx] = distance_map_transmural
 
         # plot the bulls eye maps
         if settings["debug"]:
-            cmap = matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("Set3").colors[1:5])
+            cmap = matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("Set1").colors[0:3])
             alphas_whole_heart = np.copy(mask_3c[slice_idx])
             alphas_whole_heart[alphas_whole_heart > 0.1] = 1
             fig, ax = plt.subplots(1, 2)
             ax[0].imshow(average_images[slice_idx], cmap="Greys_r")
-            i = ax[0].imshow(bull_map, alpha=alphas_whole_heart, cmap=cmap, vmin=1, vmax=4)
+            i = ax[0].imshow(bull_map, alpha=alphas_whole_heart * 0.7, cmap=cmap, vmin=1, vmax=3)
             cbar = plt.colorbar(i, fraction=0.046, pad=0.04)
-            cbar.set_ticks([1, 2, 3, 4])
-            cbar.set_ticklabels(["1", "2", "3", "4"])
+            cbar.set_ticks([4 / 3, 2, 8 / 3])
+            cbar.set_ticklabels(["1", "2", "3"])
             cbar.ax.tick_params(labelsize=5)
             ax[0].axis("off")
             ax[0].set_title("Bullseye")
             ax[1].imshow(average_images[slice_idx], cmap="Greys_r")
-            i = ax[1].imshow(distance_map, alpha=alphas_whole_heart, cmap="Reds")
+            i = ax[1].imshow(distance_map_transmural, alpha=alphas_whole_heart * 0.7, cmap="Reds", vmin=0, vmax=1)
             cbar = plt.colorbar(i, fraction=0.046, pad=0.04)
             cbar.ax.tick_params(labelsize=5)
             ax[1].axis("off")
-            ax[1].set_title("Distance")
+            ax[1].set_title("Transmural relative distance")
             plt.tight_layout(pad=1.0)
             plt.savefig(
                 os.path.join(
@@ -914,7 +946,7 @@ def get_bullseye_map(
             )
             plt.close()
 
-    return bullseye_maps, distance_maps
+    return bullseye_maps, distance_endo_maps, distance_epi_maps, distance_transmural_maps
 
 
 def clean_mask(mask: NDArray) -> NDArray:
