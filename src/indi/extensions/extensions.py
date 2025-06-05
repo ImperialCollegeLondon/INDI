@@ -799,7 +799,7 @@ def get_bullseye_map(
         ventricle (str, optional): Ventricle name. Defaults to "LV".
 
     Returns:
-        tuple[dict[int, NDArray], dict[int, NDArray], dict[int, NDArray], dict[int, NDArray]]:
+        tuple[NDArray, NDArray, NDArray, NDArray]:
             - bullseye_maps: Dictionary mapping slice indices to bullseye maps.
             - distance_endo_maps: Dictionary mapping slice indices to endocardium distance maps.
             - distance_epi_maps: Dictionary mapping slice indices to epicardium distance maps.
