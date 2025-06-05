@@ -16,6 +16,7 @@ from indi.extensions.complex_averaging import complex_averaging
 from indi.extensions.crop_fov import crop_fov, record_image_registration
 from indi.extensions.extensions import (
     export_results,
+    get_bullseye_map,
     get_cardiac_coordinates_short_axis,
     get_colourmaps,
     get_ha_line_profiles,
@@ -310,6 +311,10 @@ def main():
             # =========================================================
             dti["ha_line_profiles"], dti["wall_thickness"] = get_ha_line_profiles(
                 dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info
+            )
+
+            dti["bullseye"], dti["distance_endo"], dti["distance_epi"], dti["distance_transmural"] = get_bullseye_map(
+                lv_centres, slices, mask_3c, average_images, segmentation, settings, info
             )
 
             # =========================================================
