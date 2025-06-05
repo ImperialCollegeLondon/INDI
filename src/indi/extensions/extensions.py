@@ -779,25 +779,36 @@ def get_bullseye_map(
     ventricle="LV",
 ) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]]]:
     """
-    Get the Bullseye and Distance maps
+    Get the Bullseye and Distance maps for cardiac segmentation.
 
-    Parameters
-    ----------
-    lv_centres: dictionary with the LV centres for each slice
-    slices: list of slices
-    mask_3c: U-Net segmentation
-    average_images: average images
-    segmentation: dict with segmentation information on the contours of the LV
-    settings: settings
-    info: useful info
-    ventricle: ventricle name
+    This function creates bullseye maps and distance maps from segmented cardiac images. The bullseye map divides the
+    myocardium into concentric rings, while distance maps measure distances from endocardium, epicardium, and the
+    transmural (relative) distance across the myocardial wall.
 
-    Returns
-    -------
-    Dictionaries with Bullseye and Distance maps
+    Args:
+        lv_centres (dict): Dictionary with the LV center coordinates for each slice.
+        slices (NDArray): Array of slice indices to process.
+        mask_3c (NDArray): U-Net segmentation mask (3-class: background, LV myocardium, RV).
+        average_images (NDArray): Average images for each slice.
+        segmentation (dict): Dictionary with segmentation information on the contours of the LV.
+        settings (dict): Configuration settings, including debug options.
+        info (dict): Additional information needed for processing.
+        ventricle (str, optional): Ventricle name. Defaults to "LV".
 
-    """
+    Returns:
+        tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]]]: A tuple containing:
+            - bullseye_maps: Dictionary mapping slice indices to bullseye maps
+            - distance_endo_maps: Dictionary mapping slice indices to endocardium distance maps
+            - distance_epi_maps: Dictionary mapping slice indices to epicardium distance maps
+            - distance_transmural_maps: Dictionary mapping slice indices to transmural (relative) distance maps
+
+    Notes:
+        - The bullseye map divides the myocardium into 3 concentric rings from endocardium to epicardium
+        - Distance maps measure the minimum distance from each myocardial pixel to the respective boundary
+        - The transmural distance is normalized to range from 0 (endocardium) to 1 (epicardium)
     # dictionary to store the data in a dict for each slice
+    """
+    # dictionary to store the bullseye and distance maps
     bullseye_maps = {}
     distance_endo_maps = {}
     distance_epi_maps = {}
