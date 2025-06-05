@@ -159,7 +159,7 @@ def get_diffusion_summary_for_slice(
             # check if column contains lists or tuples
             if isinstance(c_table["diffusion_direction_original"].iloc[0], (list, tuple)):
                 # convert to tuples if they are lists
-                c_table["diffusion_direction_original"] = c_table["diffusion_direction_original"].apply(
+                c_table.loc[:, "diffusion_direction_original"] = c_table["diffusion_direction_original"].apply(
                     lambda x: tuple(x) if isinstance(x, list) else x
                 )
             c_table["diffusion_direction_original"].unique()

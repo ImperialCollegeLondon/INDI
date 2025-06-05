@@ -780,7 +780,7 @@ def get_bullseye_map(
     settings: dict,
     info: dict,
     ventricle: str = "LV",
-) -> tuple[dict[int, NDArray], dict[int, NDArray], dict[int, NDArray], dict[int, NDArray]]:
+) -> tuple[NDArray, NDArray, NDArray, NDArray]:
     """
     Get the Bullseye and Distance maps for cardiac segmentation.
 
@@ -805,11 +805,11 @@ def get_bullseye_map(
             - distance_epi_maps: Dictionary mapping slice indices to epicardium distance maps.
             - distance_transmural_maps: Dictionary mapping slice indices to transmural (relative) distance maps.
     """
-    # dictionary to store the bullseye and distance maps
-    bullseye_maps = {}
-    distance_endo_maps = {}
-    distance_epi_maps = {}
-    distance_transmural_maps = {}
+    # arrays to store the bullseye and distance maps
+    bullseye_maps = np.zeros(mask_3c.shape)
+    distance_endo_maps = np.zeros(mask_3c.shape)
+    distance_epi_maps = np.zeros(mask_3c.shape)
+    distance_transmural_maps = np.zeros(mask_3c.shape)
 
     # loop over each slice
     for i, slice_idx in enumerate(slices):
@@ -895,6 +895,7 @@ def get_bullseye_map(
         coords = np.array(np.where(binary_mask != 0)).T
         # Build spatial indices for endo and epi contours
         from scipy.spatial import cKDTree
+
         endo_tree = cKDTree(endo_contour_interp)
         epi_tree = cKDTree(epi_contour_interp)
         # Query nearest distances for all pixels in the binary mask
