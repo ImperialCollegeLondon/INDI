@@ -6,10 +6,9 @@ import os
 import pickle
 import subprocess
 import sys
-from typing import Tuple
-from typing import Any
-import cv2
+from typing import Any, Tuple
 
+import cv2
 import h5py
 import matplotlib
 import matplotlib.pyplot as plt
@@ -25,7 +24,7 @@ from skimage.measure import label, regionprops_table
 from sklearn.linear_model import LinearRegression
 from tvtk.api import tvtk, write_data
 
-from indi.extensions.manual_lv_segmentation import get_sa_contours, get_epi_contour
+from indi.extensions.manual_lv_segmentation import get_epi_contour, get_sa_contours
 from indi.extensions.polygon_selector import spline_interpolate_contour
 
 
@@ -183,6 +182,10 @@ def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray
     maps["mode"] = dti["mode"]
     maps["frob_norm"] = dti["frob_norm"]
     maps["mag_anisotropy"] = dti["mag_anisotropy"]
+    maps["bullseye"] = dti["bullseye"]
+    maps["distance_endo"] = dti["distance_endo"]
+    maps["distance_epi"] = dti["distance_epi"]
+    maps["distance_transmural"] = dti["distance_transmural"]
 
     save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
 

@@ -16,10 +16,10 @@ from indi.extensions.complex_averaging import complex_averaging
 from indi.extensions.crop_fov import crop_fov, record_image_registration
 from indi.extensions.extensions import (
     export_results,
+    get_bullseye_map,
     get_cardiac_coordinates_short_axis,
     get_colourmaps,
     get_ha_line_profiles,
-    get_bullseye_map,
     get_lv_segments,
     get_snr_maps,
     query_yes_no,
