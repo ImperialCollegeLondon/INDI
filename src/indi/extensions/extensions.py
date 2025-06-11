@@ -927,7 +927,7 @@ def get_bullseye_map(
 
         # bin the ha values per distance from the endocardium
         distance_bins = np.linspace(0.1, 0.9, 17)
-        bin_centres = (distance_bins[:-1] + distance_bins[1:]) / 2
+        # bin_centres = (distance_bins[:-1] + distance_bins[1:]) / 2
         delta_bins = distance_bins[1] - distance_bins[0]
         c_values_y = ha[slice_idx]
         c_values_x = distance_map_transmural
