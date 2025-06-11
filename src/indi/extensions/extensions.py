@@ -776,13 +776,14 @@ def get_bullseye_map(
     slices: NDArray,
     mask_3c: NDArray,
     average_images: NDArray,
+    ha: NDArray,
     segmentation: dict[int, dict[str, Any]],
     settings: dict,
     info: dict,
     ventricle: str = "LV",
-) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+) -> tuple[dict[int, NDArray], dict[int, NDArray], dict[int, NDArray], dict[int, NDArray], dict[int, Any]]:
     """
-    Get the Bullseye and Distance maps for cardiac segmentation.
+    Generate bullseye and distance maps for cardiac segmentation.
 
     This function creates bullseye maps and distance maps from segmented cardiac images. The bullseye map divides the
     myocardium into concentric rings, while distance maps measure distances from endocardium, epicardium, and the
@@ -793,17 +794,19 @@ def get_bullseye_map(
         slices (NDArray): Array of slice indices to process.
         mask_3c (NDArray): U-Net segmentation mask (3-class: background, LV myocardium, RV).
         average_images (NDArray): Average images for each slice.
+        ha (NDArray): Helix angle maps for each slice.
         segmentation (dict[int, dict[str, Any]]): Dictionary with segmentation information on the contours of the LV.
         settings (dict): Configuration settings, including debug options.
         info (dict): Additional information needed for processing.
         ventricle (str, optional): Ventricle name. Defaults to "LV".
 
     Returns:
-        tuple[NDArray, NDArray, NDArray, NDArray]:
-            - bullseye_maps: Dictionary mapping slice indices to bullseye maps.
-            - distance_endo_maps: Dictionary mapping slice indices to endocardium distance maps.
-            - distance_epi_maps: Dictionary mapping slice indices to epicardium distance maps.
-            - distance_transmural_maps: Dictionary mapping slice indices to transmural (relative) distance maps.
+        tuple:
+            bullseye_maps (dict[int, NDArray]): Dictionary mapping slice indices to bullseye maps.
+            distance_endo_maps (dict[int, NDArray]): Dictionary mapping slice indices to endocardium distance maps.
+            distance_epi_maps (dict[int, NDArray]): Dictionary mapping slice indices to epicardium distance maps.
+            distance_transmural_maps (dict[int, NDArray]): Dictionary mapping slice indices to transmural (relative) distance maps.
+            ha_lines_profiles_2 (dict[int, Any]): Dictionary with transmural HA profile statistics for each slice.
     """
     # arrays to store the bullseye and distance maps
     bullseye_maps = np.zeros(mask_3c.shape)
@@ -811,8 +814,12 @@ def get_bullseye_map(
     distance_epi_maps = np.zeros(mask_3c.shape)
     distance_transmural_maps = np.zeros(mask_3c.shape)
 
+    ha_lines_profiles_2 = {}
+
     # loop over each slice
     for i, slice_idx in enumerate(slices):
+        ha_lines_profiles_2[slice_idx] = {}
+
         # current U-Net mask
         c_mask = np.copy(mask_3c[slice_idx])
         # make the mask binary, remove RV and all non LV myocardium is 0
@@ -918,6 +925,89 @@ def get_bullseye_map(
         distance_epi_maps[slice_idx] = distance_map_epi
         distance_transmural_maps[slice_idx] = distance_map_transmural
 
+        # bin the ha values per distance from the endocardium
+        distance_bins = np.linspace(0.1, 0.9, 17)
+        bin_centres = (distance_bins[:-1] + distance_bins[1:]) / 2
+        delta_bins = distance_bins[1] - distance_bins[0]
+        c_values_y = ha[slice_idx]
+        c_values_x = distance_map_transmural
+
+        # Create binned values for HA based on distance bins
+        norm_binned_ha = [
+            c_values_y[np.where((c_values_x > low) & (c_values_x <= high))]
+            for low, high in zip(distance_bins[:-1], distance_bins[1:])
+        ]
+
+        # Calculate median and percentiles for each bin
+        ha_transmural_median = np.array([np.nanmedian(bin_values) for bin_values in norm_binned_ha])
+        ha_transmural_25 = np.array([np.nanpercentile(bin_values, 25) for bin_values in norm_binned_ha])
+        ha_transmural_75 = np.array([np.nanpercentile(bin_values, 75) for bin_values in norm_binned_ha])
+        ha_transmural_iqr = ha_transmural_75 - ha_transmural_25
+
+        # fit a line to the median HA
+        model = LinearRegression()
+        x = distance_bins[:-1] + (delta_bins * 0.5).reshape(-1, 1)
+        x = np.transpose(x, (1, 0))
+        model.fit(x, ha_transmural_median)
+        r_sq = model.score(x, ha_transmural_median.reshape(-1, 1))
+        y_pred = model.predict(x)
+        slope = model.coef_[0]
+
+        # store all this info in the dictionary
+        ha_lines_profiles_2[slice_idx]["median"] = ha_transmural_median
+        ha_lines_profiles_2[slice_idx]["q25"] = ha_transmural_25
+        ha_lines_profiles_2[slice_idx]["q75"] = ha_transmural_75
+        ha_lines_profiles_2[slice_idx]["iqr"] = ha_transmural_iqr
+        ha_lines_profiles_2[slice_idx]["r_sq"] = r_sq
+        ha_lines_profiles_2[slice_idx]["slope"] = slope
+        ha_lines_profiles_2[slice_idx]["y_pred"] = y_pred
+
+        # plot HA line profiles
+        plt.figure(figsize=(5, 5))
+        plt.subplot(1, 1, 1)
+        plt.plot(x, ha_transmural_median.T, color="green", alpha=0.03)
+        plt.errorbar(
+            x,
+            ha_transmural_median,
+            yerr=[
+                np.array(ha_transmural_median) - np.array(ha_transmural_25),
+                np.array(ha_transmural_75) - np.array(ha_transmural_median),
+            ],
+            linewidth=2,
+            color="black",
+            label="mean",
+            elinewidth=0.5,
+        )
+        plt.plot(x, y_pred, linewidth=1, color="red", linestyle="--", label="fit")
+        plt.xlabel("normalised wall from endo to epi")
+        plt.ylabel("HA (degrees)")
+        plt.tick_params(axis="both", which="major")
+        plt.title(
+            "Linear fit (Rsq = "
+            + "%.2f" % r_sq
+            + " slope = "
+            + "%.2f" % slope
+            + " mean_iqr = "
+            + "%.2f" % np.mean(ha_transmural_iqr)
+            + ")",
+            fontsize=8,
+        )
+        plt.ylim(-90, 90)
+        plt.xlim(0, 1)
+        plt.legend()
+        plt.tight_layout(pad=1.0)
+        plt.savefig(
+            os.path.join(
+                settings["results"],
+                "results_b",
+                "HA_line_profiles_2_" + "slice_" + str(slice_idx).zfill(2) + ".png",
+            ),
+            dpi=200,
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()
+
         # plot the bulls eye maps
         if settings["debug"]:
             cmap = matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("Set1").colors[0:3])
@@ -950,7 +1040,7 @@ def get_bullseye_map(
             )
             plt.close()
 
-    return bullseye_maps, distance_endo_maps, distance_epi_maps, distance_transmural_maps
+    return bullseye_maps, distance_endo_maps, distance_epi_maps, distance_transmural_maps, ha_lines_profiles_2
 
 
 def clean_mask(mask: NDArray) -> NDArray:
