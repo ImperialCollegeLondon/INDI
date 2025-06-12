@@ -1,4 +1,4 @@
-# INDI (in-vivo diffusion)
+# INDI (In-Vivo Diffusion)
 
 <p align="center">
 <img src="assets/logo/indi_logo.png">
@@ -6,54 +6,50 @@
 
 <p align="center">
 In-vivo diffusion analysis (INDI)<br>
-Post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
+A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 </p>
 
 ## Table of Contents
 
 - [Introduction](#introduction)
 - [Installation](#installation)
-- [How to](#how-to)
+- [Basic Usage](#basic-usage-example)
 - [License](#license)
-- [Aknowledgements](#aknowledgements)
+- [Acknowledgements](#acknowledgements)
 
 ## Introduction
 
-This software offers a Python post-processing pipeline designed for in-vivo cardiac diffusion tensor imaging data.
-It currently accepts Siemens and Philips diffusion weighted DICOMs, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export).
-It also supports both STEAM and spin-echo sequences.
+INDI is a Python-based post-processing pipeline designed for in-vivo cardiac diffusion tensor imaging (cDTI) data.  
+It supports Siemens and Philips diffusion-weighted DICOMs, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). Both STEAM and spin-echo sequences are supported.
 
-After the data is loaded, the pipeline performs the following steps:
+After loading your data, INDI performs the following steps:
 
 - Image registration
 - Image curation
 - Tensor fitting
 - Segmentation
-- Export results
+- Results export
 
 ![workflow](docs/assets/images/summary_figure.png)
 
-INDI runs from the command line, and when processing a dataset for the first time, it will require user input (pop-up matplotlib windows) which will be saved for future runs.
+INDI is run from the command line. When processing a dataset for the first time, user input may be required (via pop-up matplotlib windows); these selections are saved for future runs.
 
-For more details:
+For more information:
 
-See [documentation](docs/documentation.md) for details on the post-processing pipeline (under development 🚧).
-
-See [YAML settings](docs/YAML_settings.md) for run configuration details (under development 🚧).
+- See the [documentation](docs/documentation.md) for details on the post-processing pipeline (under development 🚧).
+- See [YAML settings](docs/YAML_settings.md) for configuration details (under development 🚧).
 
 ## Installation
 
-Software has been tested on:
+INDI has been tested on:
 
-- macOS 15 with python 3.12
-- Ubuntu 24.04 with python 3.12
-- Windows 10 with python 3.12
+- macOS 15 with Python 3.12
+- Ubuntu 24.04 with Python 3.12
+- Windows 10 with Python 3.12
 
-### Clone the repository
+### Clone the Repository
 
-[Install git for your OS](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git).
-
-Then clone the repository.
+First, [install git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) for your operating system, then clone the repository:
 
 ```bash
 git clone https://github.com/ImperialCollegeLondon/INDI.git
@@ -62,29 +58,27 @@ cd INDI
 
 ---
 
-### Installation in macOS (Intel and Apple silicon)
+### Installation on macOS (Intel and Apple Silicon)
 
-You may need to instal Xcode and Xcode’s Command Line Tools package as well, with this command:
+You may need to install Xcode and its Command Line Tools:
 
 ```bash
 xcode-select --install
 ```
 
-Then install [homebrew](https://brew.sh/).
-
-With homebrew install python 3.12:
+Install [Homebrew](https://brew.sh/) and then Python 3.12:
 
 ```bash
 brew install python@3.12
 ```
 
-Also install imagemagick:
+Install ImageMagick:
 
 ```bash
 brew install imagemagick
 ```
 
-Finally, install the python environment in the INDI root directory:
+Set up the Python environment in the INDI root directory:
 
 >[!NOTE]
 > For development replace the `pip install .` command below with `pip install -e ".[dev,doc]"` to install INDI in editable mode with optional dependencies.
@@ -97,24 +91,22 @@ pip install .
 
 ---
 
-### Installation in Ubuntu 24.04
+### Installation on Ubuntu 24.04
 
-install imagemagick:
+Install ImageMagick:
 
 ```bash
 sudo apt install imagemagick
 ```
 
-install development tools:
+Install development tools:
 
 ```bash
-sudo apt install git-all
-sudo apt install build-essential
-sudo apt install python3.12-venv
+sudo apt install git-all build-essential python3.12-venv
 sudo apt-get install python3-tk python3-dev
 ```
 
-Create the python environment in the INDI root directory:
+Create the Python environment in the INDI root directory:
 
 >[!NOTE]
 > For development replace the `pip install .` command below with `pip install -e ".[dev,doc]"` to install INDI in editable mode with optional dependencies.
@@ -125,7 +117,7 @@ source .venv/bin/activate
 pip install .
 ```
 
-You may need to allow the display to show matplotlib windows with the following terminal command:
+If you encounter issues displaying matplotlib windows, run:
 
 ```bash
 xhost +
@@ -133,10 +125,9 @@ xhost +
 
 ---
 
-### Installation Windows 10 with conda
+### Installation on Windows 10 with Conda
 
-Install miniforge:
-[Miniforge](https://github.com/conda-forge/miniforge)
+Install [Miniforge](https://github.com/conda-forge/miniforge).
 
 Create a new environment with conda:
 
@@ -145,7 +136,7 @@ conda create --name indi python=3.12
 conda activate indi
 ```
 
-Then install the required packages:
+Install the required packages:
 
 >[!NOTE]
 > For development replace the `pip install .` command below with `pip install -e ".[dev,doc]"` to install INDI in editable mode with optional dependencies.
@@ -154,14 +145,14 @@ Then install the required packages:
 pip install .
 ```
 
-Install [imagemagick](https://imagemagick.org/).
+Install [ImageMagick](https://imagemagick.org/).
 
 ---
 
-### Installing optional AI modules (under development 🚧)
+### Installing Optional AI Modules (under development 🚧)
 
-We have an ensemble of U-Net models trained to segment the cardiac borders of STEAM data. More details on how to configure it are in `docs/documentation.md` (under development 🚧).
-To use them you first need to install the AI optional dependencies with:
+We provide an ensemble of U-Net models trained to segment cardiac borders in STEAM data. For details, see `docs/documentation.md` (under development 🚧).  
+To use these models, install the AI dependencies:
 
 ```bash
 pip install ".[ai]"
@@ -169,9 +160,9 @@ pip install ".[ai]"
 
 ---
 
-## For development
+## For Development
 
-Install INDI in editable mode with optional dependencies
+Install INDI in editable mode with optional dependencies:
 
 ```bash
 pip install -e ".[dev,doc]"
@@ -182,7 +173,7 @@ pip install -e ".[dev,doc]"
 >[!NOTE]
 > Documentation is very much work in progress
 
-The documentation can be served locally with
+To serve the documentation locally:
 
 ```bash
 mkdocs serve
@@ -194,68 +185,59 @@ mkdocs serve
 pre-commit install
 ```
 
-Now pre-commit will run automatically on git commit. You can also run it manually with:
+Pre-commit will now run automatically on each commit. You can also run it manually:
 
 ```bash
 pre-commit run --all-files
 ```
 
-This is required to ensure code quality and style before committing code changes.
-
-<!-- #### Update and pin requirements
-
-Some packages are pinned to specific versions in the `requirements.in` file. If you want to update the packages, you can do so with the following command (change the requirements file name according to the OS):
-
-```bash
-pip-compile --output-file=requirements_mac.txt
-pip-sync requirements_mac.txt
-``` -->
+This helps ensure code quality and style before committing changes.
 
 ---
 
-## Basic usage example
+## Basic Usage Example
 
-We are going to post-process a synthetic phantom dataset with non-rigid distortions. Please unzip [the phantom data](docs/test_phantom_cdti_dicoms.zip).
+To post-process a synthetic phantom dataset with non-rigid distortions, first unzip [the phantom data](docs/test_phantom_cdti_dicoms.zip).
 
-The `test_phantom_cdti_dicoms` folder contains a subfolder named `diffusion_images` with the cDTI simulated DICOMs. The DICOM files contain noisy diffusion weighted images with periodic non-rigid distortions, simulating a typical in-vivo scan. INDI always looks recursively for subfolders named `diffusion_images`. **The DICOM files must be inside a folder with this name.**
+The `test_phantom_cdti_dicoms` folder contains a `diffusion_images` subfolder with simulated cDTI DICOMs. These files include noisy diffusion-weighted images with periodic non-rigid distortions, simulating a typical in-vivo scan.  
+**INDI always looks recursively for subfolders named `diffusion_images`. The DICOM files must be inside a folder with this name.**
 
-Before running INDI we should copy a version of the [`settings_template.yaml`](settings_template.yaml) file to near the data folder. This file contains the default settings for the processing pipeline. Have a look inside the file, and review the parameters to ensure they are appropriate for your dataset and analysis needs. You can find more information about this file in [the YAML settings documentation](docs/YAML_settings.md).
+Before running INDI, copy the [`settings_template.yaml`](settings_template.yaml) file near your data folder. This file contains default settings for the processing pipeline. Review and adjust the parameters as needed for your dataset. More information is available in [the YAML settings documentation](docs/YAML_settings.md).
 
-In the `settings.yaml` file, we need to specify in the first option `start_folder`, a path to a folder that must contain at least a subfolder named `diffusion_images` with all the DICOM files. For example:
+In your `settings.yaml` file, set the `start_folder` option to the path containing a `diffusion_images` subfolder. For example:
 
 ```yaml
 start_folder: /path/to/test_phantom_cdti_dicoms
 ```
 
-Then run in the INDI python environment:
+Then, in your INDI Python environment, run:
 
 ```bash
 indi /path/to/settings.yaml
 ```
 
-Alternatively, you can leave the `start_folder` field blank and specify the path using the `--start_folder` option in the command line. The full command would be:
+Alternatively, you can leave the `start_folder` field blank and specify the path using the `--start_folder` command-line option:
 
 ```bash
 indi path/to/settings.yaml --start_folder /path/to/start/folder
 ```
 
-In the video tutorial below we show how to run INDI with the phantom data (slightly outdated the command to run INDI, but the rest of the video is still relevant):
+A video tutorial demonstrating how to run INDI with the phantom data is available below (note: the command shown in the video may be slightly outdated, but the rest of the content is still relevant):
 
 [![Watch the video tutorial](docs/assets/images/indi_tutorial_movie_screenshot.png)](https://1drv.ms/v/s!Ah-7Qw9tn52siW8SQZYX0RjRPdKG?e=Pwq85B)
 
 ## License
 
-INDI is licensed under the terms of the BSD license. Please see the [LICENSE](LICENSE) file.
+INDI is licensed under the BSD license. See the [LICENSE](LICENSE) file for details.
 
-If you use this software, please credit this website and "**The CMR unit,
-Royal Brompton Hospital**".
+If you use this software, please credit this website and "**The CMR Unit, Royal Brompton Hospital**".
 
-## Aknowledgements
+## Acknowledgements
 
-- Royal Brompton Hospital (Guy's and St Thomas' NHS Foundation Trust), London UK.
-- Imperial College, London UK.
-- This work was supported by the British Heart Foundation RG/19/1/34160 and RG/F/23/110115.
-- Chan Zuckerberg Initiative DAF, an advised fund of the Silicon Valley Community Foundation: 2024-337787.
-- EPSRC Healthcare Technologies EP/X014010/1.
+- Royal Brompton Hospital (Guy's and St Thomas' NHS Foundation Trust), London, UK
+- Imperial College London, UK
+- Supported by the British Heart Foundation RG/19/1/34160 and RG/F/23/110115
+- Chan Zuckerberg Initiative DAF, an advised fund of the Silicon Valley Community Foundation: 2024-337787
+- EPSRC Healthcare Technologies EP/X014010/1
 
 ![funding](docs/assets/images/grant_logos.png)
