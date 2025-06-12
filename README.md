@@ -57,6 +57,7 @@ Then clone the repository.
 
 ```bash
 git clone https://github.com/ImperialCollegeLondon/INDI.git
+cd INDI
 ```
 
 ---
@@ -85,6 +86,9 @@ brew install imagemagick
 
 Finally, install the python environment in the INDI root directory:
 
+>[!NOTE]
+> For development replace the `pip install .` command below with `pip install -e ".[dev,doc]"` to install INDI in editable mode with optional dependencies.
+
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
@@ -111,6 +115,9 @@ sudo apt-get install python3-tk python3-dev
 ```
 
 Create the python environment in the INDI root directory:
+
+>[!NOTE]
+> For development replace the `pip install .` command below with `pip install -e ".[dev,doc]"` to install INDI in editable mode with optional dependencies.
 
 ```bash
 python3 -m venv .venv
@@ -140,6 +147,9 @@ conda activate indi
 
 Then install the required packages:
 
+>[!NOTE]
+> For development replace the `pip install .` command below with `pip install -e ".[dev,doc]"` to install INDI in editable mode with optional dependencies.
+
 ```bash
 pip install .
 ```
@@ -148,9 +158,9 @@ Install [imagemagick](https://imagemagick.org/).
 
 ---
 
-### Installing optional AI modules (experimental)
+### Installing optional AI modules (under development 🚧)
 
-We have an ensemble of U-Net models trained to segment the cardiac borders of STEAM data. More details on how to configure it are in `docs/documentation.md`.
+We have an ensemble of U-Net models trained to segment the cardiac borders of STEAM data. More details on how to configure it are in `docs/documentation.md` (under development 🚧).
 To use them you first need to install the AI optional dependencies with:
 
 ```bash
@@ -159,7 +169,7 @@ pip install ".[ai]"
 
 ---
 
-### For development
+## For development
 
 Install INDI in editable mode with optional dependencies
 
@@ -167,10 +177,10 @@ Install INDI in editable mode with optional dependencies
 pip install -e ".[dev,doc]"
 ```
 
-#### Documentation
+### Documentation
 
 >[!NOTE]
-> Documentation is work in progress
+> Documentation is very much work in progress
 
 The documentation can be served locally with
 
@@ -207,24 +217,29 @@ pip-sync requirements_mac.txt
 
 We are going to post-process a synthetic phantom dataset with non-rigid distortions. Please unzip [the phantom data](docs/test_phantom_cdti_dicoms.zip).
 
-The `test_phantom_cdti_dicoms` folder contains a subfolder named `diffusion_images` with the cDTI simulated DICOMs. The DICOM files contain noisy diffusion weighted images with periodic non-rigid distortions, simulating a typical in-vivo scan. INDI always looks recursively for subfolders named `diffusion_images`. The DICOM files must be inside a folder with this name.
+The `test_phantom_cdti_dicoms` folder contains a subfolder named `diffusion_images` with the cDTI simulated DICOMs. The DICOM files contain noisy diffusion weighted images with periodic non-rigid distortions, simulating a typical in-vivo scan. INDI always looks recursively for subfolders named `diffusion_images`. **The DICOM files must be inside a folder with this name.**
 
-Before running we should have a look at the `settings.yaml` file, and check if the parameters makes sense. See [YAML settings](docs/YAML_settings.md) for more information. Change the start_folder field to the path for the data. For this phantom example, the default settings for all the other options should be fine.
+Before running INDI we should copy a version of the [`settings_template.yaml`](settings_template.yaml) file to near the data folder. This file contains the default settings for the processing pipeline. Have a look inside the file, and review the parameters to ensure they are appropriate for your dataset and analysis needs. You can find more information about this file in [the YAML settings documentation](docs/YAML_settings.md).
+
+In the `settings.yaml` file, we need to specify in the first option `start_folder`, a path to a folder that must contain at least a subfolder named `diffusion_images` with all the DICOM files. For example:
+
+```yaml
+start_folder: /path/to/test_phantom_cdti_dicoms
+```
 
 Then run in the INDI python environment:
 
 ```bash
-indi /path/to/settings/file
+indi /path/to/settings.yaml
 ```
 
-In the `settings.yaml` file, we need to specify in the first option `start_folder`, a path to a folder that must contain at least a subfolder named `diffusion_images` with all the
-DICOM files. Alternatively, you can specify the path using the `--start_folder` option. The full command would be:
+Alternatively, you can leave the `start_folder` field blank and specify the path using the `--start_folder` option in the command line. The full command would be:
 
 ```bash
-indi path/to/settings.yaml [--start_folder /path/to/start/folder]
+indi path/to/settings.yaml --start_folder /path/to/start/folder
 ```
 
-In the video tutorial below we show how to run INDI with the phantom data:
+In the video tutorial below we show how to run INDI with the phantom data (slightly outdated the command to run INDI, but the rest of the video is still relevant):
 
 [![Watch the video tutorial](docs/assets/images/indi_tutorial_movie_screenshot.png)](https://1drv.ms/v/s!Ah-7Qw9tn52siW8SQZYX0RjRPdKG?e=Pwq85B)
 
