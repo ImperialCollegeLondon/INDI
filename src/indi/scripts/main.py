@@ -313,9 +313,13 @@ def main():
                 dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info
             )
 
-            dti["bullseye"], dti["distance_endo"], dti["distance_epi"], dti["distance_transmural"] = get_bullseye_map(
-                lv_centres, slices, mask_3c, average_images, segmentation, settings, info
-            )
+            (
+                dti["bullseye"],
+                dti["distance_endo"],
+                dti["distance_epi"],
+                dti["distance_transmural"],
+                dti["ha_line_profiles_2"],
+            ) = get_bullseye_map(lv_centres, slices, mask_3c, average_images, dti["ha"], segmentation, settings, info)
 
             # =========================================================
             # Copy diffusion maps to an xarray dataset
