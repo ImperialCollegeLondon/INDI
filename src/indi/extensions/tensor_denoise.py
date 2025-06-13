@@ -14,7 +14,14 @@ def tensor_denoising(dti, slices, average_images, mask_3c, logger, settings):
 
     np.save(os.path.join(settings["debug_folder"], "tensor.npy"), tensor)
 
-    tensor_denoised = nlm_tensor(tensor, h=1)
+    denoising_settings = {
+        "h": 3,
+        "patch_size": 5,
+        "window_size": 15,
+    }
+    if "tensor_denoising_settings" in settings:
+        denoising_settings.update(settings["tensor_denoising_settings"])
+    tensor_denoised = nlm_tensor(tensor, **denoising_settings)
 
     dti["tensor"] = tensor_denoised
 

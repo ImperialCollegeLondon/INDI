@@ -5,12 +5,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from denoise.denoise_bm4d import bm4d_denoise
+from denoise.dip_denoise import dip_denoise
 from denoise.patch_denoise import locally_low_rank_tucker
 from dipy.core.gradients import gradient_table
 from dipy.denoise.adaptive_soft_matching import adaptive_soft_matching
 from dipy.denoise.localpca import localpca, mppca  # noqa
 from dipy.denoise.noise_estimate import estimate_sigma as estimate_sigma_dipy
 from dipy.denoise.non_local_means import non_local_means
+from dipy.denoise.patch2self import patch2self
 from skimage.restoration import denoise_nl_means, estimate_sigma
 from tqdm import tqdm
 
@@ -50,6 +52,53 @@ def denoise_all_mppca(data: pd.DataFrame, settings: dict, logger: logging.Logger
         denosing_settings.update(settings["denoising_settings"])
     # denoise_image_stack = localpca(image_stack, **denosing_settings)
     denoise_image_stack = mppca(image_stack, **denosing_settings)
+
+    for i, slice_idx in enumerate(slices):
+        # denoise the images
+
+        denoised_slice = denoise_image_stack[i]
+        denoised_slice = np.transpose(denoised_slice, (2, 0, 1))
+        # save the denoised images in the original dataframe
+        df_temp = pd.DataFrame.from_records(
+            denoised_slice[:, None], columns=["image"], index=data[data["slice_integer"] == slice_idx].index
+        )
+        data.loc[data["slice_integer"] == slice_idx, "image"] = df_temp
+
+    return data
+
+
+def denoise_all_patch2self(data: pd.DataFrame, settings: dict, logger: logging.Logger, info: dict) -> pd.DataFrame:
+    """Denoise all DWIs in the DataFrame using a the patch2self algorithm.
+    The denoised images replace the original images in the input DataFrame.
+    Args:
+        data (pd.DataFrame): DataFrame containing DWI images and related metadata.
+        logger (logging.Logger): Logger instance for debug output.
+    Returns:
+        data (pd.DataFrame): DataFrame with denoised images replacing original images.
+    """
+
+    logger.debug("Image denoising with MPPCA")
+    slices = data["slice_integer"].unique()
+
+    image_stack = np.zeros((len(slices), info["img_size"][0], info["img_size"][1], info["n_images"]))
+    for i, slice_idx in enumerate(slices):
+        # get a stack of all the DWIs
+        image_stack[i] = np.stack(data[data["slice_integer"] == slice_idx]["image"].values, axis=-1)
+        current_entries = data.loc[data["slice_integer"] == slice_idx]
+
+        # remove any images that have been marked to be removed
+        current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
+
+        bvals = current_entries["b_value"].values
+
+    denoise_image_stack = patch2self(
+        image_stack,
+        bvals,
+        model="ols",
+        shift_intensity=True,
+        clip_negative_vals=False,
+        b0_threshold=100,
+    )
 
     for i, slice_idx in enumerate(slices):
         # denoise the images
@@ -192,6 +241,60 @@ def denoise_all_bm4d(data: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame
     return data
 
 
+def denoise_all_dip(data: pd.DataFrame, settings: dict, logger: logging.Logger, info: dict) -> pd.DataFrame:
+    """Denoise all DWIs in the DataFrame using the DIP algorithm.
+    The denoised images replace the original images in the input DataFrame.
+    Args:
+        data (pd.DataFrame): DataFrame containing DWI images and related metadata.
+        logger (logging.Logger): Logger instance for debug output.
+    Returns:
+        data (pd.DataFrame): DataFrame with denoised images replacing original images.
+    """
+
+    logger.debug("Image denoising with DIP")
+    slices = data["slice_integer"].unique()
+
+    image_stack = np.zeros((len(slices), info["img_size"][0], info["img_size"][1], info["n_images"]))
+    for i, slice_idx in enumerate(slices):
+        # get a stack of all the DWIs
+        image_stack[i] = np.stack(data[data["slice_integer"] == slice_idx]["image"].values, axis=-1)
+
+    denosing_settings = {
+        "iterations": 1000,
+        "learning_rate": 1e-4,
+    }
+    if "denoising_settings" in settings:
+        denosing_settings.update(settings["denoising_settings"])
+
+    denoise_stack = np.zeros(image_stack.shape)
+    for slice_idx in tqdm(slices, desc="Denoising slices", unit="slice"):
+        # get the images for this slice
+        image_stack_slice = image_stack[slice_idx]
+
+        # normalize the images to [0, 1]
+        min_val = np.min(image_stack_slice)
+        max_val = np.max(image_stack_slice)
+        image_stack_slice = (image_stack_slice - min_val) / (max_val - min_val)
+        denoise_image_slice = dip_denoise(image_stack_slice, **denosing_settings)
+        denoise_image_slice = np.transpose(denoise_image_slice, (1, 2, 0))
+
+        denoise_stack[slice_idx] = denoise_image_slice * (max_val - min_val) + min_val
+
+    for i, slice_idx in enumerate(slices):
+        # denoise the images
+
+        denoised_slice = denoise_stack[i]
+        denoised_slice = np.transpose(denoised_slice, (2, 0, 1))
+
+        # save the denoised images in the original dataframe
+        df_temp = pd.DataFrame.from_records(
+            denoised_slice[:, None], columns=["image"], index=data[data["slice_integer"] == slice_idx].index
+        )
+        data.loc[data["slice_integer"] == slice_idx, "image"] = df_temp
+
+    return data
+
+
 def denoise_all_tucker(data: pd.DataFrame, logger: logging.Logger, settings: dict) -> pd.DataFrame:
 
     logger.debug("Image denoising with Tucker")
@@ -301,6 +404,10 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
         data = denoise_all_bm4d(data, logger)
     elif settings["denoise_method"] == "nlm_dipy":
         data = denoise_all_nlm_dipy(data, logger, info)
+    elif settings["denoise_method"] == "patch2self":
+        data = denoise_all_patch2self(data, settings, logger, info)
+    elif settings["denoise_method"] == "dip":
+        data = denoise_all_dip(data, settings, logger, info)
     else:
         logger.error(f"Unknown denoise method: {settings['denoise_method']}")
         raise ValueError(f"Unknown denoise method: {settings['denoise_method']}")

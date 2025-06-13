@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     folders = args.path.glob("*/**/Python_post_processing/")
 
-    date = datetime.datetime.now().strftime("%Y-%m-%d")
+    date = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
 
     for folder in folders:
 
@@ -47,6 +47,10 @@ if __name__ == "__main__":
             name += settings["denoise_method"]
         elif settings["tensor_denoising"]:
             name += "tensor_denoising"
+        elif settings["uformer_denoise"]:
+            name += "uformer_denoise"
+        elif settings["tensor_fit_method"] == "DIP":
+            name += "tensor_DIP_fit"
         else:
             name += "no_denoising"
 

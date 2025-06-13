@@ -283,12 +283,42 @@ def dipy_tensor_fit(
         #         + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
         #     )
 
-        if method == "NLLS" or method == "RESTORE":
+        if method == "DIP":
+            from collections import namedtuple
+
+            from .nn_tensor_fit import nn_fit
+
+            logger.info("Using DIP for tensor fitting")
+            default_settings = {
+                "learning_rate": 1e-4,
+                "iterations": 10000,
+            }
+            if "tensor_fit_settings" in settings:
+                default_settings.update(settings["tensor_fit_settings"])
+
+            tensor_pred, s0_pred, loss_hist = nn_fit(np.squeeze(image_data), bvals, bvecs, **default_settings)
+            plt.plot(loss_hist)
+            plt.savefig(
+                os.path.join(
+                    settings["debug_folder"],
+                    "nn_tensor_fit_loss_slice_" + str(slice_idx).zfill(2) + ".png",
+                ),
+                dpi=200,
+                pad_inches=0,
+                transparent=False,
+            )
+            plt.close()
+            tenfit = namedtuple("TensorFit", ["quadratic_form", "S0_hat"])
+            tenfit.quadratic_form = tensor_pred
+            tenfit.S0_hat = s0_pred
+
+        elif method == "NLLS" or method == "RESTORE":
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
+            tenfit = tenmodel.fit(image_data)
+
         else:
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
-
-        tenfit = tenmodel.fit(image_data)
+            tenfit = tenmodel.fit(image_data)
         tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
         s0[..., slice_idx] = np.squeeze(tenfit.S0_hat)
 
@@ -297,7 +327,7 @@ def dipy_tensor_fit(
         # logger.info(f"Slice {slice_idx}: Time for tensor fitting: {total = :.3f} seconds")
 
         if not quick_mode:
-            if method != "RESTORE":
+            if method != "RESTORE" and method != "DIP":
                 # calculate tensor residuals
                 # Predict a signal given tensor parameters.
                 s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
