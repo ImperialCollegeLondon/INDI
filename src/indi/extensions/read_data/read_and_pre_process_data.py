@@ -1,10 +1,10 @@
+import glob
 import json
 import logging
 import math
 import os
 import re
 import shutil
-import sys
 from typing import Tuple
 
 import h5py
@@ -1119,7 +1119,6 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
 
     elif data_type == "nii":
         # read nii files
-        logger.debug("Nii files found.")
         data, info = read_and_process_niis(list_nii, settings, info, logger)
 
     else:
@@ -1241,14 +1240,17 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
     info dict
 
     """
-    logger.debug("No DICOM or Nii files found. Reading diffusion database files previously created.")
+    logger.debug("No DICOM or Nii files found. Checking for diffusion database files previously created.")
     # check if subfolders "mag" and "phase" exist
     mag_folder = os.path.join(settings["dicom_folder"], "mag")
     phase_folder = os.path.join(settings["dicom_folder"], "phase")
-    if os.path.exists(mag_folder) and os.path.exists(phase_folder):
+    if os.path.exists(mag_folder):
         settings["complex_data"] = True
         settings["dicom_folder"] = mag_folder
-        settings["dicom_folder_phase"] = phase_folder
+        if os.path.exists(phase_folder):
+            settings["dicom_folder_phase"] = phase_folder
+        else:
+            raise ValueError("No phase data folder found!")
 
         logger.debug("Magnitude and phase folders found.")
         logger.debug("Complex averaging on.")
@@ -1256,10 +1258,18 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
     # read the dataframe
     # =========================================================
     save_path = os.path.join(settings["dicom_folder"], "data.gz")
+    # check if files exist
+    if not os.path.exists(save_path):
+        logger.error("No magnitude database files found!")
+        raise ValueError("No magnitude database files found!")
     data = pd.read_pickle(save_path)
     info = data.attrs["info"]
     if settings["complex_data"]:
         save_path = os.path.join(settings["dicom_folder_phase"], "data.gz")
+        # check if files exist
+        if not os.path.exists(save_path):
+            logger.error("No phase database files found!")
+            raise ValueError("No phase database files found!")
         data_phase = pd.read_pickle(save_path)
     else:
         data_phase = pd.DataFrame()
@@ -1506,46 +1516,102 @@ def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, l
     list_dicoms_phase = []
     list_nii = []
 
-    # Check for DICOM files
+    # first check if the subfolders and files inside diffusion_images make sense
+    if not os.path.exists(settings["dicom_folder"]):
+        logger.error("Data folder does not exist: " + settings["dicom_folder"])
+        raise ValueError("Data folder does not exist: " + settings["dicom_folder"])
+
+    # look for files either dcm, nii or data.gz
     included_extensions = ["dcm", "DCM", "IMA"]
     list_dicoms = [
         fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
     ]
+    included_extensions = ["nii", "nii.gz"]
+    list_nii = [
+        fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
+    ]
+    list_data_gz = glob.glob(os.path.join(settings["dicom_folder"], "data.gz"))
+
+    list_dicoms_mag = []
+    list_dicoms_phase = []
+    if len(list_data_gz) < 1 and len(list_dicoms) < 1 and len(list_nii) < 1:
+
+        # we havent found any suitable files in the "diffusion_images" folder. So the next step is to check if there is data in subfolders called "mag" and "phase", i.e complex data.
+        mag_folder = os.path.join(settings["dicom_folder"], "mag")
+        phase_folder = os.path.join(settings["dicom_folder"], "phase")
+        if not os.path.exists(mag_folder) or not os.path.exists(phase_folder):
+            logger.error(
+                "No data found in 'diffusion_images' or 'mag' and 'phase' folders. Please check the folder and try again."
+            )
+            raise ValueError(
+                "No data found in 'diffusion_images' or 'mag' and 'phase' folders. Please check the folder and try again."
+            )
+        # look for DICOM files
+        included_extensions = ["dcm", "DCM", "IMA"]
+        list_dicoms_mag = [fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)]
+        list_dicoms_phase = [
+            fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
+        ]
+        # look for nii files
+        included_extensions = ["nii", "nii.gz"]
+        list_nii_mag = [fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)]
+        list_nii_phase = [
+            fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
+        ]
+        # look for data.gz files
+        list_data_gz_mag = glob.glob(os.path.join(mag_folder, "data.gz"))
+        list_data_gz_phase = glob.glob(os.path.join(phase_folder, "data.gz"))
+
+        if len(list_data_gz_mag) < 1 and len(list_dicoms_mag) < 1 and len(list_nii_mag) < 1:
+            logger.error(
+                "No DICOM files, NIFTI files or pre-saved database found in the folder: "
+                + settings["dicom_folder"]
+                + ". Please check the folder and try again."
+            )
+            raise ValueError(
+                "No DICOM files, NIFTI files or pre-saved database found in the folder: "
+                + settings["dicom_folder"]
+                + ". Please check the folder and try again."
+            )
+        elif (
+            len(list_data_gz_mag) != len(list_data_gz_phase)
+            or len(list_dicoms_mag) != len(list_dicoms_phase)
+            or len(list_nii_mag) != len(list_nii_phase)
+        ):
+            logger.error(
+                "Number of DICOM files, NIFTI files or pre-saved database in the mag and phase folders are different. "
+                "Please check the folders and try again."
+            )
+            raise ValueError(
+                "Number of DICOM files, NIFTI files or pre-saved database in the mag and phase folders are different. "
+                "Please check the folders and try again."
+            )
+
+    # Check for DICOM files
     if len(list_dicoms) > 0:
         data_type = "dicom"
         logger.debug("DICOM files found.")
+        logger.debug("Magnitude data only.")
         list_dicoms.sort()
 
     else:
-        # check if subfolders "mag" and "phase" exist
-        # if so read all dicom files in those folders
-        mag_folder = os.path.join(settings["dicom_folder"], "mag")
-        phase_folder = os.path.join(settings["dicom_folder"], "phase")
-        if os.path.exists(mag_folder) and os.path.exists(phase_folder):
-            list_dicoms = [fn for fn in os.listdir(mag_folder) if any(fn.endswith(ext) for ext in included_extensions)]
-            list_dicoms_phase = [
-                fn for fn in os.listdir(phase_folder) if any(fn.endswith(ext) for ext in included_extensions)
-            ]
-            if len(list_dicoms) > 0 and len(list_dicoms_phase) > 0:
-                data_type = "dicom"
-                settings["complex_data"] = True
-                settings["dicom_folder"] = mag_folder
-                settings["dicom_folder_phase"] = phase_folder
-                # check if both folders have the same number of files
-                if len(list_dicoms) != len(list_dicoms_phase):
-                    logger.error("Number of DICOM files in mag and phase folders are different.")
-                    sys.exit(1)
-                logger.debug("Magnitude and phase DICOM files found.")
-                logger.debug("Complex averaging on.")
-                list_dicoms.sort()
-                list_dicoms_phase.sort()
+        if len(list_dicoms_mag) > 0 and len(list_dicoms_phase) > 0:
+            data_type = "dicom"
+            settings["complex_data"] = True
+            settings["dicom_folder"] = mag_folder
+            settings["dicom_folder_phase"] = phase_folder
+            logger.debug("Magnitude and phase DICOM files found.")
+            logger.debug("Complex averaging on.")
+            list_dicoms = list_dicoms_mag
+            list_dicoms.sort()
+            list_dicoms_phase.sort()
+        else:
+            logger.debug("No DICOM files found.")
+            data_type = None
     if not data_type:
         # If no DICOMS, check for nii files
-        included_extensions = ["nii", "nii.gz"]
-        list_nii = [
-            fn for fn in os.listdir(settings["dicom_folder"]) if any(fn.endswith(ext) for ext in included_extensions)
-        ]
         if len(list_nii) > 0:
             data_type = "nii"
+            logger.debug("NIFTI files found.")
 
     return data_type, list_dicoms, list_dicoms_phase, list_nii
