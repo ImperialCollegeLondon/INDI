@@ -581,6 +581,9 @@ def manual_lv_segmentation(
             epi_contour = None
             endo_contour = None
 
+    # Show the toolbars for zooming and panning
+    matplotlib.rcParams["toolbar"] = "toolbar2"
+
     # plot the magnitude image to be ROI'd
     # retina screen resolution
     # It should be detected automatically otherwise when using a non retina display the app will look too large
@@ -616,6 +619,10 @@ def manual_lv_segmentation(
     ax[1].imshow(ha_map, **map1_props)
     ax[1].axis("off")
     ax[1].label = "ha"
+
+    # Share axes between the preview and the map
+    ax[0].sharex(ax[1])
+    ax[0].sharey(ax[1])
 
     ax_slider = fig.add_axes([0.25, 0.1, 0.65, 0.03])
 
@@ -705,5 +712,8 @@ def manual_lv_segmentation(
     else:
         segmentation["anterior_ip"] = np.array([])
         segmentation["inferior_ip"] = np.array([])
+
+    # Disable again the tool bar
+    matplotlib.rcParams["toolbar"] = "None"
 
     return segmentation, thr_mask
