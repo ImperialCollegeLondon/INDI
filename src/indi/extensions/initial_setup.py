@@ -47,6 +47,9 @@ def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Lo
     if settings["remove_outliers_manually_pre"] == True and settings["remove_outliers_manually"] == False:
         logger.info("Enabling manual removal post segmentation as remove_outliers_manually_pre is enabled!")
         settings["remove_outliers_manually"] = True
+    if settings["uformer_denoise"]:
+        settings["tensor_fit_method"] = "LS"
+        logger.info("Enabling LS tensor fit because uformer_denoise is enabled!")
 
     # ex-vivo settings
     if settings["ex_vivo"]:
