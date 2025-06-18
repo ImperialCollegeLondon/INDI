@@ -588,7 +588,7 @@ def manual_lv_segmentation(
     # retina screen resolution
     # It should be detected automatically otherwise when using a non retina display the app will look too large
     my_dpi = 100
-    if mask_3c.shape[0] > mask_3c.shape[1]:
+    if mask_3c.shape[0] >= mask_3c.shape[1]:
         fig, ax = plt.subplots(
             1,
             2,
