@@ -24,11 +24,11 @@ from indi.extensions.extensions import (
     remove_outliers,
     remove_slices,
 )
-from indi.extensions.ha_line_profiles import get_ha_line_profiles_and_distance_maps
 from indi.extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from indi.extensions.get_eigensystem import get_eigensystem
 from indi.extensions.get_fa_md import get_fa_md
 from indi.extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
+from indi.extensions.ha_line_profiles import get_ha_line_profiles_and_distance_maps
 from indi.extensions.heart_segmentation import get_average_images, heart_segmentation
 from indi.extensions.image_denoising import image_denoising
 from indi.extensions.image_registration import image_registration

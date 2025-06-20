@@ -3,14 +3,15 @@ Calculates transmural gradient information from the helix angle maps
 Also generates useful distance maps and bullseye maps
 """
 
-from numpy.typing import NDArray
-import numpy as np
+import os
+from typing import Any
+
+import cv2
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
+from numpy.typing import NDArray
 from sklearn.linear_model import LinearRegression
-from typing import Any
-import os
-import cv2
 
 from indi.extensions.manual_lv_segmentation import get_epi_contour, get_sa_contours
 from indi.extensions.polygon_selector import spline_interpolate_contour
