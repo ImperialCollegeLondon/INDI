@@ -4,7 +4,6 @@ Also generates useful distance maps and bullseye maps
 """
 
 import os
-from typing import Any
 
 import cv2
 import matplotlib
@@ -144,6 +143,42 @@ def get_ha_line_profiles_and_distance_maps(
 
         # ================================================================
         # ================================================================
+        # plot HA line profiles v1
+        plt.figure(figsize=(5, 5))
+        plt.subplot(1, 1, 1)
+        plt.plot(x, lp_matrix.T, color="green", alpha=0.03)
+        # plt.plot(average_lp, linewidth=2, color="black", label="mean")
+        plt.errorbar(x, average_lp, std_lp, linewidth=2, color="black", label="mean", elinewidth=0.5)
+        plt.plot(x, y_pred, linewidth=1, color="red", linestyle="--", label="fit")
+        plt.xlabel("normalised wall from endo to epi")
+        plt.ylabel("HA (degrees)")
+        plt.tick_params(axis="both", which="major")
+        plt.title(
+            "Linear fit (Rsq = "
+            + "%.2f" % r_sq
+            + " slope = "
+            + "%.2f" % slope
+            + " std = "
+            + "%.2f" % np.mean(std_lp)
+            + ")",
+        )
+        plt.ylim(-90, 90)
+        plt.legend()
+        plt.tight_layout(pad=1.0)
+        plt.savefig(
+            os.path.join(
+                settings["results"],
+                "results_b",
+                "HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
+            ),
+            dpi=200,
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()
+
+        # ================================================================
+        # ================================================================
         # bulls eye map with 3 segments
         epi_contour_interp = spline_interpolate_contour(epi_contour, 1000, join_ends=False)
         if endo_contour.shape[0] > 4:
@@ -260,40 +295,6 @@ def get_ha_line_profiles_and_distance_maps(
 
         # ================================================================
         # ================================================================
-        # plot HA line profiles v1
-        plt.figure(figsize=(5, 5))
-        plt.subplot(1, 1, 1)
-        plt.plot(x, lp_matrix.T, color="green", alpha=0.03)
-        # plt.plot(average_lp, linewidth=2, color="black", label="mean")
-        plt.errorbar(x, average_lp, std_lp, linewidth=2, color="black", label="mean", elinewidth=0.5)
-        plt.plot(x, y_pred, linewidth=1, color="red", linestyle="--", label="fit")
-        plt.xlabel("normalised wall from endo to epi")
-        plt.ylabel("HA (degrees)")
-        plt.tick_params(axis="both", which="major")
-        plt.title(
-            "Linear fit (Rsq = "
-            + "%.2f" % r_sq
-            + " slope = "
-            + "%.2f" % slope
-            + " std = "
-            + "%.2f" % np.mean(std_lp)
-            + ")",
-        )
-        plt.ylim(-90, 90)
-        plt.legend()
-        plt.tight_layout(pad=1.0)
-        plt.savefig(
-            os.path.join(
-                settings["results"],
-                "results_b",
-                "HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
-            ),
-            dpi=200,
-            pad_inches=0,
-            transparent=False,
-        )
-        plt.close()
-
         # plot HA line profiles v2
         plt.figure(figsize=(5, 5))
         plt.subplot(1, 1, 1)
@@ -347,21 +348,35 @@ def get_ha_line_profiles_and_distance_maps(
             cmap = matplotlib.colors.ListedColormap(matplotlib.colormaps.get_cmap("Set1").colors[0:3])
             alphas_whole_heart = np.copy(mask_3c[slice_idx])
             alphas_whole_heart[alphas_whole_heart > 0.1] = 1
-            fig, ax = plt.subplots(1, 2)
-            ax[0].imshow(average_images[slice_idx], cmap="Greys_r")
-            i = ax[0].imshow(bull_map, alpha=alphas_whole_heart * 0.7, cmap=cmap, vmin=1, vmax=3)
+            fig, ax = plt.subplots(2, 2)
+            ax[0, 0].imshow(average_images[slice_idx], cmap="Greys_r")
+            i = ax[0, 0].imshow(bull_map, alpha=alphas_whole_heart * 0.7, cmap=cmap, vmin=1, vmax=3)
             cbar = plt.colorbar(i, fraction=0.046, pad=0.04)
             cbar.set_ticks([4 / 3, 2, 8 / 3])
             cbar.set_ticklabels(["1", "2", "3"])
             cbar.ax.tick_params(labelsize=5)
-            ax[0].axis("off")
-            ax[0].set_title("Bullseye")
-            ax[1].imshow(average_images[slice_idx], cmap="Greys_r")
-            i = ax[1].imshow(distance_map_transmural, alpha=alphas_whole_heart * 0.7, cmap="Reds", vmin=0, vmax=1)
+            ax[0, 0].axis("off")
+            ax[0, 0].set_title("Bullseye")
+            ax[0, 1].imshow(average_images[slice_idx], cmap="Greys_r")
+            i = ax[0, 1].imshow(distance_map_transmural, alpha=alphas_whole_heart * 0.7, cmap="Reds", vmin=0, vmax=1)
             cbar = plt.colorbar(i, fraction=0.046, pad=0.04)
             cbar.ax.tick_params(labelsize=5)
-            ax[1].axis("off")
-            ax[1].set_title("Transmural relative distance")
+            ax[0, 1].axis("off")
+            ax[0, 1].set_title("Transmural relative distance")
+
+            ax[1, 0].imshow(average_images[slice_idx], cmap="Greys_r")
+            i = ax[1, 0].imshow(distance_map_endo, alpha=alphas_whole_heart * 0.7, cmap="Reds")
+            cbar = plt.colorbar(i, fraction=0.046, pad=0.04)
+            cbar.ax.tick_params(labelsize=5)
+            ax[1, 0].axis("off")
+            ax[1, 0].set_title("Distance from endo")
+
+            ax[1, 1].imshow(average_images[slice_idx], cmap="Greys_r")
+            i = ax[1, 1].imshow(distance_map_epi, alpha=alphas_whole_heart * 0.7, cmap="Reds")
+            cbar = plt.colorbar(i, fraction=0.046, pad=0.04)
+            cbar.ax.tick_params(labelsize=5)
+            ax[1, 1].axis("off")
+            ax[1, 1].set_title("Distance from epi")
             plt.tight_layout(pad=1.0)
             plt.savefig(
                 os.path.join(

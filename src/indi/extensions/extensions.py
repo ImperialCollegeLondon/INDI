@@ -6,7 +6,7 @@ import os
 import pickle
 import subprocess
 import sys
-from typing import Any, Tuple
+from typing import Tuple
 
 import h5py
 import matplotlib
