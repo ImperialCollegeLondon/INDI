@@ -26,23 +26,34 @@ def get_ha_line_profiles_and_distance_maps(
     info: dict,
     average_images: NDArray,
     ventricle: str = "LV",
-) -> tuple[dict, dict]:
+) -> tuple[dict, dict, NDArray, NDArray, NDArray, NDArray, dict]:
     """
-    Get the HA line profiles and also Wall Thickness
+    Compute helix angle (HA) line profiles, wall thickness, bullseye maps, and distance maps for each slice.
 
-    Args
-        HA: array with HA values
-        lv_centres: dictionary with the LV centres for each slice
-        slices: list of slices
-        mask_3c: U-Net segmentation
-        segmentation: dict with segmentation information on the contours of the LV
-        settings: settings
-        info: useful info
+    This function extracts transmural HA line profiles from the LV center to the epicardium, computes wall thickness,
+    and generates bullseye maps and distance maps (endo, epi, and transmural) for each slice. It also calculates
+    summary statistics for the transmural HA profile.
+
+    Args:
+        HA (NDArray): Array of helix angle maps for each slice.
+        lv_centres (dict): Dictionary mapping slice indices to LV center coordinates.
+        slices (NDArray): Array or list of slice indices to process.
+        mask_3c (NDArray): 3-class U-Net segmentation mask (background, LV myocardium, RV).
+        segmentation (dict): Dictionary with segmentation information for LV contours.
+        settings (dict): Configuration and output settings.
+        info (dict): Additional information, including pixel spacing.
+        average_images (NDArray): Array of average images for each slice.
+        ventricle (str, optional): Ventricle name to process. Defaults to "LV".
 
     Returns:
-        ha_lines_profiles: dictionary with HA line profiles
-        wall_thickness: dictionary with wall thickness
-
+        tuple:
+            ha_lines_profiles (dict): Dictionary with HA line profiles for each slice.
+            wall_thickness (dict): Dictionary with wall thickness values for each slice.
+            bullseye_maps (NDArray): Array of bullseye maps for all slices.
+            distance_endo_maps (NDArray): Array of endocardium distance maps for all slices.
+            distance_epi_maps (NDArray): Array of epicardium distance maps for all slices.
+            distance_transmural_maps (NDArray): Array of transmural (relative) distance maps for all slices.
+            ha_lines_profiles_2 (dict): Dictionary with transmural HA profile statistics for each slice.
     """
     # lenth of line profile interpolation (from endo to epi)
     interp_len = 50
