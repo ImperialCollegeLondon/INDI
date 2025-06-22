@@ -16,10 +16,8 @@ from indi.extensions.complex_averaging import complex_averaging
 from indi.extensions.crop_fov import crop_fov, record_image_registration
 from indi.extensions.extensions import (
     export_results,
-    get_bullseye_map,
     get_cardiac_coordinates_short_axis,
     get_colourmaps,
-    get_ha_line_profiles,
     get_lv_segments,
     get_snr_maps,
     query_yes_no,
@@ -30,6 +28,7 @@ from indi.extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from indi.extensions.get_eigensystem import get_eigensystem
 from indi.extensions.get_fa_md import get_fa_md
 from indi.extensions.get_tensor_orientation_maps import get_tensor_orientation_maps
+from indi.extensions.ha_line_profiles import get_ha_line_profiles_and_distance_maps
 from indi.extensions.heart_segmentation import get_average_images, heart_segmentation
 from indi.extensions.image_denoising import image_denoising
 from indi.extensions.image_registration import image_registration
@@ -309,12 +308,16 @@ def main():
             # =========================================================
             # Get HA line profiles
             # =========================================================
-            dti["ha_line_profiles"], dti["wall_thickness"] = get_ha_line_profiles(
-                dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info
-            )
-
-            dti["bullseye"], dti["distance_endo"], dti["distance_epi"], dti["distance_transmural"] = get_bullseye_map(
-                lv_centres, slices, mask_3c, average_images, segmentation, settings, info
+            (
+                dti["ha_line_profiles"],
+                dti["wall_thickness"],
+                dti["bullseye"],
+                dti["distance_endo"],
+                dti["distance_epi"],
+                dti["distance_transmural"],
+                dti["ha_line_profiles_2"],
+            ) = get_ha_line_profiles_and_distance_maps(
+                dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info, average_images
             )
 
             # =========================================================
