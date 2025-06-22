@@ -265,7 +265,7 @@ def get_ha_line_profiles_and_distance_maps(
 
         # Create binned values for HA based on distance bins
         norm_binned_ha = [
-            c_values_y[np.where((c_values_x > low) & (c_values_x <= high))]
+            c_values_y[(c_values_x > low) & (c_values_x <= high)]
             for low, high in zip(distance_bins[:-1], distance_bins[1:])
         ]
 
