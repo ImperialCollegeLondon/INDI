@@ -4,7 +4,6 @@ import argparse
 import glob
 import logging
 import os
-import sys
 
 import yaml
 
@@ -147,6 +146,6 @@ def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, l
     all_to_be_analysed_folders.sort()
     if len(all_to_be_analysed_folders) == 0:
         logger.error("No subfolder named 'diffusion_images' found!")
-        sys.exit()
+        raise FileNotFoundError("No subfolder named 'diffusion_images' found!")
 
     return dti, settings, logger, log_format, all_to_be_analysed_folders

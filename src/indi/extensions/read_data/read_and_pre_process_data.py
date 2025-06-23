@@ -1250,7 +1250,7 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
         if os.path.exists(phase_folder):
             settings["dicom_folder_phase"] = phase_folder
         else:
-            raise ValueError("No phase data folder found!")
+            raise FileNotFoundError("No phase data folder found!")
 
         logger.debug("Magnitude and phase folders found.")
         logger.debug("Complex averaging on.")
@@ -1261,7 +1261,7 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
     # check if files exist
     if not os.path.exists(save_path):
         logger.error("No magnitude database files found!")
-        raise ValueError("No magnitude database files found!")
+        raise FileNotFoundError("No magnitude database files found!")
     data = pd.read_pickle(save_path)
     info = data.attrs["info"]
     if settings["complex_data"]:
@@ -1269,7 +1269,7 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
         # check if files exist
         if not os.path.exists(save_path):
             logger.error("No phase database files found!")
-            raise ValueError("No phase database files found!")
+            raise FileNotFoundError("No phase database files found!")
         data_phase = pd.read_pickle(save_path)
     else:
         data_phase = pd.DataFrame()
@@ -1519,7 +1519,7 @@ def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, l
     # first check if the subfolders and files inside diffusion_images make sense
     if not os.path.exists(settings["dicom_folder"]):
         logger.error("Data folder does not exist: " + settings["dicom_folder"])
-        raise ValueError("Data folder does not exist: " + settings["dicom_folder"])
+        raise FileNotFoundError("Data folder does not exist: " + settings["dicom_folder"])
 
     # look for files either dcm, nii or data.gz
     included_extensions = ["dcm", "DCM", "IMA"]
@@ -1543,7 +1543,7 @@ def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, l
             logger.error(
                 "No data found in 'diffusion_images' or 'mag' and 'phase' folders. Please check the folder and try again."
             )
-            raise ValueError(
+            raise FileNotFoundError(
                 "No data found in 'diffusion_images' or 'mag' and 'phase' folders. Please check the folder and try again."
             )
         # look for DICOM files
@@ -1568,7 +1568,7 @@ def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, l
                 + settings["dicom_folder"]
                 + ". Please check the folder and try again."
             )
-            raise ValueError(
+            raise FileNotFoundError(
                 "No DICOM files, NIFTI files or pre-saved database found in the folder: "
                 + settings["dicom_folder"]
                 + ". Please check the folder and try again."
@@ -1582,7 +1582,7 @@ def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, l
                 "Number of DICOM files, NIFTI files or pre-saved database in the mag and phase folders are different. "
                 "Please check the folders and try again."
             )
-            raise ValueError(
+            raise FileNotFoundError(
                 "Number of DICOM files, NIFTI files or pre-saved database in the mag and phase folders are different. "
                 "Please check the folders and try again."
             )
