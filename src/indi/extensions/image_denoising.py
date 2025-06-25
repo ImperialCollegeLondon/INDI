@@ -77,7 +77,7 @@ def denoise_all_patch2self(data: pd.DataFrame, settings: dict, logger: logging.L
         data (pd.DataFrame): DataFrame with denoised images replacing original images.
     """
 
-    logger.debug("Image denoising with MPPCA")
+    logger.debug("Image denoising with patch2self")
     slices = data["slice_integer"].unique()
 
     image_stack = np.zeros((len(slices), info["img_size"][0], info["img_size"][1], info["n_images"]))
@@ -97,7 +97,7 @@ def denoise_all_patch2self(data: pd.DataFrame, settings: dict, logger: logging.L
         model="ols",
         shift_intensity=True,
         clip_negative_vals=False,
-        b0_threshold=100,
+        b0_threshold=0,
     )
 
     for i, slice_idx in enumerate(slices):
@@ -295,61 +295,59 @@ def denoise_all_dip(data: pd.DataFrame, settings: dict, logger: logging.Logger, 
     return data
 
 
-def denoise_all_tucker(data: pd.DataFrame, logger: logging.Logger, settings: dict) -> pd.DataFrame:
+def denoise_all_tucker(data: pd.DataFrame, logger: logging.Logger, settings: dict, info: dict) -> pd.DataFrame:
 
     logger.debug("Image denoising with Tucker")
-
     slices = data["slice_integer"].unique()
-    for slice_idx in tqdm(slices, desc="Denoising slices", unit="slice"):
 
-        if settings["complex_data"]:
-            image_stack_mag = np.stack(data[data["slice_integer"] == slice_idx]["image"].values, axis=-1)
-            image_stack_angle = np.stack(data[data["slice_integer"] == slice_idx]["image_phase"].values, axis=-1)
-            image_stack = image_stack_mag * np.exp(1j * image_stack_angle)
-        else:
-            # get the images for this slice
-            image_stack = np.stack(data[data["slice_integer"] == slice_idx]["image"].values, axis=-1)
+    image_stack = np.zeros((len(slices), info["img_size"][0], info["img_size"][1], info["n_images"]))
+    for i, slice_idx in enumerate(slices):
+        # get a stack of all the DWIs
+        image_stack[i] = np.stack(data[data["slice_integer"] == slice_idx]["image"].values, axis=-1)
+        current_entries = data.loc[data["slice_integer"] == slice_idx]
 
-        # np.save(os.path.join(settings["debug_folder"], f"slice_{slice_idx}.npy"), image_stack)
+        # remove any images that have been marked to be removed
+        current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
 
-        # normalize the images to [0, 1]
-        if settings["complex_data"]:
-            # normalize the magnitude and phase separately
-            image_stack_mag = np.abs(image_stack)
-            image_stack_angle = np.angle(image_stack)
+    # normalize the images to [0, 1]
+    if settings["complex_data"]:
+        # normalize the magnitude and phase separately
+        image_stack_mag = np.abs(image_stack)
+        image_stack_angle = np.angle(image_stack)
 
-            min_val = np.min(image_stack_mag)
-            max_val = np.max(image_stack_mag)
+        min_val = np.min(image_stack_mag)
+        max_val = np.max(image_stack_mag)
 
-            image_stack_mag = (image_stack_mag - min_val) / (max_val - min_val)
+        image_stack_mag = (image_stack_mag - min_val) / (max_val - min_val)
 
-            # combine the normalized magnitude and phase back into a complex image
-            image_stack = image_stack_mag * np.exp(1j * image_stack_angle)
-        else:
-            min_val = np.min(image_stack)
-            max_val = np.max(image_stack)
-            image_stack = (image_stack - min_val) / (max_val - min_val)
+        # combine the normalized magnitude and phase back into a complex image
+        image_stack = image_stack_mag * np.exp(1j * image_stack_angle)
+    else:
+        min_val = np.min(image_stack)
+        max_val = np.max(image_stack)
+        image_stack = (image_stack - min_val) / (max_val - min_val)
 
-        default_settings = {
-            "threshold": 0.5,
-            "tau": 0.1,
-            "patch_transform": "fft",
-            "lambda2d": 1,
-            "window_size": 5,
-            "search_window": 11,
-        }
-        if "denoising_settings" in settings:
-            default_settings.update(settings["denoising_settings"])
-        denoise_image_stack = locally_low_rank_tucker(image_stack, **default_settings)
-        # denoise_image_stack = image_stack.copy()
-        # save the denoised images in the original dataframe
+    default_settings = {
+        "threshold": 0.5,
+        "tau": 0.1,
+        "patch_transform": "fft",
+        "lambda2d": 1,
+        "window_size": 5,
+        "search_window": 11,
+    }
+    if "denoising_settings" in settings:
+        default_settings.update(settings["denoising_settings"])
 
-        denoise_image_stack = np.transpose(denoise_image_stack, (2, 0, 1))
+    denoised_slice = locally_low_rank_tucker(image_stack, **default_settings)
+    # denoise_image_stack = image_stack.copy()
+    # save the denoised images in the original dataframe
+
+    for i, slice_idx in enumerate(slices):
 
         if settings["complex_data"]:
             # save the denoised images in the original dataframe
-            denoise_image_stack_mag = np.abs(denoise_image_stack)
-            denoise_image_stack_angle = np.angle(denoise_image_stack)
+            denoise_image_stack_mag = np.abs(denoised_slice[i])
+            denoise_image_stack_angle = np.angle(denoised_slice[i])
 
             denoise_image_stack_mag = denoise_image_stack_mag * (max_val - min_val) + min_val
 
@@ -368,9 +366,11 @@ def denoise_all_tucker(data: pd.DataFrame, logger: logging.Logger, settings: dic
             data.loc[data["slice_integer"] == slice_idx, "image_phase"] = df_temp
 
         else:
-            denoise_image_stack = denoise_image_stack * (max_val - min_val) + min_val
+            denoised_slice_stack = denoised_slice[i] * (max_val - min_val) + min_val
+            denoised_slice_stack = np.transpose(denoised_slice_stack, (2, 0, 1))
+
             df_temp = pd.DataFrame.from_records(
-                denoise_image_stack[:, None], columns=["image"], index=data[data["slice_integer"] == slice_idx].index
+                denoised_slice_stack[:, None], columns=["image"], index=data[data["slice_integer"] == slice_idx].index
             )
             data.loc[data["slice_integer"] == slice_idx, "image"] = df_temp
 
@@ -399,7 +399,7 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
     elif settings["denoise_method"] == "mppca":
         data = denoise_all_mppca(data, settings, logger, info)
     elif settings["denoise_method"] == "tucker":
-        data = denoise_all_tucker(data, logger, settings)
+        data = denoise_all_tucker(data, logger, settings, info)
     elif settings["denoise_method"] == "bm4d":
         data = denoise_all_bm4d(data, logger)
     elif settings["denoise_method"] == "nlm_dipy":
