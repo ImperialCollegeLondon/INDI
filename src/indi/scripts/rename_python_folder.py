@@ -51,6 +51,8 @@ if __name__ == "__main__":
             name += "uformer_denoise"
         elif settings["tensor_fit_method"] == "DIP":
             name += "tensor_DIP_fit"
+        elif settings["tensor_fit_method"] == "fingerprinting":
+            name += "tensor_fingerprinting_fit"
         else:
             name += "no_denoising"
 

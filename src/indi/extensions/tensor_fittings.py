@@ -312,6 +312,12 @@ def dipy_tensor_fit(
             tenfit.quadratic_form = tensor_pred
             tenfit.S0_hat = s0_pred
 
+        elif method == "fingerprinting":
+            from .fingerprinting import fingerprinting_fit
+
+            logger.info("Using fingerprinting for tensor fitting")
+            tenfit = fingerprinting_fit(image_data, bvals, bvecs, settings, logger)
+
         elif method == "NLLS" or method == "RESTORE":
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
             tenfit = tenmodel.fit(image_data)
@@ -327,7 +333,7 @@ def dipy_tensor_fit(
         # logger.info(f"Slice {slice_idx}: Time for tensor fitting: {total = :.3f} seconds")
 
         if not quick_mode:
-            if method != "RESTORE" and method != "DIP":
+            if method != "RESTORE" and method != "DIP" and method != "fingerprinting":
                 # calculate tensor residuals
                 # Predict a signal given tensor parameters.
                 s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
