@@ -53,9 +53,17 @@ def get_arguments():
 
     parser.add_argument(
         "--repetitions",
+        nargs="+",
         type=int,
-        default=3,
-        help="Number of repetitions to keep",
+        default=[-1, -1, -1],
+        help="Number of repetitions to keep per b-value. If -1, all repetitions are kept.",
+    )
+
+    parser.add_argument(
+        "--name",
+        type=str,
+        default="all",
+        help="Name of the output folder.",
     )
 
     return parser.parse_args()
@@ -72,27 +80,43 @@ def copy_repetitions(data, slices, current_folder, output_folder, number_of_repe
         diffusion_configs_table = (
             current_entries.groupby(["b_value_original", "diffusion_direction"]).size().reset_index(name="Freq")
         )
+        diffusion_configs_table = diffusion_configs_table.sort_values(by=["b_value_original", "diffusion_direction"])
 
-        for i, row in diffusion_configs_table.iterrows():
+        b_values = diffusion_configs_table["b_value_original"].unique()
+        for repetitions, b_value in zip(number_of_repetitions, b_values):
 
-            temp = current_entries[
-                (current_entries["b_value_original"] == row["b_value_original"])
-                & (current_entries["diffusion_direction"] == row["diffusion_direction"])
-            ]
-            temp = temp.reset_index(drop=True)
+            if repetitions == -1:
+                # if -1, we keep all repetitions
+                number_of_repetitions = diffusion_configs_table[
+                    diffusion_configs_table["b_value_original"] == b_value
+                ].shape[0]
+            else:
+                number_of_repetitions = repetitions
 
-            # print(temp)
+            # if number_of_repetitions < 1:
+            #     raise ValueError("Number of repetitions must be at least 1.")
 
-            data_to_keep = temp.iloc[:number_of_repetitions, :]
-            data_to_keep = data_to_keep.reset_index(drop=True)
+            # temp = diffusion_configs_table[diffusion_configs_table["b_value_original"] == b_value]
+            # temp = temp.groupby(["b_value_original", "diffusion_direction"]).size().reset_index(name="Freq")
+            for i, row in diffusion_configs_table[diffusion_configs_table["b_value_original"] == b_value].iterrows():
+                temp = current_entries[
+                    (current_entries["b_value_original"] == row["b_value_original"])
+                    & (current_entries["diffusion_direction"] == row["diffusion_direction"])
+                ]
 
-            for current_file in data_to_keep["file_name"]:
-                file = pathlib.Path(current_file)
+                # print(temp)
+                temp = temp.reset_index(drop=True)
 
-                shutil.copy(
-                    current_folder / file,
-                    output_folder / file.name,
-                )
+                data_to_keep = temp.iloc[:number_of_repetitions, :]
+                data_to_keep = data_to_keep.reset_index(drop=True)
+
+                for current_file in data_to_keep["file_name"]:
+                    file = pathlib.Path(current_file)
+
+                    shutil.copy(
+                        current_folder / file,
+                        output_folder / file.name,
+                    )
 
 
 def main():
@@ -121,7 +145,7 @@ def main():
 
         folder_name = folder.relative_to(args.path)
         output_folder_all = args.out_path / "all" / folder_name.as_posix()
-        output_folder_less_repetitions = args.out_path / f"{args.repetitions}_repetitions" / folder_name.as_posix()
+        output_folder_less_repetitions = args.out_path / f"{args.name}_repetitions" / folder_name.as_posix()
         output_folder_all.mkdir(parents=True, exist_ok=True)
         output_folder_less_repetitions.mkdir(parents=True, exist_ok=True)
 
