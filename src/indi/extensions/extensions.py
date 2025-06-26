@@ -13,7 +13,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pyvista as pv
 import skimage.filters
 import skimage.measure
 import xarray as xr
@@ -22,129 +21,7 @@ from scipy import ndimage
 from skimage import morphology
 from skimage.measure import label, regionprops_table
 
-
-def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
-    """
-
-    Args:
-      vectors: dict with vector fields to save
-      tensors: dict with tensor fields to save
-      scalars: dict with scalar fields to save
-      info: dictionary with info
-      name: name of the file
-      folder_path: path to the folder where to save the file
-
-    Returns:
-        None
-    """
-
-    # shape of the vector field
-    # [slice, row, column, xyz]
-    img_shape = scalars[next(iter(scalars))].shape
-
-    # Create a mesh and add the scalars, vectors and tensors
-    mesh = pv.ImageData()
-    mesh.dimensions = np.array((img_shape[1], img_shape[2], img_shape[0])) + 1
-    mesh.origin = (0, 0, 0)  # The bottom left corner of the data set
-    mesh.spacing = (info["pixel_spacing"][0], info["pixel_spacing"][1], info["slice_spacing"])
-
-    # add all scalar maps
-    for scalar_idx, scalar_name in enumerate(scalars):
-        mesh.cell_data[scalar_name] = scalars[scalar_name].transpose(1, 2, 0).flatten(order="F")
-
-    # rotation to match coordinates directions
-    # x positive left to right, y positive bottom to top, z positive away from you when looking from the feet
-    rot_mat = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, -1]])
-
-    # add all vector fields
-    for vector_idx, vector_name in enumerate(vectors):
-        c_vector = vectors[vector_name].copy()
-        c_vector = c_vector.transpose(1, 2, 0, 3).reshape((img_shape[1] * img_shape[2] * img_shape[0], 3), order="F")
-
-        c_vector = np.matmul(c_vector, rot_mat)
-        mesh.cell_data[vector_name] = c_vector
-
-    # add all tensor fields
-    for tensor_idx, tensor_name in enumerate(tensors):
-        c_tensor = tensors[tensor_name].copy()
-        c_tensor = np.reshape(c_tensor, (img_shape[0], img_shape[1], img_shape[2], 3, 3))
-        c_tensor = np.matmul(rot_mat, np.matmul(c_tensor, rot_mat.T))
-        c_tensor = np.reshape(c_tensor, (img_shape[0], img_shape[1], img_shape[2], 9))
-        c_tensor = c_tensor.transpose(1, 2, 0, 3).reshape((img_shape[1] * img_shape[2] * img_shape[0], 9), order="F")
-        mesh.cell_data[tensor_name] = c_tensor
-
-    # save mesh as VTK file
-    mesh.save(os.path.join(folder_path, name + ".vtk"))
-
-    # TODO finish this animation later
-    # # surface mesh for visualisation
-    # vol = mesh.threshold(value=1, scalars="mask", invert=False)
-    # vol.plot(show_edges=True, show_scalar_bar=False)
-    # surf = vol.extract_geometry()
-    # orig_edges = surf.extract_feature_edges()
-    # surf_smooth = surf.smooth_taubin(n_iter=50, pass_band=0.05)
-
-    # vec = vectors["circ"].transpose(1, 2, 0, 3).reshape((img_shape[1] * img_shape[2] * img_shape[0], 3), order="F")
-    # vec = np.matmul(vec, rot_mat)
-
-    # pl = pv.Plotter()
-    # pl.add_mesh(surf_smooth, show_edges=True, show_scalar_bar=False, opacity=0.5, color="w")
-    # pl.add_arrows(mesh.cell_centers().points, vec, mag=1, color="r", label="Primary EVs")
-    # pl.camera.zoom(2.0)
-    # pl.show(auto_close=False)
-    # path = pl.generate_orbital_path(n_points=36, shift=mesh.length)
-    # pl.open_gif(os.path.join(folder_path, name + ".gif"))
-    # pl.orbit_on_path(path, write_frames=True)
-    # pl.close()
-    # # pl.show()
-
-
-def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray):
-    """Organise the data in order for the DTI maps to be exported in VTK format
-
-    Args:
-      dti: dict with DTI maps
-      info: dict with info
-      settings: dict with settings
-      mask_3c: Array with the segmentation mask
-      average_images: Array with the average images
-
-    Returns:
-        None
-
-    """
-    vectors = {}
-    vectors["primary_evs"] = dti["eigenvectors"][:, :, :, :, 2]
-    vectors["secondary_evs"] = dti["eigenvectors"][:, :, :, :, 1]
-    vectors["tertiary_evs"] = dti["eigenvectors"][:, :, :, :, 0]
-
-    required_shape = (
-        dti["tensor"].shape[0],
-        dti["tensor"].shape[1],
-        dti["tensor"].shape[2],
-        dti["tensor"].shape[3] * dti["tensor"].shape[4],
-    )
-    tensor_mat = np.reshape(dti["tensor"], required_shape)
-    tensors = {"diff_tensor": tensor_mat}
-
-    maps = {}
-    maps["HA"] = dti["ha"]
-    maps["TA"] = dti["ta"]
-    maps["E2A"] = dti["e2a"]
-    maps["MD"] = dti["md"]
-    maps["FA"] = dti["fa"]
-    maps["mask"] = mask_3c
-    maps["s0"] = dti["s0"]
-    maps["mag_image"] = average_images
-    maps["mode"] = dti["mode"]
-    maps["frob_norm"] = dti["frob_norm"]
-    maps["mag_anisotropy"] = dti["mag_anisotropy"]
-    maps["bullseye"] = dti["bullseye"]
-    maps["distance_endo"] = dti["distance_endo"]
-    maps["distance_epi"] = dti["distance_epi"]
-    maps["distance_transmural"] = dti["distance_transmural"]
-
-    save_vtk_file(vectors, tensors, maps, info, "eigensystem", os.path.join(settings["results"], "data"))
+from indi.extensions.export_vectors_tensors_vtk import export_vectors_tensors_vtk, save_vtk_file
 
 
 def clean_image(
@@ -442,7 +319,7 @@ def get_cardiac_coordinates_short_axis(
         # deep copy.
         lcc = copy.deepcopy(local_cardiac_coordinates)
         if settings["debug"]:
-            save_vtk_file(lcc, {}, maps, info, "cardiac_coordinates", settings["debug_folder"])
+            save_vtk_file(lcc, {}, maps, info, "cardiac_coordinates", settings["debug_folder"], save_mesh=True)
 
     return local_cardiac_coordinates, lv_centres, phi_matrix
 
