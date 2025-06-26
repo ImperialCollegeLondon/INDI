@@ -24,7 +24,7 @@ classifiers = [
 
 dependencies = [
   "brukerapi",
-  "dipy",
+  "dipy==1.9.0",
   "h5py",
   "imageio",
   "itk-elastix",
