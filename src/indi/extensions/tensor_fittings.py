@@ -7,6 +7,7 @@ import pandas as pd
 from numpy import ndarray
 from numpy.typing import NDArray
 from scipy import stats
+from tqdm import tqdm
 
 # import time
 
@@ -245,31 +246,34 @@ def dipy_tensor_fit(
 
     # I need to do this per slice, because gtab might differ from slice to slice
     info["tensor fitting sigma"] = {}
-    for slice_idx in slices:
+
+    for i, slice_idx in enumerate(tqdm(slices, desc="Tensor fitting")):
         current_entries = data.loc[data["slice_integer"] == slice_idx]
 
         # remove any images that have been marked to be removed
         current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
 
-        bvals = current_entries["b_value"].values
-        bvecs = np.vstack(current_entries["diffusion_direction"])
-        gtab = gradient_table(bvals, bvecs, atol=0.5)
+        if not current_entries["bmatrix"].isnull().all():
+            # If the b-matrix is present, we should use it instead of b-values and b-vectors
+            if i == 0:
+                message_tensor_fitting_flag = 0
+            bmatrix = np.stack(current_entries["bmatrix"].values)
+            vals, vectors = np.linalg.eigh(bmatrix)
+            idx = vals.argsort(axis=1)[:, ::-1]
+            gradient = np.array([vectors[i, :, idx[i, 0]] for i in range(vals.shape[0])])
+            bvals = np.trace(bmatrix, axis1=-1, axis2=-2)
+            gtab = gradient_table(bvals, bvecs=gradient, btens=bmatrix)
+        else:
+            if i == 0:
+                message_tensor_fitting_flag = 1
+            bvals = current_entries["b_value"].values
+            bvecs = np.vstack(current_entries["diffusion_direction"])
+            gtab = gradient_table(bvals, bvecs=bvecs)
 
         image_data = np.stack(current_entries["image"])
         image_data = image_data[..., np.newaxis]
         image_data = image_data.transpose(1, 2, 3, 0)
         # t0 = time.time()
-        # if not quick_mode:
-        #     sigma = ne.estimate_sigma(image_data)
-        #     info["tensor fitting sigma"][str(slice_idx).zfill(2)] = (
-        #         "%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma)
-        #     )
-        #     logger.debug(
-        #         "Mean sigma for slice "
-        #         + str(slice_idx).zfill(2)
-        #         + ": "
-        #         + str("%.2f" % np.nanmean(sigma) + " +/- " + "%.2f" % np.nanstd(sigma))
-        #     )
 
         if method == "NLLS" or method == "RESTORE":
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
@@ -312,6 +316,11 @@ def dipy_tensor_fit(
         else:
             residuals_img = []
             residuals_map = []
+
+    if message_tensor_fitting_flag == 0:
+        logger.info("Tensor fitting used: b-values and b-matrix")
+    elif message_tensor_fitting_flag == 1:
+        logger.info("Tensor fitting used: b-values and b-vecs")
 
     # reorder tensor to: [slice, lines, cols, 3x3 tensor]
     tensor = tensor.transpose(4, 0, 1, 2, 3)

@@ -729,10 +729,22 @@ def adjust_b_val_and_dir(
             else:
                 return val
 
+        def rotate_bmatrix(val, in_plane_bool, rot_matrix):
+            if not in_plane_bool:
+                return np.dot(np.linalg.inv(rot_matrix), np.dot(val, rot_matrix))
+            else:
+                return val
+
         data["diffusion_direction"] = data.apply(
             lambda x: rotate_dir(x["diffusion_direction"], x["dir_in_image_plane"], rotation_matrix),
             axis=1,
         )
+
+        if "bmatrix" in data.columns:
+            data["bmatrix"] = data.apply(
+                lambda x: rotate_bmatrix(x["bmatrix"], x["dir_in_image_plane"], rotation_matrix),
+                axis=1,
+            )
 
     # the DICOM standard for directions:
     # x positive is left to right
@@ -742,6 +754,13 @@ def adjust_b_val_and_dir(
     # (x positive right to left, y positive bottom to top, z positive away from you)
     if data_type == "dicom" or data_type == "pandas":
         data["diffusion_direction"] = data["diffusion_direction"].apply(lambda x: np.multiply(x, [1, -1, 1]))
+
+        if "bmatrix" in data.columns:
+            rot_mat = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
+            data["bmatrix"] = data.apply(
+                lambda x: rotate_bmatrix(x["bmatrix"], x["dir_in_image_plane"], rot_mat),
+                axis=1,
+            )
 
     if settings["debug"]:
         plot_b_values_adjustment(data, settings)
@@ -1155,6 +1174,10 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
     if settings["remove_b_values"]:
         for bval in settings["remove_b_values"]:
             data.loc[data.b_value_original == bval, "to_be_removed"] = True
+
+    # Add B-matrix column if not present in siemens data
+    if "bmatrix" not in data.columns:
+        data["bmatrix"] = None
 
     # =========================================================
     # re-order data again, this time by slice first, then by date-time

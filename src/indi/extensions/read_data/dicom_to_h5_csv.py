@@ -197,10 +197,53 @@ def get_data_from_dicoms(
     # rename some columns
     header_table = rename_columns(dicom_type, header_table)
 
+    # check the bmatrix is present in the header
+    if "MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValueXX" in header_table.columns:
+        header_table = build_bmatrix(header_table, logger)
+
     # move some columns to the start of the table for easier access to the most important columns
     header_table = reorder_columns(header_table)
 
     return header_table
+
+
+def build_bmatrix(data: pd.DataFrame, logger: logging):
+    """
+    Build the bmatrix from the DICOM header.
+
+    Parameters
+    ----------
+    data
+    logger
+
+    Returns
+    -------
+    data
+    """
+
+    bmatrix_columns = [
+        "MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValueXX",
+        "MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValueXY",
+        "MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValueXZ",
+        "MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValueYY",
+        "MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValueYZ",
+        "MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValueZZ",
+    ]
+    bmatrix_vals = data[bmatrix_columns].values
+    bmatrix = np.zeros((len(bmatrix_vals), 3, 3))
+    bmatrix[:, 0, 0] = bmatrix_vals[:, 0]
+    bmatrix[:, 0, 1] = bmatrix_vals[:, 1]
+    bmatrix[:, 0, 2] = bmatrix_vals[:, 2]
+    bmatrix[:, 1, 0] = bmatrix_vals[:, 1]
+    bmatrix[:, 1, 1] = bmatrix_vals[:, 3]
+    bmatrix[:, 1, 2] = bmatrix_vals[:, 4]
+    bmatrix[:, 2, 0] = bmatrix_vals[:, 2]
+    bmatrix[:, 2, 1] = bmatrix_vals[:, 4]
+    bmatrix[:, 2, 2] = bmatrix_vals[:, 5]
+
+    data["bmatrix"] = bmatrix.tolist()
+    data["bmatrix"] = data["bmatrix"].apply(lambda x: np.asarray(x))
+    return data
 
 
 def check_global_info(data: pd.DataFrame, info: dict, logger: logging) -> tuple[dict, pd.DataFrame]:
@@ -392,6 +435,10 @@ def tweak_directions(data: pd.DataFrame) -> pd.DataFrame:
     data["diffusion_direction"] = data["diffusion_direction"].apply(
         lambda x: (0.0, 0.0, 0.0) if np.isnan(x).any() else tuple(x)
     )
+
+    # repeat for the b-matrix
+    if "bmatrix" in data.columns:
+        data["bmatrix"] = data["bmatrix"].apply(lambda x: np.zeros((3, 3)) if np.isnan(x).any() else x)
 
     return data
 
