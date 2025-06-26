@@ -13,6 +13,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pyvista as pv
 import skimage.filters
 import skimage.measure
 import xarray as xr
@@ -20,7 +21,6 @@ from numpy.typing import NDArray
 from scipy import ndimage
 from skimage import morphology
 from skimage.measure import label, regionprops_table
-from tvtk.api import tvtk, write_data
 
 
 def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name: str, folder_path: str):
@@ -40,101 +40,63 @@ def save_vtk_file(vectors: dict, tensors: dict, scalars: dict, info: dict, name:
 
     # shape of the vector field
     # [slice, row, column, xyz]
-    shape = vectors[next(iter(vectors))].shape
+    img_shape = scalars[next(iter(scalars))].shape
 
-    # get pixel position grid
-    pixel_positions = {}
-    # first in x and y
-    pixel_positions["rows"] = np.linspace(0, info["pixel_spacing"][0] * info["img_size"][0] - 1, info["img_size"][0])
-    pixel_positions["cols"] = np.linspace(0, info["pixel_spacing"][1] * info["img_size"][1] - 1, info["img_size"][1])
-    # then in z
-    # collect image positions
-    image_positions = []
-    for key_, name_ in info["integer_to_image_positions"].items():
-        image_positions.append(name_)
-    # calculate distances between slices
-    spacing_z = [
-        np.sqrt(
-            (image_positions[i][0] - image_positions[i + 1][0]) ** 2
-            + (image_positions[i][1] - image_positions[i + 1][1]) ** 2
-            + (image_positions[i][2] - image_positions[i + 1][2]) ** 2
-        )
-        for i in range(len(image_positions) - 1)
-    ]
-    spacing_z.insert(0, 0)
-    spacing_z = np.cumsum(np.array(spacing_z))
+    # Create a mesh and add the scalars, vectors and tensors
+    mesh = pv.ImageData()
+    mesh.dimensions = np.array((img_shape[1], img_shape[2], img_shape[0])) + 1
+    mesh.origin = (0, 0, 0)  # The bottom left corner of the data set
+    mesh.spacing = (info["pixel_spacing"][0], info["pixel_spacing"][1], info["slice_spacing"])
 
-    pixel_positions["slices"] = np.array(spacing_z)
-
-    # Generate points in a meshgrid
-    x, y, z = np.meshgrid(pixel_positions["cols"], pixel_positions["rows"], pixel_positions["slices"])
-    pts = np.empty(z.shape + (3,), dtype=float)
-    pts[..., 0] = x
-    pts[..., 1] = y
-    pts[..., 2] = z
-
-    # We reorder the points, scalars and vectors so this is as per VTK's
-    # requirement of z first, y next and x last.
-    pts = pts.transpose(2, 1, 0, 3).copy()
-    pts.shape = int(pts.size / 3), 3
-
-    # we need to flip y in the vectors and tensors
-    rot_a = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
-    for vector_idx, vector_name in enumerate(vectors):
-        vectors[vector_name] = np.matmul(vectors[vector_name], rot_a)
-        vectors[vector_name] = vectors[vector_name].transpose(0, 2, 1, 3).copy()
-        vectors[vector_name].shape = int(vectors[vector_name].size / 3), 3
-    for tensor_idx, tensor_name in enumerate(tensors):
-        _t = tensors[tensor_name].copy()
-        _t = np.reshape(_t, (shape[0], shape[1], shape[2], 3, 3))
-        _t = np.matmul(rot_a, np.matmul(_t, rot_a.T))
-        _t = np.reshape(_t, (shape[0], shape[1], shape[2], 9))
-        tensors[tensor_name] = _t.copy()
-        tensors[tensor_name] = tensors[tensor_name].transpose(0, 2, 1, 3).copy()
-        tensors[tensor_name].shape = int(tensors[tensor_name].size / 9), 9
+    # add all scalar maps
     for scalar_idx, scalar_name in enumerate(scalars):
-        scalars[scalar_name] = scalars[scalar_name].transpose(0, 2, 1).copy()
+        mesh.cell_data[scalar_name] = scalars[scalar_name].transpose(1, 2, 0).flatten(order="F")
 
-    # Create the dataset for the vector field
-    sg = tvtk.StructuredGrid(dimensions=x.shape, points=pts)
-    counter = 0
-    # loop over scalar maps
-    for scalar_idx, scalar_name in enumerate(scalars):
-        map, map_str = scalars[scalar_name], scalar_name
-        if scalar_idx == 0:
-            sg.point_data.scalars = map.ravel()
-            sg.point_data.scalars.name = map_str
-            counter += 1
-        else:
-            sg.point_data.add_array(map.ravel())
-            sg.point_data.get_array(counter).name = map_str
-            sg.point_data.update()
-            counter += 1
-    # loop over vector fields
+    # rotation to match coordinates directions
+    # x positive left to right, y positive bottom to top, z positive away from you when looking from the feet
+    rot_mat = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, -1]])
+
+    # add all vector fields
     for vector_idx, vector_name in enumerate(vectors):
-        vector, vector_str = vectors[vector_name], vector_name
-        if vector_idx == 0:
-            sg.point_data.vectors = vector
-            sg.point_data.vectors.name = vector_str
-            counter += 1
-        else:
-            sg.point_data.add_array(vector)
-            sg.point_data.get_array(counter).name = vector_str
-            sg.point_data.update()
-            counter += 1
-    # loop over tensor fields
+        c_vector = vectors[vector_name].copy()
+        c_vector = c_vector.transpose(1, 2, 0, 3).reshape((img_shape[1] * img_shape[2] * img_shape[0], 3), order="F")
+
+        c_vector = np.matmul(c_vector, rot_mat)
+        mesh.cell_data[vector_name] = c_vector
+
+    # add all tensor fields
     for tensor_idx, tensor_name in enumerate(tensors):
-        tensor, tensor_str = tensors[tensor_name], tensor_name
-        if tensor_idx == 0:
-            sg.point_data.tensors = tensor
-            sg.point_data.tensors.name = tensor_str
-            counter += 1
-        else:
-            sg.point_data.add_array(tensor)
-            sg.point_data.get_array(counter).name = tensor_str
-            sg.point_data.update()
-            counter += 1
-    write_data(sg, os.path.join(folder_path, name))
+        c_tensor = tensors[tensor_name].copy()
+        c_tensor = np.reshape(c_tensor, (img_shape[0], img_shape[1], img_shape[2], 3, 3))
+        c_tensor = np.matmul(rot_mat, np.matmul(c_tensor, rot_mat.T))
+        c_tensor = np.reshape(c_tensor, (img_shape[0], img_shape[1], img_shape[2], 9))
+        c_tensor = c_tensor.transpose(1, 2, 0, 3).reshape((img_shape[1] * img_shape[2] * img_shape[0], 9), order="F")
+        mesh.cell_data[tensor_name] = c_tensor
+
+    # save mesh as VTK file
+    mesh.save(os.path.join(folder_path, name + ".vtk"))
+
+    # TODO finish this animation later
+    # # surface mesh for visualisation
+    # vol = mesh.threshold(value=1, scalars="mask", invert=False)
+    # vol.plot(show_edges=True, show_scalar_bar=False)
+    # surf = vol.extract_geometry()
+    # orig_edges = surf.extract_feature_edges()
+    # surf_smooth = surf.smooth_taubin(n_iter=50, pass_band=0.05)
+
+    # vec = vectors["circ"].transpose(1, 2, 0, 3).reshape((img_shape[1] * img_shape[2] * img_shape[0], 3), order="F")
+    # vec = np.matmul(vec, rot_mat)
+
+    # pl = pv.Plotter()
+    # pl.add_mesh(surf_smooth, show_edges=True, show_scalar_bar=False, opacity=0.5, color="w")
+    # pl.add_arrows(mesh.cell_centers().points, vec, mag=1, color="r", label="Primary EVs")
+    # pl.camera.zoom(2.0)
+    # pl.show(auto_close=False)
+    # path = pl.generate_orbital_path(n_points=36, shift=mesh.length)
+    # pl.open_gif(os.path.join(folder_path, name + ".gif"))
+    # pl.orbit_on_path(path, write_frames=True)
+    # pl.close()
+    # # pl.show()
 
 
 def export_vectors_tensors_vtk(dti, info: dict, settings: dict, mask_3c: NDArray, average_images: NDArray):
