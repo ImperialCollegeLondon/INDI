@@ -268,7 +268,7 @@ def dipy_tensor_fit(
                 message_tensor_fitting_flag = 1
             bvals = current_entries["b_value"].values
             bvecs = np.vstack(current_entries["diffusion_direction"])
-            gtab = gradient_table(bvals, bvecs=bvecs, atol=0.5)
+            gtab = gradient_table(bvals, bvecs=bvecs)
 
         image_data = np.stack(current_entries["image"])
         image_data = image_data[..., np.newaxis]
