@@ -74,7 +74,15 @@ def save_vtk_file(
 
         surf_smooth.save(os.path.join(folder_path, "surface_mesh" + ".ply"))
 
-        # TODO ideas for the future:
+    if "primary_evs" in vectors:
+        # save primary eigenvector field
+        # it will only save the vectors in the surface, so if multislice we won't see all the vectors
+        vol = mesh.threshold(value=1, scalars="mask", invert=False)
+        surf = vol.extract_geometry()
+        surf.set_active_vectors("primary_evs")
+        surf.arrows.save(os.path.join(folder_path, "primary_eigenvectors" + ".ply"))
+
+        # unused pyvista plots
         # pl = pv.Plotter(off_screen=True, window_size=(2000,1000))
         # pl.add_mesh(surf_smooth, show_edges=True, show_scalar_bar=False, opacity=0.5, color="w")
         # pl.add_arrows(mesh.cell_centers().points, mesh.cell_data['circ'], mag=2, color="r", label="Circumferential EVs")
