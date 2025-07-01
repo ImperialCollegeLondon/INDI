@@ -197,6 +197,9 @@ def manual_image_removal(
         # remove axes with no image
         [p.set_axis_off() for p in [i for i in axs.flatten() if len(i.images) < 1]]
 
+        # set the background colour of the figure
+        fig.patch.set_facecolor("0.05")
+
         def onclick_select(event):
             """function to record the axes of the selected images in subplots"""
             if event.inaxes is not None:
