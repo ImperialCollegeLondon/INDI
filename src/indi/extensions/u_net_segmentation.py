@@ -164,7 +164,10 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
         return score
 
     # loading the ensemble of models and their predictions
-    common_path = "/usr/local/dtcmr/unet_ensemble/"
+    if os.name == "posix":
+        common_path = "/usr/local/dtcmr/unet_ensemble/"
+    else:
+        common_path = "C:\\INDI\\unet_ensemble\\"
     n_ensemble = settings["n_ensemble"]
     n_classes = 3
     predicted_label_3c = np.zeros(shape=(n_ensemble, img.shape[0], img.shape[1], img.shape[2], n_classes))

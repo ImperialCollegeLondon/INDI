@@ -46,6 +46,9 @@ def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Lo
     if settings["remove_outliers_manually_pre"] == True and settings["remove_outliers_manually"] == False:
         logger.info("Enabling manual removal post segmentation as remove_outliers_manually_pre is enabled!")
         settings["remove_outliers_manually"] = True
+    if settings["uformer_denoise"]:
+        settings["tensor_fit_method"] = "LS"
+        logger.info("Enabling LS tensor fit because uformer_denoise is enabled!")
 
     # ex-vivo settings
     if settings["ex_vivo"]:
@@ -141,5 +144,8 @@ def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, l
     # find all subfolders called dicoms recursively
     all_to_be_analysed_folders = glob.glob(settings["start_folder"] + "/**/diffusion_images", recursive=True)
     all_to_be_analysed_folders.sort()
+    if len(all_to_be_analysed_folders) == 0:
+        logger.error("No subfolder named 'diffusion_images' found!")
+        raise FileNotFoundError("No subfolder named 'diffusion_images' found!")
 
     return dti, settings, logger, log_format, all_to_be_analysed_folders

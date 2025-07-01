@@ -1,3 +1,4 @@
+import os
 from typing import Union
 
 import numpy as np
@@ -9,11 +10,18 @@ from indi.extensions.uformer_tensor_denoising.utils import IndependentEnsemble
 # /opt/homebrew/Cellar/python@3.11/3.11.12/Frameworks/Python.framework/Versions/3.11/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up
 torch.set_num_threads(1)
 
-MODELS = {
-    (1, "1BH", "BH1"): "/usr/local/dtcmr/transformer_tensor_denoising/state_dict_1bh.pth",
-    (3, "3BH", "BH3"): "/usr/local/dtcmr/transformer_tensor_denoising/state_dict_3bh.pth",
-    (5, "5BH", "BH5"): "/usr/local/dtcmr/transformer_tensor_denoising/state_dict_5bh.pth",
-}
+if os.name == "posix":
+    MODELS = {
+        (1, "1BH", "BH1"): "/usr/local/dtcmr/transformer_tensor_denoising/state_dict_1bh.pth",
+        (3, "3BH", "BH3"): "/usr/local/dtcmr/transformer_tensor_denoising/state_dict_3bh.pth",
+        (5, "5BH", "BH5"): "/usr/local/dtcmr/transformer_tensor_denoising/state_dict_5bh.pth",
+    }
+else:
+    MODELS = {
+        (1, "1BH", "BH1"): "C:\\INDI\\transformer_tensor_denoising\\state_dict_1bh.pth",
+        (3, "3BH", "BH3"): "C:\\INDI\\transformer_tensor_denoising\\state_dict_3bh.pth",
+        (5, "5BH", "BH5"): "C:\\INDI\\transformer_tensor_denoising\\state_dict_5bh.pth",
+    }
 
 SHIFT = torch.tensor(
     [
