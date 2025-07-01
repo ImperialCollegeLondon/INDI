@@ -1192,7 +1192,7 @@ def export_results(
     # save to disk dti dictionary
     dti["info"] = info
     with open(os.path.join(settings["results"], "data", "DTI_data.dat"), "wb") as handle:
-        pickle.dump(dti, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(dti, handle)
 
     # save the final diffusion database
     # save the dataframe and the info dict
