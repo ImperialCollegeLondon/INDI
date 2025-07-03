@@ -88,9 +88,9 @@ def manual_image_removal(
                 c_df_b_d = c_df_b.loc[c_df_b["diffusion_direction_original"] == dir].copy()
 
                 # for each b_val and each dir collect all images
-                c_img_stack[b_val, dir] = np.stack(c_df_b_d.image.values, axis=0)
-                c_img_indices[b_val, dir] = c_df_b_d.index.values
-                c_img_stack_series_description[b_val, dir] = c_df_b_d.series_description.values
+                c_img_stack[int(b_val), dir] = np.stack(c_df_b_d.image.values, axis=0)
+                c_img_indices[int(b_val), dir] = c_df_b_d.index.values
+                c_img_stack_series_description[int(b_val), dir] = c_df_b_d.series_description.values
 
                 # record n_images if bigger than the values stored
                 n_images = c_df_b_d.shape[0]
