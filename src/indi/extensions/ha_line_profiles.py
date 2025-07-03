@@ -268,17 +268,26 @@ def get_ha_line_profiles_and_distance_maps(
         distance_transmural_maps[slice_idx] = distance_map_transmural
 
         # bin the ha values per distance from the endocardium
-        distance_bins = np.linspace(0.1, 0.9, 17)
-        # bin_centres = (distance_bins[:-1] + distance_bins[1:]) / 2
-        delta_bins = distance_bins[1] - distance_bins[0]
-        c_values_y = HA[slice_idx]
-        c_values_x = distance_map_transmural
+        # start with 17 bins, and reduce until we have at least 5 values in each bin
+        n_bins = 17 + 1
+        n_empty_bins = 1
+        while n_empty_bins > 0:
+            n_bins -= 1
+            distance_bins = np.linspace(0.1, 0.9, n_bins)
+            # bin_centres = (distance_bins[:-1] + distance_bins[1:]) / 2
+            delta_bins = distance_bins[1] - distance_bins[0]
+            c_values_y = HA[slice_idx]
+            c_values_x = distance_map_transmural
 
-        # Create binned values for HA based on distance bins
-        norm_binned_ha = [
-            c_values_y[(c_values_x > low) & (c_values_x <= high)]
-            for low, high in zip(distance_bins[:-1], distance_bins[1:])
-        ]
+            # Create binned values for HA based on distance bins
+            norm_binned_ha = [
+                c_values_y[(c_values_x > low) & (c_values_x <= high)]
+                for low, high in zip(distance_bins[:-1], distance_bins[1:])
+            ]
+
+            # count number of bins with less than 5 values
+            n_empty_bins = [1 for bin_values in norm_binned_ha if len(bin_values) < 5]
+            n_empty_bins = len(n_empty_bins)
 
         # Calculate median and percentiles for each bin
         ha_transmural_median = np.array([np.nanmedian(bin_values) for bin_values in norm_binned_ha])

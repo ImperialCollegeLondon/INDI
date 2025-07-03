@@ -20,6 +20,7 @@ from numpy.typing import NDArray
 from indi.extensions.read_data.dicom_to_h5_csv import (
     add_missing_columns,
     check_global_info,
+    check_rows_and_columns,
     get_data_from_dicoms,
     interpolate_dicom_pixel_values,
     scale_dicom_pixel_values,
@@ -848,17 +849,17 @@ def create_2d_montage_from_database(
                 c_df_b_d = c_df_b.loc[c_df_b[direction_column_name] == dir].copy()
 
                 # for each b_val and each dir collect all images
-                c_img_stack[b_val, dir_idx] = np.stack(c_df_b_d[image_label].values, axis=0)
-                c_img_stack_series_description[b_val, dir_idx] = c_df_b_d.series_description.values
+                c_img_stack[int(b_val), dir_idx] = np.stack(c_df_b_d[image_label].values, axis=0)
+                c_img_stack_series_description[int(b_val), dir_idx] = c_df_b_d.series_description.values
 
                 # create a mask with 0s and 1s to highlight images in certain positions of the dataframe
                 # these mask will be of the same shape as the images stack
                 c_indices = c_df_b_d.index.to_numpy()
                 mask = np.isin(c_indices, list_to_highlight)
                 mask = mask[..., np.newaxis, np.newaxis]
-                mask = np.repeat(mask, c_img_stack[b_val, dir_idx].shape[1], axis=1)
-                mask = np.repeat(mask, c_img_stack[b_val, dir_idx].shape[2], axis=2)
-                c_highlight_stack[b_val, dir_idx] = mask
+                mask = np.repeat(mask, c_img_stack[int(b_val), dir_idx].shape[1], axis=1)
+                mask = np.repeat(mask, c_img_stack[int(b_val), dir_idx].shape[2], axis=2)
+                c_highlight_stack[int(b_val), dir_idx] = mask
 
                 # record n_images if bigger than the values stored
                 n_images = c_df_b_d.shape[0]
@@ -1351,9 +1352,15 @@ def read_and_process_dicoms(
     data = get_data_from_dicoms(list_dicoms, settings, logger, image_type="mag")
     # check some global info
     info, data = check_global_info(data, info, logger)
-    # adjust pixel values to the correct scale, and interpolate if images small
+    # adjust pixel values to the correct scale
     data = scale_dicom_pixel_values(data)
-    data, info = interpolate_dicom_pixel_values(data, info, logger, image_type="mag")
+    # check rows and columns
+    info = check_rows_and_columns(data, info, logger)
+    # interpolate images if img_interp_factor > 1
+    if "img_interp_factor" in settings and settings["img_interp_factor"] > 1:
+        data, info = interpolate_dicom_pixel_values(
+            data, info, logger, image_type="mag", factor=settings["img_interp_factor"]
+        )
 
     # replace the nan directions with (0.0, 0.0, 0.0)
     data = tweak_directions(data)
@@ -1365,9 +1372,15 @@ def read_and_process_dicoms(
         data_phase = get_data_from_dicoms(list_dicoms_phase, settings, logger, image_type="phase")
         # check some global info
         info_phase, data_phase = check_global_info(data_phase, info_phase, logger)
-        # adjust pixel values to the correct scale, and interpolate if images small
+        # adjust pixel values to the correct scale
         data_phase = scale_dicom_pixel_values(data_phase)
-        data_phase, info_phase = interpolate_dicom_pixel_values(data_phase, info_phase, logger, image_type="phase")
+        # check rows and columns
+        info = check_rows_and_columns(data, info, logger)
+        # interpolate images if img_interp_factor > 1
+        if "img_interp_factor" in settings and settings["img_interp_factor"] > 1:
+            data_phase, info_phase = interpolate_dicom_pixel_values(
+                data_phase, info_phase, logger, image_type="phase", interp_factor=settings["img_interp_factor"]
+            )
         data_phase = tweak_directions(data_phase)
 
         # check if the magnitude and phase tables match

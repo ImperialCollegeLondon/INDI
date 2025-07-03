@@ -71,6 +71,8 @@ registration_mask_scale: 1.0
 remove_b_values: []
 # MD scale in plots
 md_scale: [0, 3]
+# interpolate dicom images factor
+img_interp_factor: 1
 
 # ========================================================================================
 # ex-vivo (in development)
