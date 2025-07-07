@@ -105,6 +105,7 @@ def heart_segmentation(
     # if not calculate a prelim HA map
     prelim_ha = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
     prelim_md = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
+    prelim_residuals = {}
     # mask is all ones here for now.
     thr_mask = np.ones((n_slices, info["img_size"][0], info["img_size"][1]))
     # loop over the slices
@@ -118,7 +119,7 @@ def heart_segmentation(
             )
 
             # get basic tensor
-            tensor, _, _, _, info = dipy_tensor_fit(
+            tensor, _, _, _, temp_residuals, info = dipy_tensor_fit(
                 [slice_idx],
                 data,
                 info,
@@ -141,6 +142,26 @@ def heart_segmentation(
             # threshold preliminary MD and HA maps
             prelim_ha[slice_idx] = prelim_ha[slice_idx] * thr_mask[slice_idx]
             prelim_md[slice_idx] = 1e3 * prelim_md[slice_idx] * thr_mask[slice_idx]
+
+            # preliminary residuals
+            prelim_residuals[slice_idx] = temp_residuals[slice_idx]
+
+        else:
+            # get basic tensor
+            _, _, _, _, temp_residuals, info = dipy_tensor_fit(
+                [slice_idx],
+                data,
+                info,
+                settings,
+                thr_mask,
+                average_images,
+                logger,
+                "LS",
+                quick_mode=True,
+            )
+
+            # preliminary residuals
+            prelim_residuals[slice_idx] = temp_residuals[slice_idx]
 
     # =========================================================
     # LV segmentation
@@ -293,4 +314,9 @@ def heart_segmentation(
 
     logger.info("All manual LV segmentation done")
 
-    return segmentation, mask_3c
+    # turn to nans the pixels that are not part of the mask for the residuals and average all rows and cols
+    prelim_residuals[slice_idx] = prelim_residuals[slice_idx].astype(np.float32)
+    prelim_residuals[slice_idx][mask_3c[slice_idx] == 0] = np.nan
+    prelim_residuals[slice_idx] = np.nanmean(prelim_residuals[slice_idx], axis=(0, 1))
+
+    return segmentation, mask_3c, prelim_residuals

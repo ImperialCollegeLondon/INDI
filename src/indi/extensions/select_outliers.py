@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+from scipy.stats import zscore
 
 from indi.extensions.extensions import get_window
 from indi.extensions.read_data.read_and_pre_process_data import create_2d_montage_from_database
@@ -18,6 +19,7 @@ def manual_image_removal(
     settings: dict,
     stage: str,
     info: dict,
+    prelim_residuals: dict = {},
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict, NDArray]:
     """
     Manual removal of images. A matplotlib window will open, and we can select images to be removed.
@@ -101,6 +103,13 @@ def manual_image_removal(
         # y-axis b-value and direction combos
         # x-axis repetitions
         store_selected_images = []
+
+        # find outliers from the residuals
+        if prelim_residuals:
+            zscores = zscore(prelim_residuals[slice_idx], axis=0, nan_policy="omit")
+            outliers_idx = np.where(np.abs(zscores) > 3)[0]
+            outliers_idx += 1
+
         # retina screen resolution
         my_dpi = 192
         rows = len(c_img_stack)
@@ -134,12 +143,19 @@ def manual_image_removal(
                 vmin, vmax = get_window(img, mask)
                 axs[idx, idx2].imshow(img, cmap="gray", vmin=vmin, vmax=vmax)
                 if segmentation:
+
+                    # if an outlier than change the color to red otherwise keep it yellow
+                    if prelim_residuals and c_img_indices[key][idx2] in outliers_idx:
+                        line_colour = "tab:red"
+                    else:
+                        line_colour = "tab:green"
+
                     axs[idx, idx2].scatter(
                         segmentation[slice_idx]["epicardium"][:, 0],
                         segmentation[slice_idx]["epicardium"][:, 1],
                         marker=".",
                         s=0.1,
-                        color="tab:red",
+                        color=line_colour,
                         alpha=0.7,
                     )
                     if segmentation[slice_idx]["endocardium"].size != 0:
@@ -148,7 +164,7 @@ def manual_image_removal(
                             segmentation[slice_idx]["endocardium"][:, 1],
                             marker=".",
                             s=0.1,
-                            color="tab:red",
+                            color=line_colour,
                             alpha=0.7,
                         )
                 if stage == "pre":
@@ -228,13 +244,16 @@ def manual_image_removal(
             c_dir = ax.values[1]
             c_idx = ax.values[2]
 
-            # locate item in dataframe containing all images for this slice
+            # locate item in dataframe containing all images for this slice with the current b-value and direction
             c_table = c_df[(c_df["diffusion_direction_original"] == c_dir)]
             c_table = c_table[(c_table["b_value_original"] == c_bval)]
-            c_filename = c_table.iloc[c_idx]["file_name"]
+
+            # what is the index of the image in the dataframe with all slices?
+            # Calculate the index of the start of the slice
+            slice_delta_idx = data[data["slice_integer"] == slice_idx].index[0]
 
             # store the index of the rejected image
-            stored_indices_all_slices.append(c_table[(c_table["file_name"] == c_filename)]["index"].iloc[0])
+            stored_indices_all_slices.append(c_table.index[c_idx] + slice_delta_idx)
 
     # the indices of the rejected frames
     rejected_indices = stored_indices_all_slices
@@ -252,6 +271,7 @@ def select_outliers(
     stage: str,
     segmentation: dict = {},
     mask: NDArray = np.array([]),
+    prelim_residuals: dict = {},
 ) -> tuple[pd.DataFrame, dict, NDArray]:
     """
     Remove Outliers: remove outliers, and display all DWIs in a montage
@@ -317,6 +337,7 @@ def select_outliers(
                 settings,
                 stage,
                 info,
+                prelim_residuals,
             )
             logger.info("Manual image removal done.")
 
