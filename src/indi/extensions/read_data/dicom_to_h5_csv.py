@@ -423,12 +423,12 @@ def interpolate_dicom_pixel_values(
         return img
 
     data["image"] = data["image"].apply(lambda x: interpolate_img(x, image_type))
-    old_rows_colum = [info["Rows"], info["Columns"]]
+    old_rows_column = [info["Rows"], info["Columns"]]
     info["Rows"] *= factor
     info["Columns"] *= factor
 
     logger.debug(
-        f"Image matrix interpolated from {old_rows_colum[0]} x {old_rows_colum[1]} to {info["Rows"]} x {info["Columns"]}."
+        f"Image matrix interpolated from {old_rows_column[0]} x {old_rows_column[1]} to {info["Rows"]} x {info["Columns"]}."
     )
 
     return data, info
