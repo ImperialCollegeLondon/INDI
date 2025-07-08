@@ -1375,11 +1375,11 @@ def read_and_process_dicoms(
         # adjust pixel values to the correct scale
         data_phase = scale_dicom_pixel_values(data_phase)
         # check rows and columns
-        info = check_rows_and_columns(data, info, logger)
+        info_phase = check_rows_and_columns(data_phase, info_phase, logger)
         # interpolate images if img_interp_factor > 1
         if "img_interp_factor" in settings and settings["img_interp_factor"] > 1:
             data_phase, info_phase = interpolate_dicom_pixel_values(
-                data_phase, info_phase, logger, image_type="phase", interp_factor=settings["img_interp_factor"]
+                data_phase, info_phase, logger, image_type="phase", factor=settings["img_interp_factor"]
             )
         data_phase = tweak_directions(data_phase)
 
