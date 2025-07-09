@@ -218,7 +218,7 @@ def main():
             # =========================================================
             # Remove outliers and other data from table
             # =========================================================
-            data, info = remove_outliers(data, info)
+            data, info = remove_outliers(data, info, settings)
 
             # =========================================================
             # Get line profile off all remaining images to

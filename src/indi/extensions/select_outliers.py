@@ -61,10 +61,13 @@ def manual_image_removal(
         # initiate maximum number of images found for each b-val and dir combination
         max_number_of_images = 0
 
+        c_df = c_df.reset_index()
+        # rename index column to index_original
+        c_df.rename(columns={"index": "index_all_slices"}, inplace=True)
+
         # drop any images already marked to be removed
         c_df = c_df.loc[c_df["to_be_removed"] == False]
-
-        c_df = c_df.reset_index()
+        c_df = c_df.reset_index(drop=True)
 
         # convert list of directions to a tuple
         c_df["diffusion_direction_original"] = c_df["diffusion_direction_original"].apply(tuple)
@@ -75,7 +78,8 @@ def manual_image_removal(
 
         # initiate the stacks for the images and the highlight masks
         c_img_stack = {}
-        c_img_indices = {}
+        c_img_indices_this_slice = {}
+        c_img_indices_all_slices = {}
         c_img_stack_series_description = {}
 
         # loop over sorted b-values
@@ -94,7 +98,8 @@ def manual_image_removal(
 
                 # for each b_val and each dir collect all images
                 c_img_stack[b_val, dir] = np.stack(c_df_b_d.image.values, axis=0)
-                c_img_indices[b_val, dir] = c_df_b_d.index.values
+                c_img_indices_this_slice[b_val, dir] = c_df_b_d.index.values
+                c_img_indices_all_slices[b_val, dir] = c_df_b_d.index_all_slices.values
                 c_img_stack_series_description[b_val, dir] = c_df_b_d.series_description.values
 
                 # record n_images if bigger than the values stored
@@ -148,7 +153,7 @@ def manual_image_removal(
                     # the colour of the segmentation lines will be defined by the z-scores of the residuals
                     # anything with a absolute z-score larger than 3 will be red
                     cmap = mpl.colormaps["autumn_r"]
-                    cmap_idx = np.abs(zscores[c_img_indices[key][idx2]]) / 3
+                    cmap_idx = np.abs(zscores[c_img_indices_this_slice[key][idx2]]) / 3
                     cmap_idx = np.clip(cmap_idx, 0, 1)  # ensure values are between 0 and 1
                     c_colour = cmap(cmap_idx)  # default colour for ROIs
                     line_colour = c_colour
@@ -208,7 +213,7 @@ def manual_image_removal(
 
                 axs[idx, idx2].set_xticks([])
                 axs[idx, idx2].set_yticks([])
-                axs[idx, idx2].values = *key, idx2
+                axs[idx, idx2].values = *key, c_img_indices_all_slices[key][idx2]
 
         # Setting the values for all axes.
         plt.setp(axs, xticks=[], yticks=[])
@@ -240,23 +245,13 @@ def manual_image_removal(
         plt.show(block=True)
 
         # store the indices of the rejected images:
-        # - indices for all slices together
-        # - indices within each slice
         for ax in store_selected_images:
-            c_bval = ax.values[0]
-            c_dir = ax.values[1]
+            # c_bval = ax.values[0]
+            # c_dir = ax.values[1]
             c_idx = ax.values[2]
 
-            # locate item in dataframe containing all images for this slice with the current b-value and direction
-            c_table = c_df[(c_df["diffusion_direction_original"] == c_dir)]
-            c_table = c_table[(c_table["b_value_original"] == c_bval)]
-
-            # what is the index of the image in the dataframe with all slices?
-            # Calculate the index of the start of the slice
-            slice_delta_idx = data[data["slice_integer"] == slice_idx].index[0]
-
             # store the index of the rejected image
-            stored_indices_all_slices.append(c_table.index[c_idx] + slice_delta_idx)
+            stored_indices_all_slices.append(c_idx)
 
     # the indices of the rejected frames
     rejected_indices = stored_indices_all_slices

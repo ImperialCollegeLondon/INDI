@@ -1597,21 +1597,78 @@ def remove_slices(
     return data, slices, segmentation
 
 
-def remove_outliers(data: pd.DataFrame, info: dict) -> tuple[pd.DataFrame, dict]:
-    """Remove outliers from the dataframe. They will be marked as True in the to_be_removed column
+def remove_outliers(data: pd.DataFrame, info: dict, settings: dict) -> tuple[pd.DataFrame, dict]:
+    """
+    Remove outlier images from the dataframe.
+
+    Images that are marked for removal (i.e., with `to_be_removed == True`) will be excluded from the dataframe.
+    The function also updates the info dictionary with the new number of images. Optionally, it creates montages
+    of removed and retained images for debugging if enabled in settings.
 
     Args:
-        data: dataframe with the diffusion images and info
-        info: dictionary with useful info
+        data (pd.DataFrame): DataFrame containing diffusion images and associated information.
+        info (dict): Dictionary with metadata and processing information.
+        settings (dict): Dictionary with configuration and debug options.
 
     Returns:
-        data: datrame with outliers removed
-        info: updated info dictionary with the number of images
-
+        tuple:
+            pd.DataFrame: DataFrame with outlier images removed.
+            dict: Updated info dictionary with the number of remaining images.
     """
+
+    if settings["debug"]:
+        # montage all the images that are to be removed or not removed
+        create_image_montage(data, settings, flag=True)
+        create_image_montage(data, settings, flag=False)
+
     # remove the rejected images from the dataframe
     data = data.loc[data["to_be_removed"] == False]
     data.reset_index(drop=True, inplace=True)
     info["n_images"] = len(data)
 
     return data, info
+
+
+def create_image_montage(data: pd.DataFrame, settings: dict, flag: bool = True):
+    """
+    Create a montage of images that are either marked for removal or retention.
+
+    This function generates and saves a montage of images from the dataframe, based on whether they are flagged
+    for removal (`to_be_removed == True`) or retention (`to_be_removed == False`). The montage is saved as a PNG
+    file in the debug folder specified in settings.
+
+    Args:
+        data (pd.DataFrame): DataFrame containing diffusion images and associated information. Must include an 'image' column and a 'to_be_removed' boolean column.
+        settings (dict): Dictionary with configuration and debug options. Must include a 'debug_folder' key.
+        flag (bool, optional): If True, creates a montage of images to be removed. If False, creates a montage of images to be retained. Defaults to True.
+    """
+
+    selected_images = data.loc[data["to_be_removed"] == flag]
+    if not selected_images.empty:
+        # create montage of the images to be removed
+        montage_images = []
+        for _, row in selected_images.iterrows():
+            c_img = row["image"]
+            # scale the image to 0-255
+            c_img = (c_img - np.min(c_img)) / (np.max(c_img) - np.min(c_img)) * 255
+            c_img = c_img.astype(np.uint8)
+            # add the image to the montage list
+            montage_images.append(c_img)
+
+        montage_images = np.array(montage_images)
+        test = skimage.util.montage(montage_images)
+
+        save_path = os.path.join(settings["debug_folder"], "outliers_" + str(flag) + ".png")
+
+        # save montage as a PNG file
+        plt.figure(figsize=(10, 10))
+        plt.imshow(test, cmap="Greys_r")
+        plt.axis("off")
+        plt.tight_layout(pad=1.0)
+        plt.savefig(
+            save_path,
+            dpi=200,
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()
