@@ -23,25 +23,26 @@ def manual_image_removal(
     prelim_residuals: dict = {},
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict, NDArray]:
     """
-    Manual removal of images. A matplotlib window will open, and we can select images to be removed.
+    Manually remove images by selecting them in a matplotlib window.
 
-    Parameters
-    ----------
-    data: dataframe with all the dwi data
-    slices: array with slice positions
-    segmentation: dict with epicardium and endocardium masks
-    mask: array with the mask of the heart
-    settings: dict with useful info
-    stage: pre or post segmentation
-    info: dict with useful info
+    This function displays all diffusion-weighted images (DWIs) for each slice in a grid. The user can interactively select images to be removed by clicking on them. Selected images are highlighted, and their indices are recorded for removal. Optionally, segmentation contours and outlier information (from residuals) are displayed.
 
-    Returns
-    -------
-    dataframe with all the data
-    dataframe with data without the rejected images
-    info: dict
-    array with indices of rejected images in the original dataframe
+    Args:
+        data (pd.DataFrame): DataFrame containing all DWI data.
+        slices (NDArray): Array of slice indices or positions.
+        segmentation (dict): Dictionary with epicardium and endocardium masks.
+        mask (NDArray): Array with the mask of the heart.
+        settings (dict): Dictionary with configuration and display options.
+        stage (str): Processing stage, either "pre" or "post" segmentation.
+        info (dict): Dictionary with additional information (e.g., image size).
+        prelim_residuals (dict, optional): Preliminary residuals for each image, used to highlight outliers. Defaults to {}.
 
+    Returns:
+        tuple:
+            pd.DataFrame: Original DataFrame with all data.
+            pd.DataFrame: DataFrame with rejected images removed.
+            dict: Updated info dictionary.
+            NDArray: Array with indices of rejected images in the original DataFrame.
     """
     # # max relative signal in the images
     # if settings["sequence_type"] == "steam":
@@ -106,11 +107,9 @@ def manual_image_removal(
         # x-axis repetitions
         store_selected_images = []
 
-        # find outliers from the residuals
+        # get the zscores for the residuals if available
         if prelim_residuals:
             zscores = zscore(prelim_residuals[slice_idx], axis=0, nan_policy="omit")
-            outliers_idx = np.where(np.abs(zscores) > 3)[0]
-            outliers_idx += 1
 
         # retina screen resolution
         my_dpi = 192
@@ -146,7 +145,8 @@ def manual_image_removal(
                 axs[idx, idx2].imshow(img, cmap="gray", vmin=vmin, vmax=vmax)
                 if segmentation:
 
-                    # change the colour of the ROIs based on the residuals
+                    # the colour of the segmentation lines will be defined by the z-scores of the residuals
+                    # anything with a absolute z-score larger than 3 will be red
                     cmap = mpl.colormaps["autumn_r"]
                     cmap_idx = np.abs(zscores[c_img_indices[key][idx2]]) / 3
                     cmap_idx = np.clip(cmap_idx, 0, 1)  # ensure values are between 0 and 1
@@ -157,7 +157,7 @@ def manual_image_removal(
                         segmentation[slice_idx]["epicardium"][:, 0],
                         segmentation[slice_idx]["epicardium"][:, 1],
                         marker=".",
-                        s=0.2,
+                        s=0.1,
                         color=line_colour,
                         alpha=1.0,
                     )
@@ -277,23 +277,27 @@ def select_outliers(
     prelim_residuals: dict = {},
 ) -> tuple[pd.DataFrame, dict, NDArray]:
     """
-    Remove Outliers: remove outliers, and display all DWIs in a montage
+    Remove outlier images from the dataset, optionally with manual selection.
 
-    Parameters
-    ----------
-    data: dataframe with images and diffusion info
-    slices: array with slice integers
-    registration_image_data: dict with registration images and QC data
-    settings
-    info
-    logger
-    stage: string with stage pre or post segmentation
-    mask: array with heart masks
+    This function removes outlier images from the DWI dataset, either by manual selection (via an interactive matplotlib window) or by automated methods (AI-based, if enabled). It updates the data and info dictionaries, tracks rejected images, and updates registration image data if needed.
 
-    Returns
-    -------
-    data, info, slices
+    Args:
+        data (pd.DataFrame): DataFrame containing DWI images and diffusion information.
+        slices (NDArray): Array of slice indices.
+        registration_image_data (dict): Dictionary with registration images and quality control data.
+        settings (dict): Configuration and processing settings.
+        info (dict): Dictionary with additional information and tracking of rejected images.
+        logger (logging.Logger): Logger for status and debug messages.
+        stage (str): Processing stage, either "pre" or "post" segmentation.
+        segmentation (dict, optional): Segmentation masks for epicardium and endocardium. Defaults to {}.
+        mask (NDArray, optional): Array with heart masks. Defaults to empty array.
+        prelim_residuals (dict, optional): Preliminary residuals for each image, used to highlight outliers. Defaults to {}.
 
+    Returns:
+        tuple:
+            pd.DataFrame: Updated DataFrame with outliers marked or removed.
+            dict: Updated info dictionary.
+            NDArray: Array of rejected image indices.
     """
     # check if the info dictionary has the rejected_indices and n_images_rejected keys
     if "rejected_indices" not in info:

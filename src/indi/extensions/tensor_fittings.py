@@ -219,15 +219,16 @@ def dipy_tensor_fit(
         mask_3c (NDArray): 3D segmentation mask array.
         average_images (NDArray): Array of average images for each slice.
         logger (logging.Logger): Logger for status and debug messages.
-        method (str, optional): Tensor fitting method. Defaults to "NLLS".
+        method (str, optional): Tensor fitting method. One of "LS", "WLS", "NLLS", or "RESTORE". Defaults to "NLLS".
         quick_mode (bool, optional): If True, skips residual calculations and plotting. Defaults to False.
 
     Returns:
         tuple:
             tensor (NDArray): Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
             s0 (NDArray): Estimated S0 images, shape [n_slices, rows, cols].
-            residuals_img (dict or list): Residuals per image for each slice, or empty list if not computed.
-            residuals_map (dict or list): Residuals per voxel for each slice, or empty list if not computed.
+            residuals_img (dict): Residuals per image for each slice, or empty dict if not computed.
+            residuals_map (dict): Residuals per voxel for each slice, or empty dict if not computed.
+            residuals_img_all (dict): All residuals for each slice, or empty dict if not computed.
             info (dict): Updated info dictionary with fitting statistics.
     """
     import dipy.reconst.dti as dti

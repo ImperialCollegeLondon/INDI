@@ -77,23 +77,27 @@ def heart_segmentation(
     logger: logging.Logger,
 ) -> tuple[dict, NDArray]:
     """
-    Heart segmentation
+    Perform heart segmentation using U-Net and/or manual segmentation.
 
-    Parameters
-    ----------
-    data
-    average_images
-    slices
-    n_slices
-    colormaps
-    settings
-    info
-    logger
+    This function segments the heart in each slice using a U-Net model (if enabled) and/or manual segmentation.
+    It generates segmentation masks and contour information for the left ventricle (LV), and saves the results for each slice.
+    The function also computes preliminary helix angle (HA) and mean diffusivity (MD) maps, and calculates residuals for quality control.
 
-    Returns
-    -------
-    segmentation
-    mask_3c
+    Args:
+        data (pd.DataFrame): DataFrame containing diffusion-weighted image data.
+        average_images (NDArray): Array of average images for each slice.
+        slices (NDArray): Array of slice indices to process.
+        n_slices (int): Total number of slices.
+        colormaps (dict): Dictionary of colormaps for visualization.
+        settings (dict): Configuration and processing settings.
+        info (dict): Dictionary with image and scan metadata.
+        logger (logging.Logger): Logger for status and debug messages.
+
+    Returns:
+        tuple:
+            segmentation (dict): Dictionary with segmentation contours and information for each slice.
+            mask_3c (NDArray): 3-class segmentation mask array (background, LV myocardium, and other tissues).
+            prelim_residuals (dict): Dictionary with preliminary residuals for each slice, indicating the quality of the tensor fit.
 
     """
 
@@ -118,7 +122,7 @@ def heart_segmentation(
                 thr_mask[[slice_idx], ...],
             )
 
-            # get basic tensor
+            # get basic tensor fit and residuals
             tensor, _, _, _, temp_residuals, info = dipy_tensor_fit(
                 [slice_idx],
                 data,
@@ -147,7 +151,7 @@ def heart_segmentation(
             prelim_residuals[slice_idx] = temp_residuals[slice_idx]
 
         else:
-            # get basic tensor
+            # get residuals of a preliminary basic tensor fit
             _, _, _, _, temp_residuals, info = dipy_tensor_fit(
                 [slice_idx],
                 data,
@@ -301,6 +305,7 @@ def heart_segmentation(
             )
 
         # turn to nans the pixels that are not part of the mask for the residuals and average all rows and cols
+        # prelim_residuals is the average residual (one value) of the all myocardial pixels per image
         prelim_residuals[slice_idx] = prelim_residuals[slice_idx].astype(np.float32)
         prelim_residuals[slice_idx][mask_3c[slice_idx] == 0] = np.nan
         prelim_residuals[slice_idx] = np.nanmean(prelim_residuals[slice_idx], axis=(0, 1))
