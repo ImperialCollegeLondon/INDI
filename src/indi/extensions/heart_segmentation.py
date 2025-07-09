@@ -300,6 +300,11 @@ def heart_segmentation(
                 segmentation=segmentation[slice_idx],
             )
 
+        # turn to nans the pixels that are not part of the mask for the residuals and average all rows and cols
+        prelim_residuals[slice_idx] = prelim_residuals[slice_idx].astype(np.float32)
+        prelim_residuals[slice_idx][mask_3c[slice_idx] == 0] = np.nan
+        prelim_residuals[slice_idx] = np.nanmean(prelim_residuals[slice_idx], axis=(0, 1))
+
     if settings["debug"]:
         plot_manual_lv_segmentation(
             n_slices,
@@ -313,10 +318,5 @@ def heart_segmentation(
         )
 
     logger.info("All manual LV segmentation done")
-
-    # turn to nans the pixels that are not part of the mask for the residuals and average all rows and cols
-    prelim_residuals[slice_idx] = prelim_residuals[slice_idx].astype(np.float32)
-    prelim_residuals[slice_idx][mask_3c[slice_idx] == 0] = np.nan
-    prelim_residuals[slice_idx] = np.nanmean(prelim_residuals[slice_idx], axis=(0, 1))
 
     return segmentation, mask_3c, prelim_residuals

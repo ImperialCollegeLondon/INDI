@@ -1,6 +1,7 @@
 import logging
 import os
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -56,12 +57,13 @@ def manual_image_removal(
     for slice_idx in slices:
         # dataframe with current slice
         c_df = data.loc[data["slice_integer"] == slice_idx].copy()
-        c_df = c_df.reset_index()
         # initiate maximum number of images found for each b-val and dir combination
         max_number_of_images = 0
 
         # drop any images already marked to be removed
         c_df = c_df.loc[c_df["to_be_removed"] == False]
+
+        c_df = c_df.reset_index()
 
         # convert list of directions to a tuple
         c_df["diffusion_direction_original"] = c_df["diffusion_direction_original"].apply(tuple)
@@ -144,19 +146,20 @@ def manual_image_removal(
                 axs[idx, idx2].imshow(img, cmap="gray", vmin=vmin, vmax=vmax)
                 if segmentation:
 
-                    # if an outlier than change the color to red otherwise keep it yellow
-                    if prelim_residuals and c_img_indices[key][idx2] in outliers_idx:
-                        line_colour = "tab:red"
-                    else:
-                        line_colour = "tab:green"
+                    # change the colour of the ROIs based on the residuals
+                    cmap = mpl.colormaps["autumn_r"]
+                    cmap_idx = np.abs(zscores[c_img_indices[key][idx2]]) / 3
+                    cmap_idx = np.clip(cmap_idx, 0, 1)  # ensure values are between 0 and 1
+                    c_colour = cmap(cmap_idx)  # default colour for ROIs
+                    line_colour = c_colour
 
                     axs[idx, idx2].scatter(
                         segmentation[slice_idx]["epicardium"][:, 0],
                         segmentation[slice_idx]["epicardium"][:, 1],
                         marker=".",
-                        s=0.1,
+                        s=0.2,
                         color=line_colour,
-                        alpha=0.7,
+                        alpha=1.0,
                     )
                     if segmentation[slice_idx]["endocardium"].size != 0:
                         axs[idx, idx2].scatter(
@@ -165,7 +168,7 @@ def manual_image_removal(
                             marker=".",
                             s=0.1,
                             color=line_colour,
-                            alpha=0.7,
+                            alpha=1.0,
                         )
                 if stage == "pre":
                     if not settings["print_series_description"]:

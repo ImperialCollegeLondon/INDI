@@ -7,7 +7,6 @@ import pandas as pd
 from numpy import ndarray
 from numpy.typing import NDArray
 from scipy import stats
-from tqdm import tqdm
 
 # import time
 
@@ -248,7 +247,7 @@ def dipy_tensor_fit(
     # I need to do this per slice, because gtab might differ from slice to slice
     info["tensor fitting sigma"] = {}
 
-    for i, slice_idx in enumerate(tqdm(slices, desc="Tensor fitting")):
+    for i, slice_idx in enumerate(slices):
         current_entries = data.loc[data["slice_integer"] == slice_idx]
 
         # remove any images that have been marked to be removed
