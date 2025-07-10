@@ -24,7 +24,7 @@ from indi.extensions.read_data.dicom_to_h5_csv import (
     get_data_from_dicoms,
     interpolate_dicom_pixel_values,
     scale_dicom_pixel_values,
-    tweak_directions,
+    tweak_directions_and_b_values,
 )
 
 
@@ -185,7 +185,10 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     # create a new column with date and time, drop the previous two columns
     # if this column doesn't exist already
     if "acquisition_date_time" in df.columns:
-        df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S.%f")
+        try:
+            df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S.%f")
+        except:
+            df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S")
         df = df.sort_values(["acquisition_date_time"], ascending=True)
     else:
         df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
@@ -698,10 +701,17 @@ def adjust_b_val_and_dir(
         logger.debug("DICOM or Pandas data: rotating directions to the image plane.")
 
         # get the rotation matrix
-        first_column = np.array(info["image_orientation_patient"][0:3])
-        second_column = np.array(info["image_orientation_patient"][3:6])
-        third_column = np.cross(first_column, second_column)
-        rotation_matrix = np.stack((first_column, second_column, third_column), axis=-1)
+        if info["manufacturer"] != "ge":
+            first_column = np.array(info["image_orientation_patient"][0:3])
+            second_column = np.array(info["image_orientation_patient"][3:6])
+            third_column = np.cross(first_column, second_column)
+            rotation_matrix = np.stack((first_column, second_column, third_column), axis=-1)
+        else:
+            # for GE the directions are in the MR physics coordinates
+            # (Frequency, Phase, Slice), so we need to rotate them
+            # to the image plane
+            # TODO this will need to be investigated further with more data
+            rotation_matrix = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
 
         if settings["sequence_type"] == "steam":
             # For STEAM we need to tweak the direction in the b0 images.
@@ -1349,7 +1359,7 @@ def read_and_process_dicoms(
     data_phase = pd.DataFrame()
 
     # read DICOM info
-    data = get_data_from_dicoms(list_dicoms, settings, logger, image_type="mag")
+    data, info["manufacturer"] = get_data_from_dicoms(list_dicoms, settings, logger, image_type="mag")
     # check some global info
     info, data = check_global_info(data, info, logger)
     # adjust pixel values to the correct scale
@@ -1363,13 +1373,13 @@ def read_and_process_dicoms(
         )
 
     # replace the nan directions with (0.0, 0.0, 0.0)
-    data = tweak_directions(data)
+    data = tweak_directions_and_b_values(data)
     # add some columns if not in table
     data = add_missing_columns(data)
 
     if settings["complex_data"]:
         info_phase = {}
-        data_phase = get_data_from_dicoms(list_dicoms_phase, settings, logger, image_type="phase")
+        data_phase, _ = get_data_from_dicoms(list_dicoms_phase, settings, logger, image_type="phase")
         # check some global info
         info_phase, data_phase = check_global_info(data_phase, info_phase, logger)
         # adjust pixel values to the correct scale
@@ -1381,7 +1391,7 @@ def read_and_process_dicoms(
             data_phase, info_phase = interpolate_dicom_pixel_values(
                 data_phase, info_phase, logger, image_type="phase", factor=settings["img_interp_factor"]
             )
-        data_phase = tweak_directions(data_phase)
+        data_phase = tweak_directions_and_b_values(data_phase)
 
         # check if the magnitude and phase tables match
         data_sort = sort_by_date_time(data)
