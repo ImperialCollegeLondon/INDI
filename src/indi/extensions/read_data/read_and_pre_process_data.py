@@ -711,7 +711,7 @@ def adjust_b_val_and_dir(
             # (Frequency, Phase, Slice), so we need to rotate them
             # to the image plane
             # TODO this will need to be investigated further with more data
-            rotation_matrix = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
+            rotation_matrix = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
 
         if settings["sequence_type"] == "steam":
             # For STEAM we need to tweak the direction in the b0 images.
