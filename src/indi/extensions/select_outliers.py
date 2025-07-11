@@ -131,7 +131,7 @@ def manual_image_removal(
                 cols,
                 figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                 dpi=my_dpi,
-                num="Slice " + str(slice_idx),
+                num=f"Slice {slice_idx}",
                 squeeze=False,
             )
         elif stage == "post":
@@ -140,7 +140,7 @@ def manual_image_removal(
                 cols,
                 figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                 dpi=my_dpi,
-                num="Slice " + str(slice_idx),
+                num=f"Slice {slice_idx}. Borders colour-coded by z-scores. Red = z-score > 3 and may be an outlier!",
                 squeeze=False,
             )
         for idx, key in enumerate(c_img_stack):

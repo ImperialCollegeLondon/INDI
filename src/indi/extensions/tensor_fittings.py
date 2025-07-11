@@ -306,7 +306,7 @@ def dipy_tensor_fit(
             # also save the non-averaged residuals
             residuals_img_all[slice_idx] = np.squeeze(res)
 
-            z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
+            # z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
 
             if settings["debug"]:
                 plot_residuals_plot(res_img, slice_idx, settings, prefix="")
