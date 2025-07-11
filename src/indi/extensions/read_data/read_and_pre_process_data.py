@@ -187,10 +187,10 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     if "acquisition_date_time" in df.columns:
         try:
             df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S.%f")
-        except:
+        except ValueError:
+            # Fallback if microseconds are missing
             df["acquisition_date_time"] = pd.to_datetime(df["acquisition_date_time"], format="%Y%m%d%H%M%S")
-        finally:
-            raise TypeError("Something wrong with the acquisition date and time field.")
+
         df = df.sort_values(["acquisition_date_time"], ascending=True)
     else:
         df["acquisition_date_time"] = df["acquisition_date"] + " " + df["acquisition_time"]
