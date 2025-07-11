@@ -77,23 +77,27 @@ def heart_segmentation(
     logger: logging.Logger,
 ) -> tuple[dict, NDArray]:
     """
-    Heart segmentation
+    Perform heart segmentation using U-Net and/or manual segmentation.
 
-    Parameters
-    ----------
-    data
-    average_images
-    slices
-    n_slices
-    colormaps
-    settings
-    info
-    logger
+    This function segments the heart in each slice using a U-Net model (if enabled) and/or manual segmentation.
+    It generates segmentation masks and contour information for the left ventricle (LV), and saves the results for each slice.
+    The function also computes preliminary helix angle (HA) and mean diffusivity (MD) maps, and calculates residuals for quality control.
 
-    Returns
-    -------
-    segmentation
-    mask_3c
+    Args:
+        data (pd.DataFrame): DataFrame containing diffusion-weighted image data.
+        average_images (NDArray): Array of average images for each slice.
+        slices (NDArray): Array of slice indices to process.
+        n_slices (int): Total number of slices.
+        colormaps (dict): Dictionary of colormaps for visualization.
+        settings (dict): Configuration and processing settings.
+        info (dict): Dictionary with image and scan metadata.
+        logger (logging.Logger): Logger for status and debug messages.
+
+    Returns:
+        tuple:
+            segmentation (dict): Dictionary with segmentation contours and information for each slice.
+            mask_3c (NDArray): 3-class segmentation mask array (background, LV myocardium, and other tissues).
+            prelim_residuals (dict): Dictionary with preliminary residuals for each slice, indicating the quality of the tensor fit.
 
     """
 
@@ -105,6 +109,7 @@ def heart_segmentation(
     # if not calculate a prelim HA map
     prelim_ha = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
     prelim_md = np.zeros((n_slices, info["img_size"][0], info["img_size"][1]))
+    prelim_residuals = {}
     # mask is all ones here for now.
     thr_mask = np.ones((n_slices, info["img_size"][0], info["img_size"][1]))
     # loop over the slices
@@ -117,8 +122,8 @@ def heart_segmentation(
                 thr_mask[[slice_idx], ...],
             )
 
-            # get basic tensor
-            tensor, _, _, _, info = dipy_tensor_fit(
+            # get basic tensor fit and residuals
+            tensor, _, _, _, temp_residuals, info = dipy_tensor_fit(
                 [slice_idx],
                 data,
                 info,
@@ -141,6 +146,26 @@ def heart_segmentation(
             # threshold preliminary MD and HA maps
             prelim_ha[slice_idx] = prelim_ha[slice_idx] * thr_mask[slice_idx]
             prelim_md[slice_idx] = 1e3 * prelim_md[slice_idx] * thr_mask[slice_idx]
+
+            # preliminary residuals
+            prelim_residuals[slice_idx] = temp_residuals[slice_idx]
+
+        else:
+            # get residuals of a preliminary basic tensor fit
+            _, _, _, _, temp_residuals, info = dipy_tensor_fit(
+                [slice_idx],
+                data,
+                info,
+                settings,
+                thr_mask,
+                average_images,
+                logger,
+                "LS",
+                quick_mode=True,
+            )
+
+            # preliminary residuals
+            prelim_residuals[slice_idx] = temp_residuals[slice_idx]
 
     # =========================================================
     # LV segmentation
@@ -279,6 +304,12 @@ def heart_segmentation(
                 segmentation=segmentation[slice_idx],
             )
 
+        # turn to nans the pixels that are not part of the mask for the residuals and average all rows and cols
+        # prelim_residuals is the average residual (one value) of the all myocardial pixels per image
+        prelim_residuals[slice_idx] = prelim_residuals[slice_idx].astype(np.float32)
+        prelim_residuals[slice_idx][mask_3c[slice_idx] == 0] = np.nan
+        prelim_residuals[slice_idx] = np.nanmean(prelim_residuals[slice_idx], axis=(0, 1))
+
     if settings["debug"]:
         plot_manual_lv_segmentation(
             n_slices,
@@ -293,4 +324,4 @@ def heart_segmentation(
 
     logger.info("All manual LV segmentation done")
 
-    return segmentation, mask_3c
+    return segmentation, mask_3c, prelim_residuals
