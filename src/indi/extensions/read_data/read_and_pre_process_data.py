@@ -712,7 +712,9 @@ def adjust_b_val_and_dir(
             # for GE the directions are in the MR physics coordinates
             # (Frequency, Phase, Slice), so we need to rotate them
             # to the image plane
-            # TODO this will need to be investigated further with more data
+            # TODO this is not working 100% for GE data, sometimes directions need to be inverted.
+            # This could be because we need more information from the header or there is a bug in the sequence
+            # code. GE team investigating...
             rotation_matrix = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
 
         if settings["sequence_type"] == "steam":
