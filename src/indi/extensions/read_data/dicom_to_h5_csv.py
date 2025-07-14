@@ -23,16 +23,17 @@ from indi.extensions.extensions import mag_to_rad, rad_to_mag
 
 
 # get DICOM header fields
-def dictify(ds: pydicom.dataset.Dataset) -> dict:
+def dictify(ds: pydicom.dataset.Dataset, manufacturer: str) -> dict:
     """Turn a pydicom Dataset into a dict with keys derived from the Element tags.
     Private info is not collected, because we cannot access it with the keyword.
     So we need to manually fish the diffusion information in the old DICOMs.
 
     Args:
-      ds: The Dataset to dictify
+        ds: The Dataset to dictify
+        manufacturer: Manufacturer of the DICOM files (siemens, philips, ge)
 
     Returns:
-      output: A dictionary with the DICOM header information
+        output: A dictionary with the DICOM header information
 
     """
 
@@ -42,13 +43,27 @@ def dictify(ds: pydicom.dataset.Dataset) -> dict:
         if elem.VR != "SQ":
             output[elem.keyword] = elem.value
         else:
-            output[elem.keyword] = [dictify(item) for item in elem]
+            output[elem.keyword] = [dictify(item, manufacturer) for item in elem]
 
     # add manually private diffusion fields if they exist
-    if [0x0019, 0x100C] in ds:
-        output["DiffusionBValue"] = ds[0x0019, 0x100C].value
-    if [0x0019, 0x100E] in ds:
-        output["DiffusionGradientDirection"] = ds[0x0019, 0x100E].value
+    if manufacturer != "ge":
+        if [0x0019, 0x100C] in ds:
+            output["DiffusionBValue"] = ds[0x0019, 0x100C].value
+        if [0x0019, 0x100E] in ds:
+            output["DiffusionGradientDirection"] = ds[0x0019, 0x100E].value
+
+    if manufacturer == "ge":
+        if [0x0018, 0x9087] in ds:
+            output["DiffusionBValue"] = ds[0x0018, 0x9087].value
+        if [0x0019, 0x10BB] in ds and [0x0019, 0x10BC] in ds and [0x0019, 0x10BD] in ds:
+            output["DiffusionGradientDirection"] = [
+                ds[0x0019, 0x10BB].value,
+                ds[0x0019, 0x10BC].value,
+                ds[0x0019, 0x10BD].value,
+            ]
+            # convert list of strings to list of floats
+            output["DiffusionGradientDirection"] = [float(i) for i in output["DiffusionGradientDirection"]]
+
     return output
 
 
@@ -136,7 +151,8 @@ def get_data_from_dicoms(
       image_type: Image type, either "mag" or "phase"
 
     Returns:
-      header_table: DataFrame with header information
+        header_table: DataFrame with header information
+        manufacturer: Manufacturer of the DICOM files (siemens, philips, ge)
 
     """
 
@@ -161,7 +177,7 @@ def get_data_from_dicoms(
     dicom_type, n_images_per_file = get_dicom_version(dicom_header, logger)
 
     # get manufacturer
-    get_manufacturer(dicom_header, logger)
+    manufacturer = get_manufacturer(dicom_header, logger)
 
     # read yaml file with fields to keep
     with open(os.path.join(os.path.dirname(__file__), "fields_to_keep.yaml"), "r") as stream:
@@ -176,7 +192,7 @@ def get_data_from_dicoms(
     # ===================================================================
     # FRAME HEADER INFO
     # ===================================================================
-    header_table = read_all_dicom_files(dicom_files, dicom_type, n_images_per_file, header_field_list)
+    header_table = read_all_dicom_files(dicom_files, dicom_type, n_images_per_file, header_field_list, manufacturer)
 
     # sort the columns alphabetically
     header_table = header_table.reindex(sorted(header_table.columns), axis=1)
@@ -204,7 +220,7 @@ def get_data_from_dicoms(
     # move some columns to the start of the table for easier access to the most important columns
     header_table = reorder_columns(header_table)
 
-    return header_table
+    return header_table, manufacturer
 
 
 def build_bmatrix(data: pd.DataFrame, logger: logging):
@@ -434,15 +450,16 @@ def interpolate_dicom_pixel_values(
     return data, info
 
 
-def tweak_directions(data: pd.DataFrame) -> pd.DataFrame:
+def tweak_directions_and_b_values(data: pd.DataFrame) -> pd.DataFrame:
     """Tweak the directions in the table. If a direction is a list of NaNs, then
     change to a null vector (0,0,0).
+    If the b-value is NaN, set it to 0.
 
     Args:
       data: DataFrame with image data
 
     Returns:
-        data: DataFrame with tweaked directions
+        data: DataFrame with tweaked directions and b-values
 
     """
     # add new column to table to indicate if the directions are in the image plane
@@ -456,6 +473,10 @@ def tweak_directions(data: pd.DataFrame) -> pd.DataFrame:
     # repeat for the b-matrix
     if "bmatrix" in data.columns:
         data["bmatrix"] = data["bmatrix"].apply(lambda x: np.zeros((3, 3)) if np.isnan(x).any() else x)
+
+    # if missing b-value, set it to 0
+    if "b_value" in data.columns:
+        data["b_value"] = data["b_value"].apply(lambda x: 0.0 if np.isnan(x) else x)
 
     return data
 
@@ -512,27 +533,36 @@ def get_dicom_version(global_dicom_header: pydicom.dataset.Dataset, logger: logg
 
 def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
     """Get manufacturer from the DICOM header.
-    Why this does not return a value?
+    This function will set the manufacturer variable to one of the following:
+    - "siemens"
+    - "philips"
+    - "ge"
 
     Args:
       header: Dataset header
       logger: logger
 
+    Returns:
+        manufacturer: string with the manufacturer name
+
     """
     if "Manufacturer" in header:
         val = header["Manufacturer"].value
         if val == "Siemens Healthineers" or val == "Siemens" or val == "SIEMENS":
-            # manufacturer = "siemens"
+            manufacturer = "siemens"
             logger.debug("Manufacturer: Siemens")
         elif val == "Philips Medical Systems" or val == "Philips":
-            # manufacturer = "philips"
+            manufacturer = "philips"
             logger.debug("Manufacturer: Philips")
+        elif val == "GE MEDICAL SYSTEMS" or val == "GE":
+            manufacturer = "ge"
+            logger.debug("Manufacturer: GE")
         else:
             sys.exit("Manufacturer not supported.")
     else:
         sys.exit("Manufacturer not supported.")
 
-    # return manufacturer
+    return manufacturer
 
 
 def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
@@ -631,14 +661,16 @@ def read_all_dicom_files(
     dicom_type: str,
     n_images_per_file: int,
     header_field_list: list,
+    manufacturer: str,
 ) -> pd.DataFrame:
     """Read all DICOM files and extract header information to a dataframe
 
     Args:
-      dicom_files: list of DICOM files
-      dicom_type: DICOM type (legacy or enhanced)
-      n_images_per_file: number of images per DICOM file
-      header_field_list: list of fields to keep in the header
+        dicom_files: list of DICOM files
+        dicom_type: DICOM type (legacy or enhanced)
+        n_images_per_file: number of images per DICOM file
+        header_field_list: list of fields to keep in the header
+        manufacturer: manufacturer of the DICOM files (siemens, philips, ge)
 
     Returns:
         header_table: DataFrame with header information
@@ -657,7 +689,7 @@ def read_all_dicom_files(
                 c_pixel_array = c_pixel_array[frame_idx]
 
             # convert header to dictionary
-            c_dicom_header_dict = dictify(c_dicom_header)
+            c_dicom_header_dict = dictify(c_dicom_header, manufacturer)
             # remove pixel data
             c_dicom_header_dict.pop("PixelData")
             # flatten dictionary
