@@ -361,21 +361,14 @@ def scale_dicom_pixel_values(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
-def interpolate_dicom_pixel_values(
-    data: pd.DataFrame, info: dict, logger: logging, image_type: str = "mag"
-) -> [pd.DataFrame, dict]:
-    """Interpolate pixel values if the largest dimension is smaller than 192.
-
+def check_rows_and_columns(data: pd.DataFrame, info: dict, logger: logging) -> dict:
+    """Check that Rows and Columns fields are unique in the table and merge them into the info dictionary.
     Args:
       data: DataFrame with image data
       info: Info dictionary
       logger: Logger
-      image_type: Image type, either "mag" or "phase"
-
     Returns:
-      data: DataFrame with interpolated pixel values
-      info: Info dictionary with updated Rows and Columns values
-
+      info: Info dictionary with merged Rows and Columns values
     """
 
     def is_unique(s):
@@ -391,28 +384,52 @@ def interpolate_dicom_pixel_values(
             logger.error("Field " + field + " is not unique in table.")
             raise ValueError("Error: Field " + field + " is not unique in table.")
 
+    return info
+
+
+def interpolate_dicom_pixel_values(
+    data: pd.DataFrame, info: dict, logger: logging, image_type: str = "mag", factor: int = 1
+) -> [pd.DataFrame, dict]:
+    """Interpolate pixel matrix
+
+    Args:
+      data: DataFrame with image data
+      info: Info dictionary
+      logger: Logger
+      image_type: Image type, either "mag" or "phase"
+      factor: Interpolation factor, default is 1 (no interpolation)
+
+    Returns:
+      data: DataFrame with interpolated pixel values
+      info: Info dictionary with updated Rows and Columns values
+
+    """
+
     def interpolate_img(img, image_type):
         if image_type == "mag":
-            img = scipy.ndimage.zoom(img, 2, order=3)
+            img = scipy.ndimage.zoom(img, factor, order=3)
             # zero any negative pixels after interpolation
             img[img < 0] = 0
         elif image_type == "phase":
             # convert phase to real and imaginary before interpolating
             img = mag_to_rad(img)
             img_real = np.cos(img)
-            img_real = scipy.ndimage.zoom(img_real, 2, order=0)
+            img_real = scipy.ndimage.zoom(img_real, factor, order=0)
             img_imag = np.sin(img)
-            img_imag = scipy.ndimage.zoom(img_imag, 2, order=0)
+            img_imag = scipy.ndimage.zoom(img_imag, factor, order=0)
             # revert back to the original phase values
             img = np.arctan2(img_imag, img_real)
             img = rad_to_mag(img)
         return img
 
-    # if largest dimension < 192, then interpolate by a factor of 2
-    if max([info["Rows"], info["Columns"]]) < 192:
-        data["image"] = data["image"].apply(lambda x: interpolate_img(x, image_type))
-        info["Rows"] *= 2
-        info["Columns"] *= 2
+    data["image"] = data["image"].apply(lambda x: interpolate_img(x, image_type))
+    old_rows_column = [info["Rows"], info["Columns"]]
+    info["Rows"] *= factor
+    info["Columns"] *= factor
+
+    logger.debug(
+        f"Image matrix interpolated from {old_rows_column[0]} x {old_rows_column[1]} to {info["Rows"]} x {info["Columns"]}."
+    )
 
     return data, info
 

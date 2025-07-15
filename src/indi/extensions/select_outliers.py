@@ -1,10 +1,12 @@
 import logging
 import os
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+from scipy.stats import zscore
 
 from indi.extensions.extensions import get_window
 from indi.extensions.read_data.read_and_pre_process_data import create_2d_montage_from_database
@@ -18,27 +20,29 @@ def manual_image_removal(
     settings: dict,
     stage: str,
     info: dict,
+    prelim_residuals: dict = {},
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict, NDArray]:
     """
-    Manual removal of images. A matplotlib window will open, and we can select images to be removed.
+    Manually remove images by selecting them in a matplotlib window.
 
-    Parameters
-    ----------
-    data: dataframe with all the dwi data
-    slices: array with slice positions
-    segmentation: dict with epicardium and endocardium masks
-    mask: array with the mask of the heart
-    settings: dict with useful info
-    stage: pre or post segmentation
-    info: dict with useful info
+    This function displays all diffusion-weighted images (DWIs) for each slice in a grid. The user can interactively select images to be removed by clicking on them. Selected images are highlighted, and their indices are recorded for removal. Optionally, segmentation contours and outlier information (from residuals) are displayed.
 
-    Returns
-    -------
-    dataframe with all the data
-    dataframe with data without the rejected images
-    info: dict
-    array with indices of rejected images in the original dataframe
+    Args:
+        data (pd.DataFrame): DataFrame containing all DWI data.
+        slices (NDArray): Array of slice indices or positions.
+        segmentation (dict): Dictionary with epicardium and endocardium masks.
+        mask (NDArray): Array with the mask of the heart.
+        settings (dict): Dictionary with configuration and display options.
+        stage (str): Processing stage, either "pre" or "post" segmentation.
+        info (dict): Dictionary with additional information (e.g., image size).
+        prelim_residuals (dict, optional): Preliminary residuals for each image, used to highlight outliers. Defaults to {}.
 
+    Returns:
+        tuple:
+            pd.DataFrame: Original DataFrame with all data.
+            pd.DataFrame: DataFrame with rejected images removed.
+            dict: Updated info dictionary.
+            NDArray: Array with indices of rejected images in the original DataFrame.
     """
     # # max relative signal in the images
     # if settings["sequence_type"] == "steam":
@@ -54,12 +58,16 @@ def manual_image_removal(
     for slice_idx in slices:
         # dataframe with current slice
         c_df = data.loc[data["slice_integer"] == slice_idx].copy()
-        c_df = c_df.reset_index()
         # initiate maximum number of images found for each b-val and dir combination
         max_number_of_images = 0
 
+        c_df = c_df.reset_index()
+        # rename index column to index_original
+        c_df.rename(columns={"index": "index_all_slices"}, inplace=True)
+
         # drop any images already marked to be removed
         c_df = c_df.loc[c_df["to_be_removed"] == False]
+        c_df = c_df.reset_index(drop=True)
 
         # convert list of directions to a tuple
         c_df["diffusion_direction_original"] = c_df["diffusion_direction_original"].apply(tuple)
@@ -70,7 +78,8 @@ def manual_image_removal(
 
         # initiate the stacks for the images and the highlight masks
         c_img_stack = {}
-        c_img_indices = {}
+        c_img_indices_this_slice = {}
+        c_img_indices_all_slices = {}
         c_img_stack_series_description = {}
 
         # loop over sorted b-values
@@ -88,9 +97,10 @@ def manual_image_removal(
                 c_df_b_d = c_df_b.loc[c_df_b["diffusion_direction_original"] == dir].copy()
 
                 # for each b_val and each dir collect all images
-                c_img_stack[b_val, dir] = np.stack(c_df_b_d.image.values, axis=0)
-                c_img_indices[b_val, dir] = c_df_b_d.index.values
-                c_img_stack_series_description[b_val, dir] = c_df_b_d.series_description.values
+                c_img_stack[int(b_val), dir] = np.stack(c_df_b_d.image.values, axis=0)
+                c_img_indices_this_slice[int(b_val), dir] = c_df_b_d.index.values
+                c_img_indices_all_slices[int(b_val), dir] = c_df_b_d.index_all_slices.values
+                c_img_stack_series_description[int(b_val), dir] = c_df_b_d.series_description.values
 
                 # record n_images if bigger than the values stored
                 n_images = c_df_b_d.shape[0]
@@ -101,6 +111,11 @@ def manual_image_removal(
         # y-axis b-value and direction combos
         # x-axis repetitions
         store_selected_images = []
+
+        # get the zscores for the residuals if available
+        if prelim_residuals:
+            zscores = zscore(prelim_residuals[slice_idx], axis=0, nan_policy="omit")
+
         # retina screen resolution
         my_dpi = 192
         rows = len(c_img_stack)
@@ -116,7 +131,7 @@ def manual_image_removal(
                 cols,
                 figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                 dpi=my_dpi,
-                num="Slice " + str(slice_idx),
+                num=f"Slice {slice_idx}",
                 squeeze=False,
             )
         elif stage == "post":
@@ -125,7 +140,7 @@ def manual_image_removal(
                 cols,
                 figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                 dpi=my_dpi,
-                num="Slice " + str(slice_idx),
+                num=f"Slice {slice_idx}. Borders colour-coded by z-scores. Red = z-score > 3 and may be an outlier!",
                 squeeze=False,
             )
         for idx, key in enumerate(c_img_stack):
@@ -134,13 +149,22 @@ def manual_image_removal(
                 vmin, vmax = get_window(img, mask)
                 axs[idx, idx2].imshow(img, cmap="gray", vmin=vmin, vmax=vmax)
                 if segmentation:
+
+                    # the colour of the segmentation lines will be defined by the z-scores of the residuals
+                    # anything with a absolute z-score larger than 3 will be red
+                    cmap = mpl.colormaps["autumn_r"]
+                    cmap_idx = np.abs(zscores[c_img_indices_this_slice[key][idx2]]) / 3
+                    cmap_idx = np.clip(cmap_idx, 0, 1)  # ensure values are between 0 and 1
+                    c_colour = cmap(cmap_idx)  # default colour for ROIs
+                    line_colour = c_colour
+
                     axs[idx, idx2].scatter(
                         segmentation[slice_idx]["epicardium"][:, 0],
                         segmentation[slice_idx]["epicardium"][:, 1],
                         marker=".",
                         s=0.1,
-                        color="tab:red",
-                        alpha=0.7,
+                        color=line_colour,
+                        alpha=1.0,
                     )
                     if segmentation[slice_idx]["endocardium"].size != 0:
                         axs[idx, idx2].scatter(
@@ -148,8 +172,8 @@ def manual_image_removal(
                             segmentation[slice_idx]["endocardium"][:, 1],
                             marker=".",
                             s=0.1,
-                            color="tab:red",
-                            alpha=0.7,
+                            color=line_colour,
+                            alpha=1.0,
                         )
                 if stage == "pre":
                     if not settings["print_series_description"]:
@@ -189,13 +213,16 @@ def manual_image_removal(
 
                 axs[idx, idx2].set_xticks([])
                 axs[idx, idx2].set_yticks([])
-                axs[idx, idx2].values = *key, idx2
+                axs[idx, idx2].values = *key, c_img_indices_all_slices[key][idx2]
 
         # Setting the values for all axes.
         plt.setp(axs, xticks=[], yticks=[])
         plt.tight_layout(pad=0.1)
         # remove axes with no image
         [p.set_axis_off() for p in [i for i in axs.flatten() if len(i.images) < 1]]
+
+        # set the background colour of the figure
+        fig.patch.set_facecolor("0.05")
 
         def onclick_select(event):
             """function to record the axes of the selected images in subplots"""
@@ -218,20 +245,13 @@ def manual_image_removal(
         plt.show(block=True)
 
         # store the indices of the rejected images:
-        # - indices for all slices together
-        # - indices within each slice
         for ax in store_selected_images:
-            c_bval = ax.values[0]
-            c_dir = ax.values[1]
+            # c_bval = ax.values[0]
+            # c_dir = ax.values[1]
             c_idx = ax.values[2]
 
-            # locate item in dataframe containing all images for this slice
-            c_table = c_df[(c_df["diffusion_direction_original"] == c_dir)]
-            c_table = c_table[(c_table["b_value_original"] == c_bval)]
-            c_filename = c_table.iloc[c_idx]["file_name"]
-
             # store the index of the rejected image
-            stored_indices_all_slices.append(c_table[(c_table["file_name"] == c_filename)]["index"].iloc[0])
+            stored_indices_all_slices.append(c_idx)
 
     # the indices of the rejected frames
     rejected_indices = stored_indices_all_slices
@@ -249,25 +269,30 @@ def select_outliers(
     stage: str,
     segmentation: dict = {},
     mask: NDArray = np.array([]),
+    prelim_residuals: dict = {},
 ) -> tuple[pd.DataFrame, dict, NDArray]:
     """
-    Remove Outliers: remove outliers, and display all DWIs in a montage
+    Remove outlier images from the dataset, optionally with manual selection.
 
-    Parameters
-    ----------
-    data: dataframe with images and diffusion info
-    slices: array with slice integers
-    registration_image_data: dict with registration images and QC data
-    settings
-    info
-    logger
-    stage: string with stage pre or post segmentation
-    mask: array with heart masks
+    This function removes outlier images from the DWI dataset, either by manual selection (via an interactive matplotlib window) or by automated methods (AI-based, if enabled). It updates the data and info dictionaries, tracks rejected images, and updates registration image data if needed.
 
-    Returns
-    -------
-    data, info, slices
+    Args:
+        data (pd.DataFrame): DataFrame containing DWI images and diffusion information.
+        slices (NDArray): Array of slice indices.
+        registration_image_data (dict): Dictionary with registration images and quality control data.
+        settings (dict): Configuration and processing settings.
+        info (dict): Dictionary with additional information and tracking of rejected images.
+        logger (logging.Logger): Logger for status and debug messages.
+        stage (str): Processing stage, either "pre" or "post" segmentation.
+        segmentation (dict, optional): Segmentation masks for epicardium and endocardium. Defaults to {}.
+        mask (NDArray, optional): Array with heart masks. Defaults to empty array.
+        prelim_residuals (dict, optional): Preliminary residuals for each image, used to highlight outliers. Defaults to {}.
 
+    Returns:
+        tuple:
+            pd.DataFrame: Updated DataFrame with outliers marked or removed.
+            dict: Updated info dictionary.
+            NDArray: Array of rejected image indices.
     """
     # check if the info dictionary has the rejected_indices and n_images_rejected keys
     if "rejected_indices" not in info:
@@ -314,6 +339,7 @@ def select_outliers(
                 settings,
                 stage,
                 info,
+                prelim_residuals,
             )
             logger.info("Manual image removal done.")
 

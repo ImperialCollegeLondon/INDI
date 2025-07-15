@@ -683,6 +683,9 @@ def manual_lv_segmentation(
     button_hm = Button(ax_ha_md, label="", image=hm_icon, hovercolor="#FFFFFF00")
     button_hm.on_clicked(actions.swap_maps)
 
+    # set the background colour of the figure
+    fig.patch.set_facecolor("0.95")
+
     fig.canvas.mpl_connect("scroll_event", actions.on_scroll)
     actions.remove_border_btn()
 

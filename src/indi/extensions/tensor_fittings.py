@@ -7,7 +7,6 @@ import pandas as pd
 from numpy import ndarray
 from numpy.typing import NDArray
 from scipy import stats
-from tqdm import tqdm
 
 # import time
 
@@ -232,15 +231,16 @@ def dipy_tensor_fit(
         mask_3c (NDArray): 3D segmentation mask array.
         average_images (NDArray): Array of average images for each slice.
         logger (logging.Logger): Logger for status and debug messages.
-        method (str, optional): Tensor fitting method. Defaults to "NLLS".
+        method (str, optional): Tensor fitting method. One of "LS", "WLS", "NLLS", or "RESTORE". Defaults to "NLLS".
         quick_mode (bool, optional): If True, skips residual calculations and plotting. Defaults to False.
 
     Returns:
         tuple:
             tensor (NDArray): Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
             s0 (NDArray): Estimated S0 images, shape [n_slices, rows, cols].
-            residuals_img (dict or list): Residuals per image for each slice, or empty list if not computed.
-            residuals_map (dict or list): Residuals per voxel for each slice, or empty list if not computed.
+            residuals_img (dict): Residuals per image for each slice, or empty dict if not computed.
+            residuals_map (dict): Residuals per voxel for each slice, or empty dict if not computed.
+            residuals_img_all (dict): All residuals for each slice, or empty dict if not computed.
             info (dict): Updated info dictionary with fitting statistics.
     """
     import dipy.reconst.dti as dti
@@ -252,6 +252,7 @@ def dipy_tensor_fit(
     s0 = np.zeros([info["img_size"][0], info["img_size"][1], info["n_slices"]])
     residuals_img = {}
     residuals_map = {}
+    residuals_img_all = {}
 
     myo_mask = np.copy(mask_3c.reshape(mask_3c.shape[0], mask_3c.shape[1] * mask_3c.shape[2]))
     myo_mask[myo_mask > 1] = 0
@@ -259,7 +260,7 @@ def dipy_tensor_fit(
     # I need to do this per slice, because gtab might differ from slice to slice
     info["tensor fitting sigma"] = {}
 
-    for i, slice_idx in enumerate(tqdm(slices, desc="Tensor fitting")):
+    for i, slice_idx in enumerate(slices):
         current_entries = data.loc[data["slice_integer"] == slice_idx]
 
         # remove any images that have been marked to be removed
@@ -336,34 +337,33 @@ def dipy_tensor_fit(
         # total = t1 - t0
         # logger.info(f"Slice {slice_idx}: Time for tensor fitting: {total = :.3f} seconds")
 
-        if not quick_mode:
-            if method != "RESTORE" and method != "DIP" and method != "fingerprinting":
-                # calculate tensor residuals
-                # Predict a signal given tensor parameters.
-                s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
-                res = np.abs(image_data - s_est)
+        if method != "RESTORE" and method != "DIP" and method != "fingerprinting":
+            # calculate tensor residuals
+            # Predict a signal given tensor parameters.
+            s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
+            res = np.abs(image_data - s_est)
 
-                # estimate res in the myocardium per diffusion image
-                myo_pxs = np.flatnonzero(myo_mask[slice_idx])
-                res_img = np.squeeze(np.reshape(res, [res.shape[0] * res.shape[1], res.shape[2], res.shape[3]]))
-                res_img = np.nanmean(res_img[myo_pxs, :], axis=0)
-                residuals_img[slice_idx] = res_img
-                # estimate res per voxel
-                res_map = np.nanmean(np.squeeze(res), axis=2)
-                residuals_map[slice_idx] = res_map
+            # estimate res in the myocardium per diffusion image
+            myo_pxs = np.flatnonzero(myo_mask[slice_idx])
+            res_img = np.squeeze(np.reshape(res, [res.shape[0] * res.shape[1], res.shape[2], res.shape[3]]))
+            res_img = np.nanmean(res_img[myo_pxs, :], axis=0)
+            residuals_img[slice_idx] = res_img
+            # estimate res per voxel
+            res_map = np.nanmean(np.squeeze(res), axis=2)
+            residuals_map[slice_idx] = res_map
+            # also save the non-averaged residuals
+            residuals_img_all[slice_idx] = np.squeeze(res)
 
-                z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
+            # z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
 
-                if settings["debug"]:
-                    plot_residuals_plot(res_img, slice_idx, settings, prefix="")
-                    plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
+            if settings["debug"]:
+                plot_residuals_plot(res_img, slice_idx, settings, prefix="")
+                plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
 
-            else:
-                residuals_img = []
-                residuals_map = []
         else:
-            residuals_img = []
-            residuals_map = []
+            residuals_img[slice_idx] = []
+            residuals_map[slice_idx] = []
+            residuals_img_all[slice_idx] = []
 
     if message_tensor_fitting_flag == 0:
         logger.info("Tensor fitting used: b-values and b-matrix")
@@ -378,4 +378,4 @@ def dipy_tensor_fit(
         if settings["debug"]:
             plot_tensor_components(tensor, average_images, mask_3c, slices, settings)
 
-    return tensor, s0, residuals_img, residuals_map, info
+    return tensor, s0, residuals_img, residuals_map, residuals_img_all, info

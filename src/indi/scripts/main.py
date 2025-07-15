@@ -148,6 +148,7 @@ def main():
                     stage="pre",
                     segmentation={},
                     mask=reg_mask,
+                    prelim_residuals={},
                 )
             else:
                 # initialise some variables if we are not removing outliers manually
@@ -169,7 +170,7 @@ def main():
             # =========================================================
             # Heart segmentation
             # =========================================================
-            segmentation, mask_3c = heart_segmentation(
+            segmentation, mask_3c, prelim_residuals = heart_segmentation(
                 data, average_images, slices, info["n_slices"], colormaps, settings, info, logger
             )
 
@@ -212,12 +213,13 @@ def main():
                 stage="post",
                 segmentation=segmentation,
                 mask=reg_mask,
+                prelim_residuals=prelim_residuals,
             )
 
             # =========================================================
             # Remove outliers and other data from table
             # =========================================================
-            data, info = remove_outliers(data, info)
+            data, info = remove_outliers(data, info, settings)
 
             # =========================================================
             # Get line profile off all remaining images to
@@ -241,7 +243,7 @@ def main():
             # =========================================================
             # Calculate tensor
             # =========================================================
-            dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], info = dipy_tensor_fit(
+            dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], _, info = dipy_tensor_fit(
                 slices,
                 data,
                 info,
