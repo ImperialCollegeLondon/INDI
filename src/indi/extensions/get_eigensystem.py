@@ -59,7 +59,7 @@ def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: N
     plt.tight_layout(pad=1.0)
     plt.savefig(
         os.path.join(settings["debug_folder"], "LV_eigenvalues_histograms.png"),
-        dpi=200,
+        dpi=100,
         pad_inches=0,
         transparent=False,
     )
@@ -95,7 +95,7 @@ def plot_eigenvector_maps(eigenvectors, average_images, mask_3c, slices, setting
                 settings["debug_folder"],
                 "eigenvector_components_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
-            dpi=200,
+            dpi=100,
             pad_inches=0,
             transparent=False,
         )
@@ -196,7 +196,7 @@ def get_negative_eigenvalues_map(
                 "results_b",
                 "negative_eigenvalues_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
-            dpi=200,
+            dpi=100,
             pad_inches=0,
             transparent=False,
         )

@@ -281,12 +281,12 @@ def registration_loop(
                 def_field = np.asarray(def_field).astype(np.float32)
                 registration_image_data["deformation_field"]["field"][i] = def_field
                 # get the deformation grid
-                grid_img = get_grid_image(info["img_size"], 10)
+                grid_img = get_grid_image(info["img_size"], 6)
                 grid_img_itk = itk.GetImageFromArray(grid_img)
                 grid_img_transformed = itk.transformix_filter(grid_img_itk, result_transform_parameters)
                 grid_img_transformed_np = itk.GetArrayFromImage(grid_img_transformed)
-                grid_img_transformed_np[grid_img_transformed_np < 0.1] = 0
-                grid_img_transformed_np[grid_img_transformed_np >= 0.1] = 0.6
+                # grid_img_transformed_np[grid_img_transformed_np < 0.5] = 0
+                # grid_img_transformed_np[grid_img_transformed_np >= 0.5] = 1.0
                 registration_image_data["deformation_field"]["grid"][i] = grid_img_transformed_np
                 # finally apply the deformation field to the moving image (without denoising)
                 if settings["complex_data"]:
@@ -561,7 +561,7 @@ def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, sett
                     settings["debug_folder"],
                     "reference_images_for_registration_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
-                dpi=200,
+                dpi=100,
                 bbox_inches="tight",
                 pad_inches=0,
                 transparent=False,
@@ -580,7 +580,7 @@ def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, sett
             plt.axis("off")
             plt.savefig(
                 os.path.join(settings["debug_folder"], "registration_masks_slice_" + str(slice_idx).zfill(2) + ".png"),
-                dpi=200,
+                dpi=100,
                 bbox_inches="tight",
                 transparent=False,
             )
@@ -628,7 +628,7 @@ def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, sett
                         settings["debug_folder"],
                         "groupwise_registration_reference_slice_" + str(slice_idx).zfill(2) + ".png",
                     ),
-                    dpi=200,
+                    dpi=100,
                     pad_inches=0,
                     transparent=False,
                 )

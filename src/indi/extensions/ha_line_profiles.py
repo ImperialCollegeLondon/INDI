@@ -182,7 +182,7 @@ def get_ha_line_profiles_and_distance_maps(
                 "results_b",
                 "HA_line_profiles_" + "slice_" + str(slice_idx).zfill(2) + ".png",
             ),
-            dpi=200,
+            dpi=100,
             pad_inches=0,
             transparent=False,
         )
@@ -355,7 +355,7 @@ def get_ha_line_profiles_and_distance_maps(
                 "results_b",
                 "HA_line_profiles_2_" + "slice_" + str(slice_idx).zfill(2) + ".png",
             ),
-            dpi=200,
+            dpi=100,
             pad_inches=0,
             transparent=False,
         )
@@ -403,7 +403,7 @@ def get_ha_line_profiles_and_distance_maps(
                     settings["debug_folder"],
                     f"{ventricle}_bullseye_map_" + "slice_" + str(slice_idx).zfill(3) + ".png",
                 ),
-                dpi=200,
+                dpi=100,
                 pad_inches=0,
                 transparent=False,
             )

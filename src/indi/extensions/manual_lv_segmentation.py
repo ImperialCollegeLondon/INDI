@@ -182,7 +182,7 @@ def plot_manual_lv_segmentation(
         alphas_myocardium[alphas_myocardium > 0.1] = 0.3
 
         # plot average images and respective masks
-        plt.figure(figsize=(10, 10))
+        plt.figure(figsize=(5, 5))
         plt.imshow(average_maps[slice_idx], cmap="Greys_r")
         plt.imshow(alphas_myocardium, alpha=alphas_myocardium, vmin=0, vmax=1, cmap="hot")
         plt.axis("off")
@@ -227,7 +227,7 @@ def plot_manual_lv_segmentation(
                 save_path,
                 filename + "_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
-            dpi=300,
+            dpi=100,
             bbox_inches="tight",
             pad_inches=0,
             transparent=False,

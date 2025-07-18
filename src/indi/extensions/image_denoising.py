@@ -71,7 +71,7 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) 
                 settings["debug_folder"],
                 "image_denoising_examples.png",
             ),
-            dpi=200,
+            dpi=100,
             bbox_inches="tight",
             pad_inches=0,
             transparent=False,

@@ -159,7 +159,7 @@ def get_cylindrical_coordinates_short_axis(mask: NDArray) -> dict:
     #                 settings["debug_folder"],
     #                 "cardiac_coordinates_slice_" + slice_str + ".png",
     #             ),
-    #             dpi=200,
+    #             dpi=100,
     #             pad_inches=0,
     #             transparent=False,
     #         )
@@ -306,7 +306,7 @@ def get_cardiac_coordinates_short_axis(
                     settings["debug_folder"],
                     "cardiac_coordinates_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
-                dpi=200,
+                dpi=100,
                 pad_inches=0,
                 transparent=False,
             )
@@ -575,7 +575,7 @@ def get_snr_maps(
                 plt.tight_layout(pad=1.0)
                 plt.savefig(
                     os.path.join(settings["debug_folder"], "snr_maps_slice_" + str(slice_idx).zfill(2) + ".png"),
-                    dpi=200,
+                    dpi=100,
                     pad_inches=0,
                     transparent=False,
                 )
@@ -923,7 +923,7 @@ def plot_results_maps(
                     "results_a",
                     "maps_" + param + "_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
-                dpi=200,
+                dpi=100,
                 pad_inches=0,
                 transparent=False,
             )
@@ -951,7 +951,7 @@ def plot_results_maps(
                     "results_a",
                     "histograms_" + param + "_slice_" + str(slice_idx).zfill(2) + ".png",
                 ),
-                dpi=200,
+                dpi=100,
                 pad_inches=0,
                 transparent=False,
             )
@@ -998,7 +998,7 @@ def plot_results_maps(
                 "results_b",
                 "lv_segments_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
-            dpi=200,
+            dpi=100,
             pad_inches=0,
             transparent=False,
         )
@@ -1037,7 +1037,7 @@ def plot_results_maps(
                 "results_b",
                 "maps_s0_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
-            dpi=200,
+            dpi=100,
             pad_inches=0,
             transparent=False,
         )
@@ -1669,7 +1669,7 @@ def remove_outliers(data: pd.DataFrame, info: dict, settings: dict) -> tuple[pd.
 #         plt.tight_layout(pad=1.0)
 #         plt.savefig(
 #             save_path,
-#             dpi=200,
+#             dpi=100,
 #             pad_inches=0,
 #             transparent=False,
 #         )
