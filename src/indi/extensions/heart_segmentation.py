@@ -131,7 +131,7 @@ def heart_segmentation(
                 thr_mask,
                 average_images,
                 logger,
-                "LS",
+                "NLLS",
                 quick_mode=True,
             )
             # get basic HA and MD maps
@@ -160,7 +160,7 @@ def heart_segmentation(
                 thr_mask,
                 average_images,
                 logger,
-                "LS",
+                "NLLS",
                 quick_mode=True,
             )
 
