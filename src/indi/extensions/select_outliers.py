@@ -158,20 +158,18 @@ def manual_image_removal(
                     c_colour = cmap(cmap_idx)  # default colour for ROIs
                     line_colour = c_colour
 
-                    axs[idx, idx2].scatter(
+                    axs[idx, idx2].plot(
                         segmentation[slice_idx]["epicardium"][:, 0],
                         segmentation[slice_idx]["epicardium"][:, 1],
-                        marker=".",
-                        s=0.1,
+                        lw=0.5,
                         color=line_colour,
                         alpha=1.0,
                     )
                     if segmentation[slice_idx]["endocardium"].size != 0:
-                        axs[idx, idx2].scatter(
+                        axs[idx, idx2].plot(
                             segmentation[slice_idx]["endocardium"][:, 0],
                             segmentation[slice_idx]["endocardium"][:, 1],
-                            marker=".",
-                            s=0.1,
+                            lw=0.5,
                             color=line_colour,
                             alpha=1.0,
                         )

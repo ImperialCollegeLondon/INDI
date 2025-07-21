@@ -209,7 +209,7 @@ def record_image_registration(
                 "results_b",
                 "registration_line_profiles_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
-            dpi=200,
+            dpi=100,
             pad_inches=0,
             transparent=False,
         )
@@ -307,13 +307,9 @@ def record_image_registration(
                 plt.title("blend", fontsize=7)
 
                 plt.subplot(3, 3, 7)
-                plt.imshow(c_img_post)
                 plt.imshow(
                     registration_image_data[slice_idx]["deformation_field"]["grid"][img_idx, :, :],
-                    alpha=registration_image_data[slice_idx]["deformation_field"]["grid"][img_idx, :, :],
-                    vmin=0,
-                    vmax=2,
-                    cmap="Oranges",
+                    cmap="Greys",
                 )
                 plt.axis("off")
                 plt.title("deformation grid", fontsize=7)
@@ -338,7 +334,7 @@ def record_image_registration(
                         "extra_motion_registration",
                         "registration_slice_" + str(slice_idx).zfill(2) + "_img_" + str(img_idx).zfill(3) + ".png",
                     ),
-                    dpi=200,
+                    dpi=100,
                     pad_inches=0,
                     transparent=False,
                 )
