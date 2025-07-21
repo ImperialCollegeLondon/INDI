@@ -38,7 +38,7 @@ def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, pref
             "results_b",
             "tensor_residuals" + prefix + "_slice_" + str(slice_idx).zfill(2) + ".png",
         ),
-        dpi=200,
+        dpi=100,
         pad_inches=0,
         transparent=False,
     )
@@ -79,7 +79,7 @@ def plot_residuals_map(
             "results_b",
             "tensor_residuals_map" + prefix + "_slice_" + str(slice_idx).zfill(2) + ".png",
         ),
-        dpi=200,
+        dpi=100,
         pad_inches=0,
         transparent=False,
     )
@@ -139,7 +139,7 @@ def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray
         alphas_whole_heart = np.copy(mask_3c[slice_idx])
         alphas_whole_heart[alphas_whole_heart > 0.1] = 1
 
-        plt.figure(figsize=(15, 15))
+        plt.figure(figsize=(5, 5))
         plt.subplot(3, 3, 1)
         plt.imshow(average_images[slice_idx], cmap="Greys_r")
         plt.imshow(D[slice_idx, :, :, 0, 0], vmin=vmin, vmax=vmax, alpha=alphas_whole_heart)
@@ -187,7 +187,7 @@ def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray
                 settings["debug_folder"],
                 "tensor_components_slice_" + str(slice_idx).zfill(2) + ".png",
             ),
-            dpi=200,
+            dpi=100,
             pad_inches=0,
             transparent=False,
         )

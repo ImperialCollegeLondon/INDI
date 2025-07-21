@@ -123,7 +123,7 @@ def phase_correction_for_complex_averaging(data: pd.DataFrame, logger: logging.L
                         settings["debug_folder"],
                         "phase_correction_filter_example.png",
                     ),
-                    dpi=200,
+                    dpi=100,
                     bbox_inches="tight",
                     pad_inches=0,
                     transparent=False,
