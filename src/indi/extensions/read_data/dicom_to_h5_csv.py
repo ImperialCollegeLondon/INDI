@@ -46,11 +46,13 @@ def dictify(ds: pydicom.dataset.Dataset, manufacturer: str) -> dict:
             output[elem.keyword] = [dictify(item, manufacturer) for item in elem]
 
     # add manually private diffusion fields if they exist
-    if manufacturer != "ge":
+    if manufacturer == "siemens":
         if [0x0019, 0x100C] in ds:
             output["DiffusionBValue"] = ds[0x0019, 0x100C].value
         if [0x0019, 0x100E] in ds:
             output["DiffusionGradientDirection"] = ds[0x0019, 0x100E].value
+
+    # TODO : add philips support here
 
     if manufacturer == "ge":
         if [0x0018, 0x9087] in ds:
@@ -63,6 +65,20 @@ def dictify(ds: pydicom.dataset.Dataset, manufacturer: str) -> dict:
             ]
             # convert list of strings to list of floats
             output["DiffusionGradientDirection"] = [float(i) for i in output["DiffusionGradientDirection"]]
+
+    if manufacturer == "uih":
+        # I was told by UIH team that the real DiffusionBValue is in the following tag [0x0065, 0x1009].
+        # There is also the tag DiffusionBValue [0x0018, 0x9087], but this one seems to have approximate
+        # b-values. So I am using the first one:
+        if [0x0065, 0x1009] in ds:
+            output["DiffusionBValue"] = ds[0x0065, 0x1009].value
+
+        # I was also told by UIH team that the DiffusionGradientDirection is in the following
+        # tag [0x0065, 0x1037] and the directions are in the image coordinate system.
+        # But the header already contains another field called DiffusionGradientOrientation,
+        # so I am using that one instead, which seems to be in the magnetic coordinate system.
+        # if [0x0065, 0x1037] in ds:
+        #     output["DiffusionGradientDirection"] = ds[0x0065, 0x1037].value
 
     return output
 
@@ -557,10 +573,13 @@ def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
         elif val == "GE MEDICAL SYSTEMS" or val == "GE":
             manufacturer = "ge"
             logger.debug("Manufacturer: GE")
+        elif val == "UIH" or val == "United Imaging Healthcare":
+            manufacturer = "uih"
+            logger.debug("Manufacturer: United Imaging Healthcare")
         else:
-            sys.exit("Manufacturer not supported.")
+            raise ValueError("Manufacturer not supported.")
     else:
-        sys.exit("Manufacturer not supported.")
+        raise ValueError("Manufacturer field not found in header.")
 
     return manufacturer
 

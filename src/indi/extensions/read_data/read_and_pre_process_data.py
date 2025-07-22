@@ -703,12 +703,13 @@ def adjust_b_val_and_dir(
         logger.debug("DICOM or Pandas data: rotating directions to the image plane.")
 
         # get the rotation matrix
-        if info["manufacturer"] != "ge":
+        if info["manufacturer"] == "siemens" or info["manufacturer"] == "philips" or info["manufacturer"] == "uih":
             first_column = np.array(info["image_orientation_patient"][0:3])
             second_column = np.array(info["image_orientation_patient"][3:6])
             third_column = np.cross(first_column, second_column)
             rotation_matrix = np.stack((first_column, second_column, third_column), axis=-1)
-        else:
+
+        elif info["manufacturer"] == "ge":
             # for GE the directions are in the MR physics coordinates
             # (Frequency, Phase, Slice), so we need to rotate them
             # to the image plane
