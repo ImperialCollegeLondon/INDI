@@ -23,16 +23,18 @@ from indi.extensions.extensions import mag_to_rad, rad_to_mag
 
 
 # get DICOM header fields
-def dictify(ds: pydicom.dataset.Dataset) -> dict:
+def dictify(ds: pydicom.dataset.Dataset, manufacturer: str, dicom_type: str) -> dict:
     """Turn a pydicom Dataset into a dict with keys derived from the Element tags.
     Private info is not collected, because we cannot access it with the keyword.
     So we need to manually fish the diffusion information in the old DICOMs.
 
     Args:
-      ds: The Dataset to dictify
+        ds: The Dataset to dictify
+        manufacturer: Manufacturer of the DICOM files (siemens, philips, ge, uih)
+        dicom_type: DICOM type (legacy or enhanced)
 
     Returns:
-      output: A dictionary with the DICOM header information
+        output: A dictionary with the DICOM header information
 
     """
 
@@ -42,13 +44,50 @@ def dictify(ds: pydicom.dataset.Dataset) -> dict:
         if elem.VR != "SQ":
             output[elem.keyword] = elem.value
         else:
-            output[elem.keyword] = [dictify(item) for item in elem]
+            output[elem.keyword] = [dictify(item, manufacturer, dicom_type) for item in elem]
 
-    # add manually private diffusion fields if they exist
-    if [0x0019, 0x100C] in ds:
-        output["DiffusionBValue"] = ds[0x0019, 0x100C].value
-    if [0x0019, 0x100E] in ds:
-        output["DiffusionGradientDirection"] = ds[0x0019, 0x100E].value
+    # add manually private diffusion fields if they exist for legacy DICOMs
+    if dicom_type == "legacy":
+        if manufacturer == "siemens":
+            if [0x0019, 0x100C] in ds:
+                output["b_value"] = ds[0x0019, 0x100C].value
+            if [0x0019, 0x100E] in ds:
+                output["diffusion_direction"] = ds[0x0019, 0x100E].value
+
+        if manufacturer == "philips":
+            if [0x0018, 0x9087] in ds:
+                output["b_value"] = ds[0x0018, 0x9087].value
+            if [0x0018, 0x9089] in ds:
+                output["diffusion_direction"] = ds[0x0018, 0x9089].value
+
+        if manufacturer == "ge":
+            if [0x0018, 0x9087] in ds:
+                output["b_value"] = ds[0x0018, 0x9087].value
+            if [0x0019, 0x10BB] in ds and [0x0019, 0x10BC] in ds and [0x0019, 0x10BD] in ds:
+                output["diffusion_direction"] = [
+                    ds[0x0019, 0x10BB].value,
+                    ds[0x0019, 0x10BC].value,
+                    ds[0x0019, 0x10BD].value,
+                ]
+                # convert list of strings to list of floats
+                output["diffusion_direction"] = [float(i) for i in output["diffusion_direction"]]
+
+        if manufacturer == "uih":
+            # I was told by UIH team that the real DiffusionBValue is in the following tag [0x0065, 0x1009].
+            # There is also the tag DiffusionBValue [0x0018, 0x9087], but this one seems to have approximate
+            # b-values. So I am using the first one:
+            if [0x0065, 0x1009] in ds:
+                output["b_value"] = ds[0x0065, 0x1009].value
+            if [0x0018, 0x9089] in ds:
+                output["diffusion_direction"] = ds[0x0018, 0x9089].value
+
+            # I was also told by UIH team that the DiffusionGradientDirection is in the following
+            # tag [0x0065, 0x1037] and the directions are in the image coordinate system.
+            # But the header already contains another field called DiffusionGradientOrientation,
+            # so I am using that one instead, which seems to be in the magnetic coordinate system.
+            # if [0x0065, 0x1037] in ds:
+            #     output["DiffusionGradientDirection"] = ds[0x0065, 0x1037].value
+
     return output
 
 
@@ -66,9 +105,7 @@ def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = ""):
     """
     output_dict = {}
     for key, value in input_dict.items():
-        if key == "DiffusionGradientDirection":
-            output_dict[key] = value
-        elif key == "DiffusionGradientOrientation":
+        if key == "diffusion_direction":
             output_dict[key] = value
         elif isinstance(value, dict) and value:
             deeper = flatten_dict(value, separator, prefix + key + separator)
@@ -136,7 +173,8 @@ def get_data_from_dicoms(
       image_type: Image type, either "mag" or "phase"
 
     Returns:
-      header_table: DataFrame with header information
+        header_table: DataFrame with header information
+        manufacturer: Manufacturer of the DICOM files (siemens, philips, ge)
 
     """
 
@@ -161,7 +199,7 @@ def get_data_from_dicoms(
     dicom_type, n_images_per_file = get_dicom_version(dicom_header, logger)
 
     # get manufacturer
-    get_manufacturer(dicom_header, logger)
+    manufacturer = get_manufacturer(dicom_header, logger)
 
     # read yaml file with fields to keep
     with open(os.path.join(os.path.dirname(__file__), "fields_to_keep.yaml"), "r") as stream:
@@ -176,16 +214,16 @@ def get_data_from_dicoms(
     # ===================================================================
     # FRAME HEADER INFO
     # ===================================================================
-    header_table = read_all_dicom_files(dicom_files, dicom_type, n_images_per_file, header_field_list)
+    header_table = read_all_dicom_files(dicom_files, dicom_type, n_images_per_file, header_field_list, manufacturer)
 
     # sort the columns alphabetically
     header_table = header_table.reindex(sorted(header_table.columns), axis=1)
 
-    # sort the rows by acquisition date and time
-    if dicom_type == 2:
-        header_table.sort_values(by=["FrameContentSequence_FrameAcquisitionDateTime"], inplace=True)
-    elif dicom_type == 1:
-        header_table.sort_values(by=["AcquisitionDateTime"], inplace=True)
+    # # sort the rows by acquisition date and time
+    # if dicom_type == "enhanced":
+    #     header_table.sort_values(by=["FrameContentSequence_FrameAcquisitionDateTime"], inplace=True)
+    # elif dicom_type == "legacy":
+    #     header_table.sort_values(by=["AcquisitionDateTime"], inplace=True)
 
     # reset index
     header_table.reset_index(drop=True, inplace=True)
@@ -197,14 +235,23 @@ def get_data_from_dicoms(
     # rename some columns
     header_table = rename_columns(dicom_type, header_table)
 
-    # check the bmatrix is present in the header
-    if "MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValueXX" in header_table.columns:
-        header_table = build_bmatrix(header_table, logger)
+    # build the gradient directions and b-matrix columns with all the values
+    if dicom_type == "enhanced":
+        # check that diffusion gradient direction is present in the header
+        if (
+            "MRDiffusionSequence_DiffusionGradientDirectionSequence_DiffusionGradientOrientation_1"
+            in header_table.columns
+        ):
+            header_table = build_gradient_directions(header_table, logger)
+
+        # check the bmatrix is present in the header
+        if "MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValueXX" in header_table.columns:
+            header_table = build_bmatrix(header_table, logger)
 
     # move some columns to the start of the table for easier access to the most important columns
     header_table = reorder_columns(header_table)
 
-    return header_table
+    return header_table, manufacturer
 
 
 def build_bmatrix(data: pd.DataFrame, logger: logging):
@@ -243,6 +290,35 @@ def build_bmatrix(data: pd.DataFrame, logger: logging):
 
     data["bmatrix"] = bmatrix.tolist()
     data["bmatrix"] = data["bmatrix"].apply(lambda x: np.asarray(x))
+    return data
+
+
+def build_gradient_directions(data: pd.DataFrame, logger: logging):
+    """
+    Build the gradient directions from the DICOM header.
+
+    Parameters
+    ----------
+    data
+    logger
+
+    Returns
+    -------
+    data
+    """
+
+    direction_columns = [
+        "MRDiffusionSequence_DiffusionGradientDirectionSequence_DiffusionGradientOrientation_1",
+        "MRDiffusionSequence_DiffusionGradientDirectionSequence_DiffusionGradientOrientation_2",
+        "MRDiffusionSequence_DiffusionGradientDirectionSequence_DiffusionGradientOrientation_3",
+    ]
+    direction_vals = data[direction_columns].values
+    directions = np.zeros((len(direction_vals), 3))
+    directions[:, 0] = direction_vals[:, 0]
+    directions[:, 1] = direction_vals[:, 1]
+    directions[:, 2] = direction_vals[:, 2]
+
+    data["diffusion_direction"] = directions.tolist()
     return data
 
 
@@ -434,15 +510,16 @@ def interpolate_dicom_pixel_values(
     return data, info
 
 
-def tweak_directions(data: pd.DataFrame) -> pd.DataFrame:
+def tweak_directions_and_b_values(data: pd.DataFrame) -> pd.DataFrame:
     """Tweak the directions in the table. If a direction is a list of NaNs, then
     change to a null vector (0,0,0).
+    If the b-value is NaN, set it to 0.
 
     Args:
       data: DataFrame with image data
 
     Returns:
-        data: DataFrame with tweaked directions
+        data: DataFrame with tweaked directions and b-values
 
     """
     # add new column to table to indicate if the directions are in the image plane
@@ -456,6 +533,10 @@ def tweak_directions(data: pd.DataFrame) -> pd.DataFrame:
     # repeat for the b-matrix
     if "bmatrix" in data.columns:
         data["bmatrix"] = data["bmatrix"].apply(lambda x: np.zeros((3, 3)) if np.isnan(x).any() else x)
+
+    # if missing b-value, set it to 0
+    if "b_value" in data.columns:
+        data["b_value"] = data["b_value"].apply(lambda x: 0.0 if np.isnan(x) else x)
 
     return data
 
@@ -512,27 +593,39 @@ def get_dicom_version(global_dicom_header: pydicom.dataset.Dataset, logger: logg
 
 def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
     """Get manufacturer from the DICOM header.
-    Why this does not return a value?
+    This function will set the manufacturer variable to one of the following:
+    - "siemens"
+    - "philips"
+    - "ge"
 
     Args:
       header: Dataset header
       logger: logger
 
+    Returns:
+        manufacturer: string with the manufacturer name
+
     """
     if "Manufacturer" in header:
         val = header["Manufacturer"].value
         if val == "Siemens Healthineers" or val == "Siemens" or val == "SIEMENS":
-            # manufacturer = "siemens"
+            manufacturer = "siemens"
             logger.debug("Manufacturer: Siemens")
         elif val == "Philips Medical Systems" or val == "Philips":
-            # manufacturer = "philips"
+            manufacturer = "philips"
             logger.debug("Manufacturer: Philips")
+        elif val == "GE MEDICAL SYSTEMS" or val == "GE":
+            manufacturer = "ge"
+            logger.debug("Manufacturer: GE")
+        elif val == "UIH" or val == "United Imaging Healthcare":
+            manufacturer = "uih"
+            logger.debug("Manufacturer: United Imaging Healthcare")
         else:
-            sys.exit("Manufacturer not supported.")
+            raise ValueError("Manufacturer not supported.")
     else:
-        sys.exit("Manufacturer not supported.")
+        raise ValueError("Manufacturer field not found in header.")
 
-    # return manufacturer
+    return manufacturer
 
 
 def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
@@ -565,20 +658,13 @@ def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
                 "PixelValueTransformationSequence_RescaleSlope": "RescaleSlope",
                 "PixelValueTransformationSequence_RescaleIntercept": "RescaleIntercept",
                 "PixelValueTransformationSequence_RescaleType": "RescaleType",
-                "DiffusionGradientDirection": "diffusion_direction",
-                "DiffusionGradientOrientation": "diffusion_direction",
             }
         )
 
     elif dicom_type == "legacy":
-        # I am assuming that DiffusionGradientDirection and DiffusionGradientOrientation are never present
-        # at the same time, the first is Siemens, the second is Philips.
         table_frame = table_frame.rename(
             columns={
                 "FileName": "file_name",
-                "DiffusionBValue": "b_value",
-                "DiffusionGradientDirection": "diffusion_direction",
-                "DiffusionGradientOrientation": "diffusion_direction",
                 "ImagePositionPatient": "image_position",
                 "ImageOrientationPatient": "image_orientation_patient",
                 "NominalInterval": "nominal_interval",
@@ -631,14 +717,16 @@ def read_all_dicom_files(
     dicom_type: str,
     n_images_per_file: int,
     header_field_list: list,
+    manufacturer: str,
 ) -> pd.DataFrame:
     """Read all DICOM files and extract header information to a dataframe
 
     Args:
-      dicom_files: list of DICOM files
-      dicom_type: DICOM type (legacy or enhanced)
-      n_images_per_file: number of images per DICOM file
-      header_field_list: list of fields to keep in the header
+        dicom_files: list of DICOM files
+        dicom_type: DICOM type (legacy or enhanced)
+        n_images_per_file: number of images per DICOM file
+        header_field_list: list of fields to keep in the header
+        manufacturer: manufacturer of the DICOM files (siemens, philips, ge)
 
     Returns:
         header_table: DataFrame with header information
@@ -657,7 +745,7 @@ def read_all_dicom_files(
                 c_pixel_array = c_pixel_array[frame_idx]
 
             # convert header to dictionary
-            c_dicom_header_dict = dictify(c_dicom_header)
+            c_dicom_header_dict = dictify(c_dicom_header, manufacturer, dicom_type)
             # remove pixel data
             c_dicom_header_dict.pop("PixelData")
             # flatten dictionary
