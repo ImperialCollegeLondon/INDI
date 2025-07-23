@@ -107,7 +107,7 @@ def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = ""):
     for key, value in input_dict.items():
         if key == "diffusion_direction":
             output_dict[key] = value
-        if isinstance(value, dict) and value:
+        elif isinstance(value, dict) and value:
             deeper = flatten_dict(value, separator, prefix + key + separator)
             output_dict.update({key2: val2 for key2, val2 in deeper.items()})
         elif isinstance(value, list) and value:
