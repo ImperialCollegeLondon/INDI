@@ -50,36 +50,36 @@ def dictify(ds: pydicom.dataset.Dataset, manufacturer: str, dicom_type: str) -> 
     if dicom_type == "legacy":
         if manufacturer == "siemens":
             if [0x0019, 0x100C] in ds:
-                output["DiffusionBValue"] = ds[0x0019, 0x100C].value
+                output["b_value"] = ds[0x0019, 0x100C].value
             if [0x0019, 0x100E] in ds:
-                output["DiffusionGradientDirection"] = ds[0x0019, 0x100E].value
+                output["diffusion_direction"] = ds[0x0019, 0x100E].value
 
         if manufacturer == "philips":
             if [0x0018, 0x9087] in ds:
-                output["DiffusionBValue"] = ds[0x2001, 0x1003].value
+                output["b_value"] = ds[0x0018, 0x9087].value
             if [0x0018, 0x9089] in ds:
-                output["DiffusionGradientDirection"] = ds[0x0018, 0x9089].value
+                output["diffusion_direction"] = ds[0x0018, 0x9089].value
 
         if manufacturer == "ge":
             if [0x0018, 0x9087] in ds:
-                output["DiffusionBValue"] = ds[0x0018, 0x9087].value
+                output["b_value"] = ds[0x0018, 0x9087].value
             if [0x0019, 0x10BB] in ds and [0x0019, 0x10BC] in ds and [0x0019, 0x10BD] in ds:
-                output["DiffusionGradientDirection"] = [
+                output["diffusion_direction"] = [
                     ds[0x0019, 0x10BB].value,
                     ds[0x0019, 0x10BC].value,
                     ds[0x0019, 0x10BD].value,
                 ]
                 # convert list of strings to list of floats
-                output["DiffusionGradientDirection"] = [float(i) for i in output["DiffusionGradientDirection"]]
+                output["diffusion_direction"] = [float(i) for i in output["diffusion_direction"]]
 
         if manufacturer == "uih":
             # I was told by UIH team that the real DiffusionBValue is in the following tag [0x0065, 0x1009].
             # There is also the tag DiffusionBValue [0x0018, 0x9087], but this one seems to have approximate
             # b-values. So I am using the first one:
             if [0x0065, 0x1009] in ds:
-                output["DiffusionBValue"] = ds[0x0065, 0x1009].value
+                output["b_value"] = ds[0x0065, 0x1009].value
             if [0x0018, 0x9089] in ds:
-                output["DiffusionGradientDirection"] = ds[0x0018, 0x9089].value
+                output["diffusion_direction"] = ds[0x0018, 0x9089].value
 
             # I was also told by UIH team that the DiffusionGradientDirection is in the following
             # tag [0x0065, 0x1037] and the directions are in the image coordinate system.
@@ -105,10 +105,8 @@ def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = ""):
     """
     output_dict = {}
     for key, value in input_dict.items():
-        # if key == "DiffusionGradientDirection":
-        #     output_dict[key] = value
-        # elif key == "DiffusionGradientOrientation":
-        #     output_dict[key] = value
+        if key == "diffusion_direction":
+            output_dict[key] = value
         if isinstance(value, dict) and value:
             deeper = flatten_dict(value, separator, prefix + key + separator)
             output_dict.update({key2: val2 for key2, val2 in deeper.items()})
@@ -221,11 +219,11 @@ def get_data_from_dicoms(
     # sort the columns alphabetically
     header_table = header_table.reindex(sorted(header_table.columns), axis=1)
 
-    # sort the rows by acquisition date and time
-    if dicom_type == "enhanced":
-        header_table.sort_values(by=["FrameContentSequence_FrameAcquisitionDateTime"], inplace=True)
-    elif dicom_type == "legacy":
-        header_table.sort_values(by=["AcquisitionDateTime"], inplace=True)
+    # # sort the rows by acquisition date and time
+    # if dicom_type == "enhanced":
+    #     header_table.sort_values(by=["FrameContentSequence_FrameAcquisitionDateTime"], inplace=True)
+    # elif dicom_type == "legacy":
+    #     header_table.sort_values(by=["AcquisitionDateTime"], inplace=True)
 
     # reset index
     header_table.reset_index(drop=True, inplace=True)
@@ -667,8 +665,6 @@ def rename_columns(dicom_type: str, table_frame: pd.DataFrame) -> pd.DataFrame:
         table_frame = table_frame.rename(
             columns={
                 "FileName": "file_name",
-                "DiffusionBValue": "b_value",
-                "DiffusionGradientDirection": "diffusion_direction",
                 "ImagePositionPatient": "image_position",
                 "ImageOrientationPatient": "image_orientation_patient",
                 "NominalInterval": "nominal_interval",
