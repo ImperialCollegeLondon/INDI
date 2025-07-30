@@ -231,6 +231,7 @@ def dipy_tensor_fit(
             residuals_img_all (dict): All residuals for each slice, or empty dict if not computed.
             info (dict): Updated info dictionary with fitting statistics.
     """
+    import dipy.denoise.noise_estimate as ne
     import dipy.reconst.dti as dti
     from dipy.core.gradients import gradient_table
 
@@ -276,8 +277,9 @@ def dipy_tensor_fit(
         image_data = image_data.transpose(1, 2, 3, 0)
         # t0 = time.time()
 
-        if method == "NLLS" or method == "RESTORE":
-            tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
+        if method == "RESTORE":
+            sigma = ne.estimate_sigma(image_data)
+            tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True, sigma=1.5267 * sigma)
         else:
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
 
@@ -289,33 +291,27 @@ def dipy_tensor_fit(
         # total = t1 - t0
         # logger.info(f"Slice {slice_idx}: Time for tensor fitting: {total = :.3f} seconds")
 
-        if method != "RESTORE":
-            # calculate tensor residuals
-            # Predict a signal given tensor parameters.
-            s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
-            res = np.abs(image_data - s_est)
+        # calculate tensor residuals
+        # Predict a signal given tensor parameters.
+        s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
+        res = np.abs(image_data - s_est)
 
-            # estimate res in the myocardium per diffusion image
-            myo_pxs = np.flatnonzero(myo_mask[slice_idx])
-            res_img = np.squeeze(np.reshape(res, [res.shape[0] * res.shape[1], res.shape[2], res.shape[3]]))
-            res_img = np.nanmean(res_img[myo_pxs, :], axis=0)
-            residuals_img[slice_idx] = res_img
-            # estimate res per voxel
-            res_map = np.nanmean(np.squeeze(res), axis=2)
-            residuals_map[slice_idx] = res_map
-            # also save the non-averaged residuals
-            residuals_img_all[slice_idx] = np.squeeze(res)
+        # estimate res in the myocardium per diffusion image
+        myo_pxs = np.flatnonzero(myo_mask[slice_idx])
+        res_img = np.squeeze(np.reshape(res, [res.shape[0] * res.shape[1], res.shape[2], res.shape[3]]))
+        res_img = np.nanmean(res_img[myo_pxs, :], axis=0)
+        residuals_img[slice_idx] = res_img
+        # estimate res per voxel
+        res_map = np.nanmean(np.squeeze(res), axis=2)
+        residuals_map[slice_idx] = res_map
+        # also save the non-averaged residuals
+        residuals_img_all[slice_idx] = np.squeeze(res)
 
-            # z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
+        # z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
 
-            if settings["debug"]:
-                plot_residuals_plot(res_img, slice_idx, settings, prefix="")
-                plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
-
-        else:
-            residuals_img[slice_idx] = []
-            residuals_map[slice_idx] = []
-            residuals_img_all[slice_idx] = []
+        if settings["debug"]:
+            plot_residuals_plot(res_img, slice_idx, settings, prefix="")
+            plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
 
     if message_tensor_fitting_flag == 0:
         logger.info("Tensor fitting used: b-values and b-matrix")
