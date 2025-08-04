@@ -83,15 +83,18 @@ def copy_repetitions(data, slices, current_folder, output_folder, number_of_repe
         diffusion_configs_table = diffusion_configs_table.sort_values(by=["b_value_original", "diffusion_direction"])
 
         b_values = diffusion_configs_table["b_value_original"].unique()
+        if len(b_values) != len(number_of_repetitions):
+            raise ValueError(
+                "Number of repetitions must match the number of unique b-values in the data. "
+                f"Found {len(b_values)} unique b-values, but got {len(number_of_repetitions)} repetitions."
+            )
         for repetitions, b_value in zip(number_of_repetitions, b_values):
 
             if repetitions == -1:
                 # if -1, we keep all repetitions
-                number_of_repetitions = diffusion_configs_table[
-                    diffusion_configs_table["b_value_original"] == b_value
-                ].shape[0]
-            else:
-                number_of_repetitions = repetitions
+                repetitions = diffusion_configs_table[diffusion_configs_table["b_value_original"] == b_value].shape[0]
+            # else:
+            #     number_of_repetitions = repetitions
 
             # if number_of_repetitions < 1:
             #     raise ValueError("Number of repetitions must be at least 1.")
@@ -107,7 +110,7 @@ def copy_repetitions(data, slices, current_folder, output_folder, number_of_repe
                 # print(temp)
                 temp = temp.reset_index(drop=True)
 
-                data_to_keep = temp.iloc[:number_of_repetitions, :]
+                data_to_keep = temp.iloc[:repetitions, :]
                 data_to_keep = data_to_keep.reset_index(drop=True)
 
                 for current_file in data_to_keep["file_name"]:
@@ -140,13 +143,13 @@ def main():
         "ex_vivo": False,
         "print_series_description": False,
     }
-
+    errors = []
     for folder in tqdm(folders):
 
         folder_name = folder.relative_to(args.path)
-        output_folder_all = args.out_path / "all" / folder_name.as_posix()
+        # output_folder_all = args.out_path / "all" / folder_name.as_posix()
         output_folder_less_repetitions = args.out_path / f"{args.name}_repetitions" / folder_name.as_posix()
-        output_folder_all.mkdir(parents=True, exist_ok=True)
+        # output_folder_all.mkdir(parents=True, exist_ok=True)
         output_folder_less_repetitions.mkdir(parents=True, exist_ok=True)
 
         info = {}
@@ -190,15 +193,27 @@ def main():
         all_indicies = data.index.tolist()
         indicies_to_keep = list(set(all_indicies) - set(indicies_to_remove))
 
-        for index in indicies_to_keep:
-            # copy the file to the output folder
-            source_file = folder / data.loc[index]["file_name"]
-            destination_file = output_folder_all / source_file.name
-            shutil.copy(source_file, destination_file)
+        # for index in indicies_to_keep:
+        #     # copy the file to the output folder
+        #     source_file = folder / data.loc[index]["file_name"]
+        #     destination_file = output_folder_all / source_file.name
+        #     shutil.copy(source_file, destination_file)
 
         # remove the indicies from the data
         data = data.loc[indicies_to_keep].copy()
         data.reset_index(drop=True, inplace=True)
 
         # copy the repetitions
-        copy_repetitions(data, slices, folder, output_folder_less_repetitions, args.repetitions)
+        try:
+            copy_repetitions(data, slices, folder, output_folder_less_repetitions, args.repetitions)
+        except ValueError as e:
+            logger.error(f"Error copying repetitions: {e}")
+            errors.append(str(e))
+            continue
+        # copy_repetitions(data, slices, folder, output_folder_less_repetitions, args.repetitions)
+
+    if len(errors) > 0:
+        logger.error("Errors encountered during processing:")
+        for error in errors:
+            logger.error(f" - {error}")
+        logger.error(f"Number of errors: {len(errors)} (of {len(folders)})")

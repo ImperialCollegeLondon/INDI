@@ -3,6 +3,7 @@ import datetime
 import pathlib
 import shutil
 
+import tqdm
 import yaml
 from pyautogui import Size
 
@@ -36,7 +37,7 @@ if __name__ == "__main__":
 
     date = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
 
-    for folder in folders:
+    for folder in tqdm.tqdm(folders):
 
         with open(folder / "settings.yml") as f:
             settings = yaml.load(f, Loader=loader)

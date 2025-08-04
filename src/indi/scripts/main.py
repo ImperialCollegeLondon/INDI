@@ -174,6 +174,10 @@ def main():
                 data, average_images, slices, info["n_slices"], colormaps, settings, info, logger
             )
 
+            if settings["workflow_mode"] == "seg":
+                logger.info("Segmentation only mode is True. Stopping here.")
+                continue
+
             # =========================================================
             # Remove non segmented slices
             # =========================================================
