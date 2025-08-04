@@ -269,8 +269,8 @@ def get_eigensystem(
 
     # plot histograms of the dti["eigenvalues"]
     # and also maps for the eigenvectors if debug is True
-    plot_eigenvalues_histograms(dti["eigenvalues"], settings, mask_3c)
     if settings["debug"]:
+        plot_eigenvalues_histograms(dti["eigenvalues"], settings, mask_3c)
         plot_eigenvector_maps(dti["eigenvectors"], average_images, mask_3c, slices, settings)
 
     return dti, info
