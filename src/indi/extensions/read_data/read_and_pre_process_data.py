@@ -1333,25 +1333,26 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
 
     # check if manufacturer is in the info dict
     if "manufacturer" not in info:
-        manufacturer_string = data["Manufacturer"].iloc[0]
-        if (
-            manufacturer_string == "Siemens Healthineers"
-            or manufacturer_string == "Siemens"
-            or manufacturer_string == "SIEMENS"
-        ):
-            manufacturer = "siemens"
-            logger.debug("Manufacturer: Siemens")
-        elif manufacturer_string == "Philips Medical Systems" or manufacturer_string == "Philips":
-            manufacturer = "philips"
-            logger.debug("Manufacturer: Philips")
-        elif manufacturer_string == "GE MEDICAL SYSTEMS" or manufacturer_string == "GE":
-            manufacturer = "ge"
-            logger.debug("Manufacturer: GE")
-        elif manufacturer_string == "UIH" or manufacturer_string == "United Imaging Healthcare":
-            manufacturer = "uih"
-            logger.debug("Manufacturer: United Imaging Healthcare")
+        if "Manufacturer" not in data.columns:
+            raise ValueError("The 'Manufacturer' column is missing from the data DataFrame.")
+        if data.shape[0] == 0:
+            raise ValueError("The data DataFrame is empty; cannot determine manufacturer.")
+        manufacturer_string = str(data["Manufacturer"].iloc[0]).strip().lower()
+        manufacturer_map = {
+            "siemens healthineers": ("siemens", "Manufacturer: Siemens"),
+            "siemens": ("siemens", "Manufacturer: Siemens"),
+            "philips medical systems": ("philips", "Manufacturer: Philips"),
+            "philips": ("philips", "Manufacturer: Philips"),
+            "ge medical systems": ("ge", "Manufacturer: GE"),
+            "ge": ("ge", "Manufacturer: GE"),
+            "uih": ("uih", "Manufacturer: United Imaging Healthcare"),
+            "united imaging healthcare": ("uih", "Manufacturer: United Imaging Healthcare"),
+        }
+        if manufacturer_string in manufacturer_map:
+            manufacturer, log_msg = manufacturer_map[manufacturer_string]
+            logger.debug(log_msg)
         else:
-            raise ValueError("Manufacturer not supported.")
+            raise ValueError(f"Manufacturer not supported: {manufacturer_string}")
         info["manufacturer"] = manufacturer
 
     return data, data_phase, info
