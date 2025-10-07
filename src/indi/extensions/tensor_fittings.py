@@ -279,9 +279,11 @@ def dipy_tensor_fit(
 
         if method == "RESTORE":
             sigma = ne.estimate_sigma(image_data)
-            tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True, sigma=1.5267 * sigma)
+            tenmodel = dti.TensorModel(
+                gtab, fit_method=method, return_S0_hat=True, sigma=1.5267 * sigma, return_leverages=True
+            )
         else:
-            tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
+            tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True, return_leverages=True)
 
         tenfit = tenmodel.fit(image_data)
         tensor[..., slice_idx] = np.squeeze(tenfit.quadratic_form)
