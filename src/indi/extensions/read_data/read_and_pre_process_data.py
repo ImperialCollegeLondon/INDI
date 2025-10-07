@@ -1331,6 +1331,29 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
         ), "Number of pixel slices does not match the number of entries in the dataframe."
         data_phase["image"] = pd.Series([x for x in pixel_values_phase])
 
+    # check if manufacturer is in the info dict
+    if "manufacturer" not in info:
+        manufacturer_string = data["Manufacturer"].iloc[0]
+        if (
+            manufacturer_string == "Siemens Healthineers"
+            or manufacturer_string == "Siemens"
+            or manufacturer_string == "SIEMENS"
+        ):
+            manufacturer = "siemens"
+            logger.debug("Manufacturer: Siemens")
+        elif manufacturer_string == "Philips Medical Systems" or manufacturer_string == "Philips":
+            manufacturer = "philips"
+            logger.debug("Manufacturer: Philips")
+        elif manufacturer_string == "GE MEDICAL SYSTEMS" or manufacturer_string == "GE":
+            manufacturer = "ge"
+            logger.debug("Manufacturer: GE")
+        elif manufacturer_string == "UIH" or manufacturer_string == "United Imaging Healthcare":
+            manufacturer = "uih"
+            logger.debug("Manufacturer: United Imaging Healthcare")
+        else:
+            raise ValueError("Manufacturer not supported.")
+        info["manufacturer"] = manufacturer
+
     return data, data_phase, info
 
 
