@@ -279,9 +279,7 @@ def dipy_tensor_fit(
 
         if method == "RESTORE":
             sigma = ne.estimate_sigma(image_data)
-            tenmodel = dti.TensorModel(
-                gtab, fit_method=method, return_S0_hat=True, sigma=1.5267 * sigma, return_leverages=True
-            )
+            tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True, sigma=1.5267 * sigma)
         else:
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True, return_leverages=True)
 
