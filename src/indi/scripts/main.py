@@ -319,7 +319,15 @@ def main():
                 dti["distance_transmural"],
                 dti["ha_line_profiles_2"],
             ) = get_ha_line_profiles_and_distance_maps(
-                dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info, average_images
+                dti["ha"],
+                lv_centres,
+                slices,
+                mask_3c,
+                segmentation,
+                settings,
+                info,
+                average_images,
+                logger,
             )
 
             # =========================================================

@@ -3,6 +3,7 @@ Calculates transmural gradient information from the helix angle maps
 Also generates useful distance maps and bullseye maps
 """
 
+import logging
 import os
 
 import cv2
@@ -25,6 +26,7 @@ def get_ha_line_profiles_and_distance_maps(
     settings: dict,
     info: dict,
     average_images: NDArray,
+    logger: logging.Logger,
     ventricle: str = "LV",
 ) -> tuple[dict, dict, NDArray, NDArray, NDArray, NDArray, dict]:
     """
@@ -43,6 +45,7 @@ def get_ha_line_profiles_and_distance_maps(
         settings (dict): Configuration and output settings.
         info (dict): Additional information, including pixel spacing.
         average_images (NDArray): Array of average images for each slice.
+        logger (logging.Logger): Logger for debug and information messages.
         ventricle (str, optional): Ventricle name to process. Defaults to "LV".
 
     Returns:
@@ -137,13 +140,23 @@ def get_ha_line_profiles_and_distance_maps(
 
         # fit a line to the mean line profile
         average_lp = np.nanmean(lp_matrix, axis=0)
-        std_lp = np.nanstd(lp_matrix, axis=0)
-        model = LinearRegression()
-        x = np.linspace(0, 1, len(lp)).reshape(-1, 1)
-        model.fit(x, average_lp.reshape(-1, 1))
-        r_sq = model.score(x, average_lp.reshape(-1, 1))
-        y_pred = model.predict(x)
-        slope = model.coef_[0, 0]
+        # check if there are nans in the average_lp (may happen with phantoms!)
+        if np.isnan(average_lp).any():
+            logger.debug(f"Warning: NaNs in average HA line profile for slice {slice_idx}. Skipping slice.")
+            average_lp = np.nan
+            std_lp = np.nan
+            r_sq = np.nan
+            slope = np.nan
+            y_pred = np.nan
+            x = np.nan
+        else:
+            std_lp = np.nanstd(lp_matrix, axis=0)
+            model = LinearRegression()
+            x = np.linspace(0, 1, len(lp)).reshape(-1, 1)
+            model.fit(x, average_lp.reshape(-1, 1))
+            r_sq = model.score(x, average_lp.reshape(-1, 1))
+            y_pred = model.predict(x)
+            slope = model.coef_[0, 0]
 
         # store all this info in the dictionary
         ha_lines_profiles[slice_idx]["average_lp"] = average_lp
@@ -157,10 +170,11 @@ def get_ha_line_profiles_and_distance_maps(
         # plot HA line profiles v1
         plt.figure(figsize=(5, 5))
         plt.subplot(1, 1, 1)
-        plt.plot(x, lp_matrix.T, color="green", alpha=0.03)
-        # plt.plot(average_lp, linewidth=2, color="black", label="mean")
-        plt.errorbar(x, average_lp, std_lp, linewidth=2, color="black", label="mean", elinewidth=0.5)
-        plt.plot(x, y_pred, linewidth=1, color="red", linestyle="--", label="fit")
+        if not np.isnan(x).all():
+            plt.plot(x, lp_matrix.T, color="green", alpha=0.03)
+            # plt.plot(average_lp, linewidth=2, color="black", label="mean")
+            plt.errorbar(x, average_lp, std_lp, linewidth=2, color="black", label="mean", elinewidth=0.5)
+            plt.plot(x, y_pred, linewidth=1, color="red", linestyle="--", label="fit")
         plt.xlabel("normalised wall from endo to epi")
         plt.ylabel("HA (degrees)")
         plt.tick_params(axis="both", which="major")
