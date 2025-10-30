@@ -145,6 +145,12 @@ Install the required packages:
 pip install .
 ```
 
+To allow the ImageMagick scripts to run enter command:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope LocalMachine`
+```
+
 Install [ImageMagick](https://imagemagick.org/).
 
 ---
