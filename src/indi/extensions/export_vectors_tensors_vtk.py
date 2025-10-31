@@ -23,9 +23,6 @@ def save_vtk_file(
         name (str): Base name for the output file.
         folder_path (str): Path to the folder where files will be saved.
         save_mesh (bool, optional): If True, also saves a smoothed surface mesh as a PLY file. Defaults to False.
-
-    Returns:
-        None
     """
 
     # shape of the vector field
@@ -132,8 +129,6 @@ def export_vectors_tensors_vtk(dti: dict, info: dict, settings: dict, mask_3c: N
         mask_3c (NDArray): 3-class segmentation mask array.
         average_images (NDArray): Array of average images for each slice.
 
-    Returns:
-        None
     """
     vectors = {}
     vectors["primary_evs"] = dti["eigenvectors"][:, :, :, :, 2]

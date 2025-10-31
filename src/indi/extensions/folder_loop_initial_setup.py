@@ -10,21 +10,19 @@ import yaml
 def folder_loop_initial_setup(
     current_folder: str, settings: dict, logger: logging.Logger, log_format: logging.Formatter
 ) -> tuple[dict, dict, logging.Logger]:
-    """
-    Initial setup for the folder loop.
-    Parameters
-    ----------
-    current_folder : str with current folder with diffusion data
-    settings : settings from YAML file
-    logger : logger
-    log_format : logging.Formatter
-    Returns
-    -------
-    info : dict
-    dti_data : dict
-    settings : dict
-    logger : logger
+    """Initial setup for the folder loop.
 
+    Args:
+      current_folder: str with current folder with diffusion data
+      settings: settings from YAML file
+      logger: logger
+      current_folder: str
+      log_format: logging.Formatter
+
+    Returns:
+        info : dict
+        settings : dict
+        logger : logger
 
     """
     # initialise dictionaries
