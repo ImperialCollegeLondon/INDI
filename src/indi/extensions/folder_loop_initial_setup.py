@@ -72,7 +72,7 @@ def folder_loop_initial_setup(
     if os.path.exists(log_filename):
         os.remove(log_filename)
 
-    # log [0] is the console handler, log [1] is the file handler
+    # logger.handlers[0] is the console handler, logger.handlers[1] is the file handler
     # if len > 1 then we have a file handler already so we need to remove it
     # and then assign a new file for the new folder
     if len(logger.handlers) > 1:
