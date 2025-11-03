@@ -121,16 +121,25 @@ def get_ha_line_profiles_and_distance_maps(
 
             x, y = np.linspace(x0, x1, length + 1), np.linspace(y0, y1, length + 1)
 
+            # remove the first and last 10% of the line to avoid partial volume effects
+            trim_amount = int(0.1 * len(x))
+            x_trim = x[trim_amount:-trim_amount]
+            y_trim = y[trim_amount:-trim_amount]
+
             # Extract the HA values along the line
-            lp = c_HA[y.astype(int), x.astype(int)]
+            lp = c_HA[y_trim.astype(int), x_trim.astype(int)]
+            lp_all = c_HA[y.astype(int), x.astype(int)]
+
+            # get wall thickness in mm (Assuming square pixels with pixel spacing the same in x and y!)
+            wt.append(len(lp_all) * info["pixel_spacing"][0])
+
             # remove background points
             lp = lp[~np.isnan(lp)]
-            # fix angle wrap
-            lp_wrap_fix = fix_angle_wrap(lp, 45)
-            # get wall thickness in mm (Assuming square pixels with pixel spacing the same in x and y!)
-            wt.append(len(lp) * info["pixel_spacing"][0])
+            # # fix angle wrap
+            # lp_wrap_fix = fix_angle_wrap(lp, 45)
+
             # interpolate line profile valid points to interp_len
-            lp = np.interp(np.linspace(0, len(lp), interp_len), np.linspace(0, len(lp), len(lp)), lp_wrap_fix)
+            lp = np.interp(np.linspace(0, len(lp), interp_len), np.linspace(0, len(lp), len(lp)), lp)
             # store line profile in a matrix
             lp_matrix[point_idx, :] = lp
 
@@ -140,23 +149,14 @@ def get_ha_line_profiles_and_distance_maps(
 
         # fit a line to the mean line profile
         average_lp = np.nanmean(lp_matrix, axis=0)
-        # check if there are nans in the average_lp (may happen with phantoms!)
-        if np.isnan(average_lp).any():
-            logger.debug(f"Warning: NaNs in average HA line profile for slice {slice_idx}. Skipping slice.")
-            average_lp = np.nan
-            std_lp = np.nan
-            r_sq = np.nan
-            slope = np.nan
-            y_pred = np.nan
-            x = np.nan
-        else:
-            std_lp = np.nanstd(lp_matrix, axis=0)
-            model = LinearRegression()
-            x = np.linspace(0, 1, len(lp)).reshape(-1, 1)
-            model.fit(x, average_lp.reshape(-1, 1))
-            r_sq = model.score(x, average_lp.reshape(-1, 1))
-            y_pred = model.predict(x)
-            slope = model.coef_[0, 0]
+
+        std_lp = np.nanstd(lp_matrix, axis=0)
+        model = LinearRegression()
+        x = np.linspace(0.1, 0.9, len(lp)).reshape(-1, 1)
+        model.fit(x, average_lp.reshape(-1, 1))
+        r_sq = model.score(x, average_lp.reshape(-1, 1))
+        y_pred = model.predict(x)
+        slope = model.coef_[0, 0]
 
         # store all this info in the dictionary
         ha_lines_profiles[slice_idx]["average_lp"] = average_lp
@@ -188,6 +188,7 @@ def get_ha_line_profiles_and_distance_maps(
             + ")",
         )
         plt.ylim(-90, 90)
+        plt.xlim(0, 1)
         plt.legend()
         plt.tight_layout(pad=1.0)
         plt.savefig(
