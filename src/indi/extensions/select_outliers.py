@@ -414,7 +414,7 @@ def select_outliers(
 
     else:
         # no image removal to be done
-        logger.info("No image removal to be done")
+        logger.info("No image removal to be done.")
 
         create_2d_montage_from_database(
             data,
