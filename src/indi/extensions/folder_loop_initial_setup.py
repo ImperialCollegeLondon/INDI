@@ -20,9 +20,9 @@ def folder_loop_initial_setup(
       log_format: logging.Formatter
 
     Returns:
-        info : dict
-        settings : dict
-        logger : logger
+        info: dict
+        settings: dict
+        logger: logger
 
     """
     # initialise dictionaries

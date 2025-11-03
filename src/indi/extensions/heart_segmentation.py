@@ -22,22 +22,20 @@ from indi.extensions.tensor_fittings import dipy_tensor_fit
 def get_average_images(
     data: pd.DataFrame,
     slices: NDArray,
-    info,
+    info: dict,
     logger: logging.Logger,
 ) -> NDArray:
     """
     Get average denoised and normalised image for each slice
 
-    Parameters
-    ----------
-    data: database with DWIs
-    slices: array with slice locations string
-    info: dict
-    logger
+    Args:
+        data: database with DWIs
+        slices: array with slice locations string
+        info: dict
+        logger: logger
 
-    Returns
-    -------
-    NDarray with average images
+    Returns:
+        average_images: NDarray with average images
 
     """
 

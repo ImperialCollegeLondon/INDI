@@ -12,16 +12,15 @@ def get_ha_e2a_maps(
     """
     Calculate HA and E2A maps
 
-    Parameters
-    ----------
-    mask: segmentation masks
-    local_cardiac_coordinates: local cardiac coordinates
-    (longitudinal, radial, circumferential)
-    eigenvectors: array with eigenvectors
+    Args:
+        mask: segmentation masks
+        local_cardiac_coordinates: local cardiac coordinates (longitudinal, radial, circumferential)
+        eigenvectors: array with eigenvectors
 
-    Returns
-    -------
-    HA, E2A maps
+    Returns:
+        HA: helix angle map
+        TA: transverse angle map
+        E2A: E2 angle map
     """
 
     ev1 = eigenvectors[:, :, :, :, 2]
@@ -154,28 +153,24 @@ def get_tensor_orientation_maps(
     settings: dict,
     info: dict,
     logger: logging.Logger,
-) -> tuple[NDArray, NDArray, dict]:
-    """_summary_
+) -> tuple[NDArray, NDArray, NDArray, dict]:
+    """
+    Get tensor orientation maps.
 
-    Parameters
-    ----------
-    slices : NDArray
-        _description_
-    mask_3c : NDArray
-        _description_
-    local_cardiac_coordinates : dict
-        _description_
-    dti : dict
-        _description_
-    settings : dict
-        _description_
-    info : dict
-        _description_
+    Args:
+        slices: Array of slice indices.
+        mask_3c: Segmentation mask
+        local_cardiac_coordinates: local cardiac coordinates (longitudinal, radial, circumferential)
+        dti: Diffusion tensor imaging information
+        settings: settings dictionary
+        info: Additional information (e.g., pixel spacing)
+        logger: Logger for logging information
 
-    Returns
-    -------
-    [NDArray, NDArray, dict]
-        _description_
+    Returns:
+        ha: Helix angle map
+        ta: Transverse angle map
+        e2a: E2 angle map
+        info: Updated information dictionary
     """
 
     ha, ta, e2a = get_ha_e2a_maps(mask_3c, local_cardiac_coordinates, dti["eigenvectors"])

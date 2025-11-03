@@ -108,7 +108,8 @@ def make_eigenvectors_z_positive(eigenvectors: NDArray) -> NDArray:
     Args:
         eigenvectors: array with eigenvectors
 
-    Returns:        eigenvectors: flipped eigenvectors
+    Returns:
+        eigenvectors: flipped eigenvectors
     """
     temp = eigenvectors.swapaxes(3, 4)
     temp = np.reshape(
@@ -140,7 +141,7 @@ def get_negative_eigenvalues_map(
     average_images: NDArray,
     settings: dict,
     mask_3c: NDArray,
-):
+) -> NDArray:
     """
     Save the negative eigenvalues map
 
@@ -150,9 +151,10 @@ def get_negative_eigenvalues_map(
         info: useful info
         average_images: array with the average image for each slice
         settings: useful info
-        mask_3c: U-Net segmentation
+        mask_3c: U-Net segmentation mask
 
-    Returns:        negative_eig_map: NDArray with negative eigenvalue maps
+    Returns:
+        negative_eig_map: NDArray with negative eigenvalue maps
     """
 
     background_mask = np.copy(mask_3c)
@@ -212,16 +214,12 @@ def get_eigensystem(
     Calculate eigenvalues and eigenvectors of the DTI tensor
 
     Args:
-        dti: dict
-            dictionary with DTI variables
-        slices: NDArray
-            array with slice strings
+        dti: dictionary with DTI variables
+        slices: array with slice strings
         info: dict
-        average_images: NDArray
-            average normalised images
+        average_images: average normalised images
         settings: dict
-        mask_3c: NDArray
-            segmentation mask
+        mask_3c: segmentation mask
         logger: logging.Logger
 
     Returns:

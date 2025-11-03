@@ -177,7 +177,7 @@ def get_cardiac_coordinates_short_axis(
     segmentation: dict,
     slices: NDArray,
     n_slices: int,
-    settings,
+    settings: dict,
     dti: dict,
     average_images: NDArray,
     info: dict,
@@ -462,7 +462,7 @@ def get_snr_maps(
 
     Args:
         data: dataframe with the diffusion images and info
-        mask: U-Net mask of the heart
+        mask_3c: U-Net mask of the heart
         average_images: array with average images
         slices: array with slice integers
         settings: dictionary with useful info
@@ -1044,8 +1044,10 @@ def plot_results_maps(
         plt.close()
 
 
-def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray):
+def get_xarray(info: dict, dti: dict, crop_mask: NDArray, slices: NDArray) -> xr.Dataset:
     """Create an xarray dataset with the DTI maps
+
+    Possibly not used anymore
 
     Args:
         info: dictionary with useful info
@@ -1529,10 +1531,10 @@ def query_yes_no(question, default="no"):
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
 
-def image_histogram_equalization(image: NDArray, number_bins: int = 256):
+def image_histogram_equalization(image: NDArray, number_bins: int = 256) -> NDArray:
     """
     Equalize histogram in numpy array image for better visualisation
-    # from http://www.janeriksolem.net/histogram-equalization-with-python-and.html
+    from http://www.janeriksolem.net/histogram-equalization-with-python-and.html
 
     Args:
         image: NDArray with grayscale image

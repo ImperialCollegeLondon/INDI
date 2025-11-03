@@ -297,14 +297,12 @@ def build_gradient_directions(data: pd.DataFrame, logger: logging):
     """
     Build the gradient directions from the DICOM header.
 
-    Parameters
-    ----------
-    data
-    logger
+    Args:
+        data: DataFrame with DICOM header information
+        logger: Logger for error messages
 
-    Returns
-    -------
-    data
+    Returns:
+        data: DataFrame with updated gradient directions
     """
 
     direction_columns = [

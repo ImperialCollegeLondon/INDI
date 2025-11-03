@@ -35,7 +35,7 @@ def data_summary_plots_and_logs(data: pd.DataFrame, settings: dict, info: dict, 
     Produces a plot showing the b-value, direction, and slice
     Also prints a summary of the data to the log file
 
-    Parameters:
+    Args:
         data: dataframe with all the dwi data
         settings: dictionary with useful info
         info: dictionary with useful info
@@ -138,7 +138,7 @@ def get_diffusion_summary_for_slice(
     This function will log the diffusion protocol for a given slice
     and return a table with the same protocol.
 
-    Parameters:
+    Args:
         logger: logger for console and file
         slices: array with the slice numbers
         configs_table: table with the diffusion protocols for all slices
@@ -174,13 +174,11 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     """
     Sort the dataframe by acquisition date and time
 
-    Parameters
-    ----------
-    df: dataframe with diffusion database
+    Args:
+        df: dataframe with diffusion database
 
-    Returns
-    -------
-    dataframe with sorted values
+    Returns:
+        df: dataframe with sorted values
     """
     # create a new column with date and time, drop the previous two columns
     # if this column doesn't exist already
@@ -217,15 +215,14 @@ def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: in
     """
     Get the pixel array from a nii file
 
-    Parameters
-    ----------
-    nii_px_array
-    c_slice_idx
-    c_frame_idx
+    Args
+    ----
+    nii_px_array: The pixel array from the NIfTI file
+    c_slice_idx: The slice index
+    c_frame_idx: The frame index
 
-    Returns
-    -------
-    pixel array
+    Returns:
+        img: pixel array
 
     """
 
@@ -244,15 +241,12 @@ def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: in
 def get_nii_diffusion_direction(dir: NDArray, settings: dict) -> list:
     """
     Get diffusion directions from a nii file
-    Parameters
-    ----------
-    dir: NDArray
-    settings: dict
+    Args:
+        dir: NDArray
+        settings: dict
 
-    Returns
-    -------
-    directions: list
-        list with the diffusion directions
+    Returns:
+        directions: list with the diffusion directions
     """
     if not np.any(dir):
         if settings["sequence_type"] == "steam":
@@ -267,13 +261,11 @@ def get_nii_series_description(json_header: dict) -> str:
     """
     Get series description from the JSON header
 
-    Parameters
-    ----------
-    json_header
+    Args:
+        json_header: The JSON header from the NIfTI file
 
-    Returns
-    -------
-    series description
+    Returns:
+        series description
 
     """
     if "SeriesDescription" in json_header.keys():
@@ -289,16 +281,15 @@ def read_and_process_niis(
     """
     Get diffusion and other parameters from the NIFTI files
 
-    Parameters
-    ----------
-    list_nii
-    settings
-    info
-    logger
+    Args:
+        list_nii: list of NIFTI files
+        settings: dict with settings
+        info: dict with information
+        logger: logging.Logger
 
-    Returns
-    -------
-    dataframe with all the gathered information plus info dict with some global information
+    Returns:
+        df: dataframe with all the gathered information plus info dict with some global information
+        info: updated info dictionary
 
     """
     # opening first nii file
@@ -479,18 +470,16 @@ def estimate_rr_interval(data: pd.DataFrame, settings: dict) -> pd.DataFrame:
     This function will estimate the RR interval from the DICOM header
     and add it to the dataframe
 
-    # if no nominal interval values are in the headers, then we will adjust
-    # the b-values according to the RR interval by getting the time delta between images
-    # convert time strings to microseconds
+    if no nominal interval values are in the headers, then we will adjust
+    the b-values according to the RR interval by getting the time delta between images
+    convert time strings to microseconds
 
-    Parameters
-    ----------
-    data: dataframe with diffusion database
-    settings: dict
+    Args:
+        data: dataframe with diffusion database
+        settings: dict
 
     Returns:
-    -------
-    dataframe with added estimated RR interval column
+        data: dataframe with added estimated RR interval column
 
     """
 
@@ -529,14 +518,9 @@ def plot_b_values_adjustment(data: pd.DataFrame, settings: dict):
     """
     Plot b_values before and after adjustment, and the estimated RR intervals
 
-    Parameters
-    ----------
-    data
-    settings
-
-    Returns
-    -------
-
+    Args:
+        data: dataframe with diffusion database
+        settings: dict with settings
     """
 
     b_vals_original = data["b_value_original"].values
@@ -596,19 +580,18 @@ def adjust_b_val_and_dir(
 ) -> pd.DataFrame:
     """
     This function will adjust:
-    . b-values according to the recorded RR interval
-    . diffusion-directions rotate header directions to the image plane
+    - b-values according to the recorded RR interval
+    - diffusion-directions rotate header directions to the image plane
 
-    data: dataframe with diffusion database
-    settings: dict
-    info: dict
-    data: dataframe with diffusion database
-    logger: logger for console and file
-    data_type: str with the type of data (dicom or nii)
+    Args:
+        data: dataframe with diffusion database
+        settings: dict
+        info: dict
+        logger: logger for console and file
+        data_type: str with the type of data (dicom or nii)
 
-    Returns
-    -------
-    dataframe with adjusted b-values and diffusion directions
+    Returns:
+        data: dataframe with adjusted b-values and diffusion directions
     """
 
     n_entries, _ = data.shape
@@ -801,28 +784,19 @@ def create_2d_montage_from_database(
     """
     Create a grid with all DWIs for each slice
 
-    Parameters
-    ----------
-    data : pd.DataFrame
-        dataframe with diffusion info
-    b_value_column_name : str
-        string of the column to use as the b-value
-    direction_column_name: str with direction
-    settings : dict
-        settings from YAML file
-    info : dict
-        useful info
-    slices : list
-        list of slices
-    filename : str
-        filename to save the montage
-    save_path: str
-    where to save the image
-    list_to_highlight : list, optional
-        list of indices to highlight, by default []
-    segmentation: dict with segmentation information
-    print_series: bool print series description switch
-    image_label: "image" or "image_phase"
+    Args:
+        data: dataframe with diffusion info
+        b_value_column_name: string of the column to use as the b-value
+        direction_column_name: string with direction
+        settings: settings from YAML file
+        info: useful info
+        slices: list of slices
+        filename: filename to save the montage
+        save_path: where to save the image
+        list_to_highlight: list of indices to highlight, by default []
+        segmentation: dict with segmentation information
+        print_series: bool print series description switch
+        image_label: "image" or "image_phase"
 
     """
 
@@ -1004,32 +978,21 @@ def create_2d_montage_from_database(
 
 def reorder_by_slice(
     data: pd.DataFrame, settings: dict, info: dict, logger: logging
-) -> [pd.DataFrame, dict, list, int]:
+) -> tuple[pd.DataFrame, dict, list, int]:
     """
     Reorder data by slice and remove slices if needed
 
-    Parameters
-    ----------
-    data : pd.DataFrame
-        dataframe with diffusion info
-    settings : dict
-        settings from YAML file
-    info : dict
-        useful info
-    logger : logging
-        logger for console
+    Args:
+        data: dataframe with diffusion info
+        settings: settings from YAML file
+        info: useful info
+        logger: logger for console
 
-    Returns
-    -------
-    pd.DataFrame
-        dataframe with reordered data
-    dict
-        info about the data
-    list
-        list of slices
-    int
-        number of slices
-
+    Returns:
+        data: dataframe with reordered data
+        info: info about the data
+        slices: list of slices
+        n_slices: number of slices
     """
     # round the image position values (sometimes there are small differences)
     # round image position to the first significant digit decimal place in the slice thickness
@@ -1116,26 +1079,17 @@ def reorder_by_slice(
 
 def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame, dict, NDArray]:
     """
-
     Read DTCMR data
 
-    Parameters
-    ----------
-    settings : dict
-        settings from YAML file
-    info : dict
-        useful info
-    logger : logging
-        logger for console
+    Args:
+        settings: settings from YAML file
+        info: useful info
+        logger: logger for console
 
-    Returns
-    -------
-    pd.DataFrame
-        dataframe with all the data
-    info
-        useful info
-    slices
-        array with slices
+    Returns:
+        data: dataframe with all the data
+        info: useful info
+        slices: array with slices
 
     """
 
@@ -1267,16 +1221,14 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
     """
     Read pandas dataframe
 
-    Parameters
-    ----------
-    logger
-    settings
+    Args:
+        logger: logger for console
+        settings: settings from YAML file
 
-    Returns
-    -------
-    dataframe with diffusion info
-    dataframe with phase diffusion info (if any)
-    info dict
+    Returns:
+        data: dataframe with diffusion info
+        data_phase: dataframe with phase diffusion info (if any)
+        info: info dict
 
     """
     logger.debug("No DICOM or Nii files found. Checking for diffusion database files previously created.")
@@ -1368,19 +1320,17 @@ def read_and_process_dicoms(
     Export pixel values to HDF5
     Potentially archive DICOMs
 
-    Parameters
-    ----------
-    info
-    list_dicoms
-    list_dicoms_phase
-    logger
-    settings
+    Args:
+        info: dict
+        list_dicoms: list
+        list_dicoms_phase: list
+        logger: logging
+        settings: dict
 
-    Returns
-    -------
-    dataframe with diffusion info
-    dataframe with phase diffusion info (if any)
-    info dict
+    Returns:
+        data: dataframe with diffusion info
+        data_phase: dataframe with phase diffusion info (if any)
+        info: info dict
 
     """
 
@@ -1568,22 +1518,20 @@ def read_and_process_dicoms(
     return data, data_phase, info
 
 
-def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, list, list]:
+def list_files(data_type: str, logger: logging, settings: dict) -> tuple[str, list, list, list]:
     """
     List possible magnitude DICOMs, phase DICOMs, and NII files
 
-    Parameters
-    ----------
-    data_type: type of data (dicoms, nii or none)
-    logger
-    settings
+    Args:
+        data_type: type of data (dicoms, nii or none)
+        logger: logging
+        settings: dict
 
-    Returns
-    -------
-    data_type: (dicoms, nii or none)
-    list of dicoms
-    list of phase dicoms
-    list of nii files
+    Returns:
+        data_type: (dicoms, nii or none)
+        list_dicoms: list of dicoms
+        list_dicoms_phase: list of phase dicoms
+        list_nii: list of nii files
 
     """
 

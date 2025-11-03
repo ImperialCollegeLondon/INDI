@@ -46,14 +46,13 @@ def get_ha_line_profiles_and_distance_maps(
         ventricle (str, optional): Ventricle name to process. Defaults to "LV".
 
     Returns:
-        tuple:
-            ha_lines_profiles (dict): Dictionary with HA line profiles for each slice.
-            wall_thickness (dict): Dictionary with wall thickness values for each slice.
-            bullseye_maps (NDArray): Array of bullseye maps for all slices.
-            distance_endo_maps (NDArray): Array of endocardium distance maps for all slices.
-            distance_epi_maps (NDArray): Array of epicardium distance maps for all slices.
-            distance_transmural_maps (NDArray): Array of transmural (relative) distance maps for all slices.
-            ha_lines_profiles_2 (dict): Dictionary with transmural HA profile statistics for each slice.
+        ha_lines_profiles (dict): Dictionary with HA line profiles for each slice.
+        wall_thickness (dict): Dictionary with wall thickness values for each slice.
+        bullseye_maps (NDArray): Array of bullseye maps for all slices.
+        distance_endo_maps (NDArray): Array of endocardium distance maps for all slices.
+        distance_epi_maps (NDArray): Array of epicardium distance maps for all slices.
+        distance_transmural_maps (NDArray): Array of transmural (relative) distance maps for all slices.
+        ha_lines_profiles_2 (dict): Dictionary with transmural HA profile statistics for each slice.
     """
     # lenth of line profile interpolation (from endo to epi)
     interp_len = 50
@@ -420,14 +419,16 @@ def get_ha_line_profiles_and_distance_maps(
     )
 
 
-def fix_angle_wrap(lp: NDArray, angle_jump=90) -> NDArray:
+def fix_angle_wrap(lp: NDArray, angle_jump: float = 90) -> NDArray:
     """
     Remove points and all subsequent points where the line profile differs from 90 deg
     or more from the previous point.
 
+    <!--
     The line profile is divided in two, and the analyses start from the meso point
     towards the endo and epi separately. Angle wrap is more common towards the
     endo and epi borders.
+    -->
 
     Args:
         lp: line profile before fix
