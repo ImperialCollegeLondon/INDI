@@ -9,13 +9,12 @@ def denoise_tensor(D: NDArray, settings: dict) -> NDArray:
     """
     Denoise tensor with MTs Uformer models
 
-    Parameters
-    ----------
-    D : original tensors
+    Args:
+        D: original tensors
+        settings: settings for the denoising process
 
-    Returns
-    -------
-    denoised tensors
+    Returns:
+        D_denoised: denoised tensors
 
     """
 

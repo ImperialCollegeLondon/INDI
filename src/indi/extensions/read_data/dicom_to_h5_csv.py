@@ -254,18 +254,16 @@ def get_data_from_dicoms(
     return header_table, manufacturer
 
 
-def build_bmatrix(data: pd.DataFrame, logger: logging):
+def build_bmatrix(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
     """
     Build the bmatrix from the DICOM header.
 
-    Parameters
-    ----------
-    data
-    logger
+    Args:
+        data: DataFrame with DICOM header information
+        logger: Logger for error messages
 
-    Returns
-    -------
-    data
+    Returns:
+        data: DataFrame with updated bmatrix
     """
 
     bmatrix_columns = [

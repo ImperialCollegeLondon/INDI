@@ -215,11 +215,10 @@ def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: in
     """
     Get the pixel array from a nii file
 
-    Args
-    ----
-    nii_px_array: The pixel array from the NIfTI file
-    c_slice_idx: The slice index
-    c_frame_idx: The frame index
+    Args:
+        nii_px_array: The pixel array from the NIfTI file
+        c_slice_idx: The slice index
+        c_frame_idx: The frame index
 
     Returns:
         img: pixel array
