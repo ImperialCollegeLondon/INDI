@@ -280,6 +280,8 @@ def dipy_tensor_fit(
         if method == "RESTORE":
             sigma = ne.estimate_sigma(image_data)
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True, sigma=1.5267 * sigma)
+        elif method in ["RNLLS", "RWLS"]:
+            tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True)
         else:
             tenmodel = dti.TensorModel(gtab, fit_method=method, return_S0_hat=True, return_leverages=True)
 
