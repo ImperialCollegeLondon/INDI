@@ -127,7 +127,7 @@ def get_ha_line_profiles_and_distance_maps(
             lp = lp[~np.isnan(lp)]
             # fix angle wrap
             lp_wrap_fix = fix_angle_wrap(lp, 45)
-            # get wall thickness in mm (Assuming square pixels with pixe spacing the same in x and y!)
+            # get wall thickness in mm (Assuming square pixels with pixel spacing the same in x and y!)
             wt.append(len(lp) * info["pixel_spacing"][0])
             # interpolate line profile valid points to interp_len
             lp = np.interp(np.linspace(0, len(lp), interp_len), np.linspace(0, len(lp), len(lp)), lp_wrap_fix)

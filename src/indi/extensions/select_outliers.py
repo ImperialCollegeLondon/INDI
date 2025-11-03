@@ -380,7 +380,6 @@ def select_outliers(
                     registration_image_data[slice_idx]["deformation_field"]["grid"], to_remove_idxs, axis=0
                 )
 
-        if stage == "post":
             highlight_list = data.index[data["to_be_removed"] == True].tolist()
 
             # plot all remaining DWIs also add the segmentation curves
