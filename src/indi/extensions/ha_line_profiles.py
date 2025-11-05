@@ -116,13 +116,22 @@ def get_ha_line_profiles_and_distance_maps(
             y0, x0 = [int(x) for x in lv_centres[slice_idx]]
             # epicardial point
             x1, y1 = epi_contour[point_idx]
+
             # length of the line
             length = int(np.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2))
 
+            # points along the line
             x, y = np.linspace(x0, x1, length + 1), np.linspace(y0, y1, length + 1)
 
-            # remove the first and last 10% of the line to avoid partial volume effects
-            trim_amount = int(0.1 * len(x))
+            # remove background points
+            # find coordinates where HA is nan
+            lp = c_HA[y.astype(int), x.astype(int)]
+            x = x[~np.isnan(lp)]
+            y = y[~np.isnan(lp)]
+
+            # remove the first and last 10% of the line to minimise partial volume effects
+            # at least one pixel will be removed from each end
+            trim_amount = int(np.ceil(0.1 * len(x)))
             x_trim = x[trim_amount:-trim_amount]
             y_trim = y[trim_amount:-trim_amount]
 
@@ -133,8 +142,8 @@ def get_ha_line_profiles_and_distance_maps(
             # get wall thickness in mm (Assuming square pixels with pixel spacing the same in x and y!)
             wt.append(len(lp_all) * info["pixel_spacing"][0])
 
-            # remove background points
-            lp = lp[~np.isnan(lp)]
+            # The function fix_angle_wrap is not used anymore, as it can be dangerous and remove
+            # too much data, or mask disease. It will also misbehave with unusual data like phantoms.
             # # fix angle wrap
             # lp_wrap_fix = fix_angle_wrap(lp, 45)
 
@@ -186,6 +195,7 @@ def get_ha_line_profiles_and_distance_maps(
             + " std = "
             + "%.2f" % np.mean(std_lp)
             + ")",
+            fontsize=8,
         )
         plt.ylim(-90, 90)
         plt.xlim(0, 1)
