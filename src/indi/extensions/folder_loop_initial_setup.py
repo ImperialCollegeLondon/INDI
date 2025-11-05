@@ -67,10 +67,20 @@ def folder_loop_initial_setup(
         yaml.dump(settings, outfile, default_flow_style=False)
 
     # file logger setup
-    # delete previous log file
+    # delete previous log file if exists
     log_filename = os.path.join(settings["work_folder"], "analysis.log")
     if os.path.exists(log_filename):
         os.remove(log_filename)
+
+    # logger.handlers[0] is the console handler, logger.handlers[1] is the file handler
+    # if len > 1 then we have a file handler already so we need to remove it
+    # and then assign a new file for the new folder
+    if len(logger.handlers) > 1:
+        # Close the existing file handler and create a new one below
+        logger.handlers[1].close()
+        # Remove the handler from the logger
+        logger.removeHandler(logger.handlers[1])
+
     file_handler = logging.FileHandler(log_filename)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(log_format)

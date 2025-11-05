@@ -380,7 +380,6 @@ def select_outliers(
                     registration_image_data[slice_idx]["deformation_field"]["grid"], to_remove_idxs, axis=0
                 )
 
-        if stage == "post":
             highlight_list = data.index[data["to_be_removed"] == True].tolist()
 
             # plot all remaining DWIs also add the segmentation curves
@@ -416,6 +415,20 @@ def select_outliers(
     else:
         # no image removal to be done
         logger.info("No image removal to be done.")
+
+        create_2d_montage_from_database(
+            data,
+            "b_value_original",
+            "diffusion_direction_original",
+            settings,
+            info,
+            slices,
+            "dwis_accepted",
+            os.path.join(settings["results"], "results_b"),
+            [],
+            {},
+            False,
+        )
 
     # =========================================================
     # remove outliers with AI

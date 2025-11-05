@@ -3,6 +3,7 @@ Calculates transmural gradient information from the helix angle maps
 Also generates useful distance maps and bullseye maps
 """
 
+import logging
 import os
 
 import cv2
@@ -25,6 +26,7 @@ def get_ha_line_profiles_and_distance_maps(
     settings: dict,
     info: dict,
     average_images: NDArray,
+    logger: logging.Logger,
     ventricle: str = "LV",
 ) -> tuple[dict, dict, NDArray, NDArray, NDArray, NDArray, dict]:
     """
@@ -43,6 +45,7 @@ def get_ha_line_profiles_and_distance_maps(
         settings (dict): Configuration and output settings.
         info (dict): Additional information, including pixel spacing.
         average_images (NDArray): Array of average images for each slice.
+        logger (logging.Logger): Logger for debug and information messages.
         ventricle (str, optional): Ventricle name to process. Defaults to "LV".
 
     Returns:
@@ -113,21 +116,39 @@ def get_ha_line_profiles_and_distance_maps(
             y0, x0 = [int(x) for x in lv_centres[slice_idx]]
             # epicardial point
             x1, y1 = epi_contour[point_idx]
+
             # length of the line
             length = int(np.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2))
 
+            # points along the line
             x, y = np.linspace(x0, x1, length + 1), np.linspace(y0, y1, length + 1)
 
-            # Extract the HA values along the line
-            lp = c_HA[y.astype(int), x.astype(int)]
             # remove background points
-            lp = lp[~np.isnan(lp)]
-            # fix angle wrap
-            lp_wrap_fix = fix_angle_wrap(lp, 45)
-            # get wall thickness in mm (Assuming square pixels with pixe spacing the same in x and y!)
-            wt.append(len(lp) * info["pixel_spacing"][0])
+            # find coordinates where HA is nan
+            lp = c_HA[y.astype(int), x.astype(int)]
+            x = x[~np.isnan(lp)]
+            y = y[~np.isnan(lp)]
+
+            # remove the first and last 10% of the line to minimise partial volume effects
+            # at least one pixel will be removed from each end
+            trim_amount = int(np.ceil(0.1 * len(x)))
+            x_trim = x[trim_amount:-trim_amount]
+            y_trim = y[trim_amount:-trim_amount]
+
+            # Extract the HA values along the line
+            lp = c_HA[y_trim.astype(int), x_trim.astype(int)]
+            lp_all = c_HA[y.astype(int), x.astype(int)]
+
+            # get wall thickness in mm (Assuming square pixels with pixel spacing the same in x and y!)
+            wt.append(len(lp_all) * info["pixel_spacing"][0])
+
+            # The function fix_angle_wrap is not used anymore, as it can be dangerous and remove
+            # too much data, or mask disease. It will also misbehave with unusual data like phantoms.
+            # # fix angle wrap
+            # lp_wrap_fix = fix_angle_wrap(lp, 45)
+
             # interpolate line profile valid points to interp_len
-            lp = np.interp(np.linspace(0, len(lp), interp_len), np.linspace(0, len(lp), len(lp)), lp_wrap_fix)
+            lp = np.interp(np.linspace(0, len(lp), interp_len), np.linspace(0, len(lp), len(lp)), lp)
             # store line profile in a matrix
             lp_matrix[point_idx, :] = lp
 
@@ -137,9 +158,10 @@ def get_ha_line_profiles_and_distance_maps(
 
         # fit a line to the mean line profile
         average_lp = np.nanmean(lp_matrix, axis=0)
+
         std_lp = np.nanstd(lp_matrix, axis=0)
         model = LinearRegression()
-        x = np.linspace(0, 1, len(lp)).reshape(-1, 1)
+        x = np.linspace(0.1, 0.9, len(lp)).reshape(-1, 1)
         model.fit(x, average_lp.reshape(-1, 1))
         r_sq = model.score(x, average_lp.reshape(-1, 1))
         y_pred = model.predict(x)
@@ -157,10 +179,11 @@ def get_ha_line_profiles_and_distance_maps(
         # plot HA line profiles v1
         plt.figure(figsize=(5, 5))
         plt.subplot(1, 1, 1)
-        plt.plot(x, lp_matrix.T, color="green", alpha=0.03)
-        # plt.plot(average_lp, linewidth=2, color="black", label="mean")
-        plt.errorbar(x, average_lp, std_lp, linewidth=2, color="black", label="mean", elinewidth=0.5)
-        plt.plot(x, y_pred, linewidth=1, color="red", linestyle="--", label="fit")
+        if not np.isnan(x).all():
+            plt.plot(x, lp_matrix.T, color="green", alpha=0.03)
+            # plt.plot(average_lp, linewidth=2, color="black", label="mean")
+            plt.errorbar(x, average_lp, std_lp, linewidth=2, color="black", label="mean", elinewidth=0.5)
+            plt.plot(x, y_pred, linewidth=1, color="red", linestyle="--", label="fit")
         plt.xlabel("normalised wall from endo to epi")
         plt.ylabel("HA (degrees)")
         plt.tick_params(axis="both", which="major")
@@ -172,8 +195,10 @@ def get_ha_line_profiles_and_distance_maps(
             + " std = "
             + "%.2f" % np.mean(std_lp)
             + ")",
+            fontsize=8,
         )
         plt.ylim(-90, 90)
+        plt.xlim(0, 1)
         plt.legend()
         plt.tight_layout(pad=1.0)
         plt.savefig(

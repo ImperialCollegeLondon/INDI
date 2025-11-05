@@ -3,7 +3,6 @@ import os
 
 import numpy as np
 import pandas as pd
-
 import pytest
 
 from indi.extensions.tensor_fittings import dipy_tensor_fit
