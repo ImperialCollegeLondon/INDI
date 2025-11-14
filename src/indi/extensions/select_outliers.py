@@ -415,6 +415,8 @@ def select_outliers(
     else:
         # no image removal to be done
         logger.info("No image removal to be done.")
+        # highlighting any images tagged to be removed, for example excluded b-values
+        highlight_list = data.index[data["to_be_removed"] == True].tolist()
 
         create_2d_montage_from_database(
             data,
@@ -425,7 +427,7 @@ def select_outliers(
             slices,
             "dwis_accepted",
             os.path.join(settings["results"], "results_b"),
-            [],
+            highlight_list,
             {},
             False,
         )
