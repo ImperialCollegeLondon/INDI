@@ -25,7 +25,9 @@ def manual_image_removal(
     """
     Manually remove images by selecting them in a matplotlib window.
 
-    This function displays all diffusion-weighted images (DWIs) for each slice in a grid. The user can interactively select images to be removed by clicking on them. Selected images are highlighted, and their indices are recorded for removal. Optionally, segmentation contours and outlier information (from residuals) are displayed.
+    This function displays all diffusion-weighted images (DWIs) for each slice in a grid. The user can interactively
+    select images to be removed by clicking on them. Selected images are highlighted, and their indices are recorded for
+    removal. Optionally, segmentation contours and outlier information (from residuals) are displayed.
 
     Args:
         data (pd.DataFrame): DataFrame containing all DWI data.
@@ -38,11 +40,10 @@ def manual_image_removal(
         prelim_residuals (dict, optional): Preliminary residuals for each image, used to highlight outliers. Defaults to {}.
 
     Returns:
-        tuple:
-            pd.DataFrame: Original DataFrame with all data.
-            pd.DataFrame: DataFrame with rejected images removed.
-            dict: Updated info dictionary.
-            NDArray: Array with indices of rejected images in the original DataFrame.
+        pd.DataFrame: Original DataFrame with all data.
+        pd.DataFrame: DataFrame with rejected images removed.
+        dict: Updated info dictionary.
+        NDArray: Array with indices of rejected images in the original DataFrame.
     """
     # # max relative signal in the images
     # if settings["sequence_type"] == "steam":

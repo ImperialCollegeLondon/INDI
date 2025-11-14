@@ -98,23 +98,20 @@ def get_mask_from_poly(poly, dims):
     return mask
 
 
-def reduce_polygon(polygon_coords: NDArray, angle_th: float = 0, distance_th: float = 0):
+def reduce_polygon(polygon_coords: NDArray, angle_th: float = 0, distance_th: float = 0) -> list:
     """
     Reduce the number of points in a polygon by removing points that are close to each other
     and have a small angle between them.
 
     Code from here: https://stackoverflow.com/questions/48562739/reducing-number-of-nodes-in-polygons-using-python
 
-    Parameters
-    ----------
-    polygon_coords
-    angle_th
-    distance_th
+    Args:
+        polygon_coords: coordinates of the polygon
+        angle_th: angle threshold for removing points
+        distance_th: distance threshold for removing points
 
-    Returns
-    -------
-
-    reduced polygon
+    Returns:
+        reduced_polygon: reduced polygon
 
     """
     angle_th_rad = np.deg2rad(angle_th)
@@ -160,19 +157,15 @@ def plot_manual_lv_segmentation(
     """
     Plot the manual segmentation LV contours and insertion points
 
-    Parameters
-    ----------
-    n_slices : int
-        number of slices
-    segmentation : dict
-        segmentation information
-    average_images : NDArray
-        average denoised and normalized images for each slice
-    mask_3c : NDArray
-        mask with  segmentation
-    settings : dict
-    filename: str,
-    save_path: str,
+    Args:
+        n_slices: number of slices
+        slices: array with slice locations strings
+        segmentation: segmentation information
+        average_maps: average denoised and normalized images for each slice
+        mask_3c: mask with segmentation
+        settings: settings
+        filename: str
+        save_path: str
     """
 
     for slice_idx in slices:
@@ -526,24 +519,16 @@ def manual_lv_segmentation(
     contour will be used, and we need to manually draw one.
     This initial mask can be for example a U-Net prediction.
 
-    Parameters
-    ----------
-    mask_3c : NDArray
-        initial mask
-    average_map : NDArray
-        average denoised and normalized images for each slice
-    ha_map : NDArray
-        HA maps for each slice
-    md_map : NDArray
-        MD maps for each slice
-    n_points : int
-        number of points to interpolate the contours
-    settings : dict
-    colormaps : dict
-    slice_idx : int
-        slice index
-    slices : NDArray
-        slice indices
+    Args:
+    mask_3c: initial mask
+    average_map: average denoised and normalized images for each slice
+    ha_map: HA maps for each slice
+    md_map: MD maps for each slice
+    n_points: number of points to interpolate the contours
+    settings: dict
+    colormaps: dict
+    slice_idx: slice index
+    slices: slice indices
     """
     lv_masks = mask_3c.copy()
     lv_masks[lv_masks == 2] = 0

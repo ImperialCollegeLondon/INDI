@@ -20,9 +20,6 @@ def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, pref
         slice_idx (int): Index of the slice being plotted.
         settings (dict): Dictionary with configuration and output paths.
         prefix (str, optional): Prefix for the output file name. Defaults to "".
-
-    Returns:
-        None
     """
     plt.figure(figsize=(5, 5))
     plt.subplot(1, 1, 1)
@@ -58,9 +55,6 @@ def plot_residuals_map(
         slice_idx (int): Index of the slice being plotted.
         settings (dict): Dictionary with configuration and output paths.
         prefix (str, optional): Prefix for the output file name. Defaults to "".
-
-    Returns:
-        None
     """
     alphas_whole_heart = np.copy(mask_3c[slice_idx])
     alphas_whole_heart[alphas_whole_heart > 0.1] = 1
@@ -120,9 +114,6 @@ def plot_tensor_components(D: NDArray, average_images: NDArray, mask_3c: NDArray
         mask_3c (NDArray): 3D segmentation mask array.
         slices (NDArray): Array of slice indices or positions.
         settings (dict): Dictionary with configuration and output paths.
-
-    Returns:
-        None
     """
     mask = np.copy(mask_3c)
     mask[mask == 2] = 0
@@ -204,7 +195,7 @@ def dipy_tensor_fit(
     logger: logging.Logger,
     method: str = "NLLS",
     quick_mode=False,
-):
+) -> tuple[NDArray, NDArray, dict[int, NDArray], dict[int, NDArray], dict[int, NDArray], dict]:
     """
     Fit a diffusion tensor model to the data using DiPy.
 
@@ -223,13 +214,12 @@ def dipy_tensor_fit(
         quick_mode (bool, optional): If True, skips residual calculations and plotting. Defaults to False.
 
     Returns:
-        tuple:
-            tensor (NDArray): Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
-            s0 (NDArray): Estimated S0 images, shape [n_slices, rows, cols].
-            residuals_img (dict): Residuals per image for each slice, or empty dict if not computed.
-            residuals_map (dict): Residuals per voxel for each slice, or empty dict if not computed.
-            residuals_img_all (dict): All residuals for each slice, or empty dict if not computed.
-            info (dict): Updated info dictionary with fitting statistics.
+        tensor (NDArray): Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
+        s0 (NDArray): Estimated S0 images, shape [n_slices, rows, cols].
+        residuals_img (dict): Residuals per image for each slice, or empty dict if not computed.
+        residuals_map (dict): Residuals per voxel for each slice, or empty dict if not computed.
+        residuals_img_all (dict): All residuals for each slice, or empty dict if not computed.
+        info (dict): Updated info dictionary with fitting statistics.
     """
     import dipy.denoise.noise_estimate as ne
     import dipy.reconst.dti as dti

@@ -18,25 +18,17 @@ def remove_outliers_ai(
 ) -> tuple[pd.DataFrame, NDArray]:
     """Remove the bad frames from the dataframe using the AI classifier
 
-    Parameters
-    ----------
-    data : pd.DataFrame
-        dataframe with diffusion info
-    info : dict
-        useful info
-    settings : dict
-        settings
-    slices : NDArray
-        array with slice positions as strings
-    logger : logging.Logger
-        logger
-    threshold : float, optional
-        threshold value to consider bad in [0, 1], by default 0.3
+    Args:
+        data: dataframe with diffusion info
+        info: useful info
+        settings: settings
+    slices: array with slice positions as strings
+    logger: logger
+    threshold: threshold value to consider bad in [0, 1], by default 0.3
 
-    Returns
-    -------
-    Tuple[pd.DataFrame, NDArray]
-        [dataframe without bad frames, array with bad frames positions]
+    Returns:
+        data_new: dataframe without bad frames
+        rows_to_drop: array with bad frames positions
     """
 
     # gather images from dataframe

@@ -24,17 +24,15 @@ def parse_args():
 
 
 def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Logger) -> dict:
-    """solve conflicts in YAML file
+    """Solve conflicts in YAML file
 
-    Parameters
-    ----------
-    settings : dict
-        settings from YAML file
+    Args:
+        settings: settings from YAML file
+        args: command line arguments
+        logger: logger for console
 
-    Returns
-    -------
-    dict
-        settings with conflicts resolved
+    Returns:
+        settings: settings with conflicts resolved
     """
 
     if settings["remove_outliers_manually"]:
@@ -86,26 +84,17 @@ def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Lo
 
 def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, logging.Formatter, list]:
     """
-    initial setup for the pipeline
+    Initial setup for the pipeline
 
-    Parameters
-    ----------
-    script_path : str
-        path to the script folder
+    Args:
+        script_path: path to the script folder
 
-    Returns
-    -------
-    dti : dict
-        DTI dictionary to hold tensor and parameters
-    settings : dict
-        settings from YAML file
-    logger : logging
-        logger for console
-    log_format : logging
-        logger format
-    all_to_be_analysed_folders : list
-        list of folders to be analysed
-
+    Returns:
+        dti: DTI dictionary to hold tensor and parameters
+        settings: settings from YAML file
+        logger: logger for console
+        log_format: logger format
+        all_to_be_analysed_folders: list of folders to be analysed
     """
     # logger setup
     log_format = logging.Formatter("%(levelname)s : %(asctime)s :: %(message)s")

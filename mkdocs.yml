@@ -25,3 +25,8 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - github-callouts
 
+nav:
+  - Home: index.md
+  - YAML Settings: YAML_settings.md
+  - Post-processing cardiac diffusion tensor imaging: documentation.md
+  - API Reference: reference/indi.md

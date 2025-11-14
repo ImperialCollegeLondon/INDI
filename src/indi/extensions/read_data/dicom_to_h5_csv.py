@@ -91,7 +91,7 @@ def dictify(ds: pydicom.dataset.Dataset, manufacturer: str, dicom_type: str) -> 
     return output
 
 
-def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = ""):
+def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = "") -> dict:
     """Flatten a multilevel dictionary.
 
     Args:
@@ -254,18 +254,16 @@ def get_data_from_dicoms(
     return header_table, manufacturer
 
 
-def build_bmatrix(data: pd.DataFrame, logger: logging):
+def build_bmatrix(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
     """
     Build the bmatrix from the DICOM header.
 
-    Parameters
-    ----------
-    data
-    logger
+    Args:
+        data: DataFrame with DICOM header information
+        logger: Logger for error messages
 
-    Returns
-    -------
-    data
+    Returns:
+        data: DataFrame with updated bmatrix
     """
 
     bmatrix_columns = [
@@ -293,18 +291,16 @@ def build_bmatrix(data: pd.DataFrame, logger: logging):
     return data
 
 
-def build_gradient_directions(data: pd.DataFrame, logger: logging):
+def build_gradient_directions(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
     """
     Build the gradient directions from the DICOM header.
 
-    Parameters
-    ----------
-    data
-    logger
+    Args:
+        data: DataFrame with DICOM header information
+        logger: Logger for error messages
 
-    Returns
-    -------
-    data
+    Returns:
+        data: DataFrame with updated gradient directions
     """
 
     direction_columns = [
@@ -591,7 +587,7 @@ def get_dicom_version(global_dicom_header: pydicom.dataset.Dataset, logger: logg
     return dicom_type, n_images_per_file
 
 
-def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
+def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging) -> str:
     """Get manufacturer from the DICOM header.
     This function will set the manufacturer variable to one of the following:
     - "siemens"

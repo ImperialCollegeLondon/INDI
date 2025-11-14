@@ -1,3 +1,4 @@
+import matplotlib
 import numpy as np
 from matplotlib import transforms
 from matplotlib.lines import Line2D
@@ -52,77 +53,56 @@ class PolygonSelectorSpline(_SelectorWidget):
 
     For the selector to remain responsive you must keep a reference to it.
 
-    Parameters
-    ----------
-    ax : `~matplotlib.axes.Axes`
-        The parent Axes for the widget.
 
-    onselect : function
-        When a polygon is completed or modified after completion,
-        the *onselect* function is called and passed a list of the vertices as
-        ``(xdata, ydata)`` tuples.
+    Args:
+        ax: The parent Axes for the widget.
+        onselect: When a polygon is completed or modified after completion,
+            the *onselect* function is called and passed a list of the vertices as
+            ``(xdata, ydata)`` tuples.
+        num_points: Number of points for spline interpolation of the polygon.
+        useblit: Whether to use blitting for faster drawing (if supported by the
+            backend). See the tutorial :ref:`blitting`
+            for details.
+        props: Properties with which the line is drawn, see `.Line2D` for valid properties.
+            Default: dict(color='k', linestyle='-', linewidth=2, alpha=0.5)
+        handle_props: Artist properties for the markers drawn at the vertices of the polygon.
+            See the marker arguments in `.Line2D` for valid
+            properties.  Default values are defined in ``mpl.rcParams`` except for
+            the default value of ``markeredgecolor`` which will be the same as the
+            ``color`` property in *props*.
+        grab_range: A vertex is selected (to complete the polygon or to move a vertex) if
+            the mouse click is within *grab_range* pixels of the vertex.
 
-    useblit : bool, default: False
-        Whether to use blitting for faster drawing (if supported by the
-        backend). See the tutorial :ref:`blitting`
-        for details.
+        draw_bounding_box: If `True`, a bounding box will be drawn around the polygon selector
+            once it is complete. This box can be used to move and resize the
+            selector.
 
-    props : dict, optional
-        Properties with which the line is drawn, see `.Line2D` for valid properties.
-        Default::
+        box_handle_props: Properties to set for the box handles. See the documentation for the
+            *handle_props* argument to `RectangleSelector` for more info.
 
-            dict(color='k', linestyle='-', linewidth=2, alpha=0.5)
-
-    handle_props : dict, optional
-        Artist properties for the markers drawn at the vertices of the polygon.
-        See the marker arguments in `.Line2D` for valid
-        properties.  Default values are defined in ``mpl.rcParams`` except for
-        the default value of ``markeredgecolor`` which will be the same as the
-        ``color`` property in *props*.
-
-    grab_range : float, default: 10
-        A vertex is selected (to complete the polygon or to move a vertex) if
-        the mouse click is within *grab_range* pixels of the vertex.
-
-    draw_bounding_box : bool, optional
-        If `True`, a bounding box will be drawn around the polygon selector
-        once it is complete. This box can be used to move and resize the
-        selector.
-
-    box_handle_props : dict, optional
-        Properties to set for the box handles. See the documentation for the
-        *handle_props* argument to `RectangleSelector` for more info.
-
-    box_props : dict, optional
-        Properties to set for the box. See the documentation for the *props*
-        argument to `RectangleSelector` for more info.
-
-    Examples
-    --------
-    :doc:`/gallery/widgets/polygon_selector_simple`
-    :doc:`/gallery/widgets/polygon_selector_demo`
+        box_props: Properties to set for the box. See the documentation for the *props*
+            argument to `RectangleSelector` for more info.
 
     Notes
-    -----
-    If only one point remains after removing points, the selector reverts to an
-    incomplete state and you can start drawing a new polygon from the existing
-    point.
+        If only one point remains after removing points, the selector reverts to an
+        incomplete state and you can start drawing a new polygon from the existing
+        point.
     """
 
     def __init__(
         self,
-        ax,
-        onselect,
+        ax: matplotlib.axes.Axes,
+        onselect: callable,
         *,
-        num_points=100,
-        useblit=False,
-        curve_props=None,
-        props=None,
-        handle_props=None,
-        grab_range=10,
-        draw_bounding_box=False,
-        box_handle_props=None,
-        box_props=None,
+        num_points: int = 100,
+        useblit: bool = False,
+        curve_props: dict | None = None,
+        props: dict | None = None,
+        handle_props: dict | None = None,
+        grab_range: float = 10,
+        draw_bounding_box: bool = False,
+        box_handle_props: dict | None = None,
+        box_props: dict | None = None,
     ):
         # The state modifiers 'move', 'square', and 'center' are expected by
         # _SelectorWidget but are not supported by PolygonSelector

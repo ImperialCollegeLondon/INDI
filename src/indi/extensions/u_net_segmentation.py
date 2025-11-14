@@ -15,15 +15,13 @@ def denoise_images(img: NDArray, settings: dict, slices: NDArray) -> NDArray:
     """
     Denoise images with non-local means algorithm
 
-    Parameters
-    ----------
-    img: image to be denoised
-    settings: dict with useful info
-    slices: Numpy array with slice position strings
+    Args:
+        img: image to be denoised
+        settings: dict with useful info
+        slices: Numpy array with slice position strings
 
-    Returns
-    -------
-    denoised image
+    Returns:
+        img: denoised image
     """
     from skimage.restoration import denoise_nl_means, estimate_sigma
 
@@ -73,16 +71,14 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
     U-Net segmentation:
     - 3 channel (background = 0, LV myocardium, rest of heart)
 
-    Parameters
-    ----------
-    img: image to be segmented
-    n_slices: number of slices
-    settings
-    logger
+    Args:
+        img: image to be segmented
+        n_slices: number of slices
+        settings: dict with useful info
+        logger: logger for console and file
 
-    Returns
-    -------
-    segmentation mask
+    Returns:
+        mask_3c: segmentation mask
     """
 
     # we need to make sure the input array has the exact size
@@ -207,15 +203,11 @@ def plot_segmentation_unet(n_slices: int, slices: NDArray, mask_3c: NDArray, ave
     """
     Plot the masking of the heart and LV given by the U-Net.
 
-    Parameters
-    ----------
-    n_slices : int
-        number of slices
-    mask_3c : NDArray
-        U-Net segmentation mask
-    average_images : NDArray
-        average denoised and normalised images for each slice
-    settings : dict
+    Args:
+        n_slices: number of slices
+        mask_3c: U-Net segmentation mask
+        average_images: average denoised and normalised images for each slice
+        settings: dict
     """
     for slice_idx in slices:
         # get the borders of the mask
@@ -277,17 +269,15 @@ def u_net_segment_heart(
     logger: logging.Logger,
 ) -> NDArray:
     """
-    Parameters
-    ----------
-    average_images: average images array
-    slices: array with slice locations string
-    n_slices: int number of slices
-    settings: dictionary with useful info
-    logger
+    Args:
+        average_images: average images array
+        slices: array with slice locations string
+        n_slices: int number of slices
+        settings: dictionary with useful info
+        logger: logger for console and file
 
-    Returns
-    -------
-    Segmented mask and average image for each slice
+    Returns:
+        mask_3c: Segmented mask and average image for each slice
     """
     mask_3c = u_net_segmentation_3ch(average_images, n_slices, settings, logger)
 

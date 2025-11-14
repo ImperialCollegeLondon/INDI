@@ -16,18 +16,15 @@ from tqdm import tqdm
 
 def get_grid_image(img_shape: NDArray, grid_step: int) -> NDArray:
     """
-
     Get an image with a regular grid. This is going to be deformed by the
     displacement field of the registration
 
-    Parameters
-    ----------
-    img_shape
-    grid_step
+    Args
+        img_shape: shape of the image
+        grid_step: step size for the grid
 
-    Returns
-    -------
-    grid image
+    Returns:
+        grid_img: image with grid
 
     """
     grid_img = np.zeros(img_shape)
@@ -40,17 +37,13 @@ def get_grid_image(img_shape: NDArray, grid_step: int) -> NDArray:
 
 def denoise_img_nlm(c_img: NDArray) -> NDArray:
     """
-
     Denoise image with non-local means
 
-    Parameters
-    ----------
-    c_img
+    Args
+        c_img: image to denoise
 
-    Returns
-    -------
-    denoised image
-
+    Returns:
+        denoised_img: denoised image
     """
     # nlm config
     patch_kw = dict(
@@ -67,23 +60,22 @@ def denoise_img_nlm(c_img: NDArray) -> NDArray:
 
 
 def registration_loop(
-    data: pd.DataFrame, ref_images: dict, mask, info: dict, settings: dict, logger: logging.Logger
+    data: pd.DataFrame, ref_images: dict, mask: NDArray, info: dict, settings: dict, logger: logging.Logger
 ) -> tuple[pd.DataFrame, dict]:
     """
     Registration image loop. This is where we perform the registration of the DWIs.
 
-    Parameters
-    ----------
-    data: data to be registered
-    ref_images: dictionary with the reference images and some other info
-    mask: registration mask
-    info: useful info
-    settings: useful info
-    logger: logger
+    Args:
+        data: data to be registered
+        ref_images: dictionary with the reference images and some other info
+        mask: registration mask
+        info: useful info
+        settings: useful info
+        logger: logger
 
-    Returns
-    -------
-    dataframe with registered images, dict with registration info
+    Returns:
+        data: dataframe with registered images, dict with registration info
+        registration_image_data: registration image data
     """
 
     # ============================================================
@@ -364,22 +356,18 @@ def registration_loop(
 
 def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict, logger: logging.Logger) -> dict:
     """
-
     Get all the lower b-value images, and groupwise register them if more than one.
     Then get the mean. That will be our reference image for the subsequent registration.
     If the registration is groupwise, then we do not need to calculate a reference.
 
-    Parameters
-    ----------
-    current_entries dataframe with one slice only
-    slice_str slice position string
-    settings
-    logger
+    Args:
+        current_entries: dataframe with the current entries
+        slice_idx: index of the slice
+        settings: settings dictionary
+        logger: logger for logging
 
-    Returns
-    -------
-    dict with reference image
-
+    Returns:
+        ref_images: dict with reference image
     """
 
     ref_images = {}
@@ -534,21 +522,19 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
     return ref_images
 
 
-def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, settings: dict):
+def plot_ref_images(
+    data: pd.DataFrame, ref_images: dict, mask: NDArray, contour: NDArray, slices: NDArray, settings: dict
+):
     """
+    Plot reference images and registration masks for debug purposes
 
-    Parameters
-    ----------
-    data: dataframe with diffusion info
-    ref_images dictionaary with all the info on the reference images used
-    mask: registration mask
-    contour: registration mask contours
-    slices array with strings of slice positions
-    settings
-
-    Returns
-    -------
-
+    Args:
+        data: dataframe with diffusion info
+        ref_images: dictionary with all the info on the reference images used
+        mask: registration mask
+        contour: registration mask contours
+        slices: array with strings of slice positions
+        settings: settings dictionary
     """
     if settings["debug"] and settings["registration"] != "elastix_groupwise":
         # plot reference images
@@ -641,14 +627,13 @@ def get_registration_mask(info: dict, settings: dict) -> tuple[NDArray, NDArray]
     Radius is scaled by settings["registration_mask_scale"]. A scale of 1 gives us
     a diameter equal to the shortest dimension of the image.
 
-    Parameters
-    ----------
-    info
-    settings
+    Args:
+        info: dictionary with image information
+        settings: dictionary with settings
 
-    Returns
-    -------
-    registratio mask and its contour points for debug plotting
+    Returns:
+        mask: registration mask
+        contour: registration mask contours
 
     """
 
@@ -672,18 +657,18 @@ def image_registration(
     """
     Image registration
 
-    Parameters
-    ----------
-    data: data to be registered
-    slices: array with slice integer
-    info: dictionary with useful info
-    settings: dict with settings
-    logger: logger
+    Args:
+        data: data to be registered
+        slices: array with slice integer
+        info: dictionary with useful info
+        settings: dict with settings
+        logger: logger
 
-    Returns
-    -------
-    registered dataframe, images pre- and post-registration, reference images, registration mask
-
+    Returns:
+        data: registered dataframe
+        registration_image_data: images pre- and post-registration
+        ref_images: reference images
+        reg_mask: registration mask
     """
 
     # Registration is going to be a loop over each slice
@@ -806,4 +791,4 @@ def image_registration(
             registration_image_data[slice_idx] = npzfile["registration_image_data"].item()
             logger.info("Image registration loaded")
 
-    return (data, registration_image_data, ref_images, reg_mask)
+    return data, registration_image_data, ref_images, reg_mask
