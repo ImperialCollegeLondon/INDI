@@ -4,21 +4,17 @@ from tensorflow.keras import models
 
 
 def dwis_classifier(dwis: NDArray, threshold: float) -> NDArray:
-    """
-    Classify DWIs as either good (0) or bad (1)
+    """Classify DWIs as either good (0) or bad (1)
 
-    Parameters
-    ----------
-    dwis : numpy array
-        array with dwis to be classified
-    threshold : float, optional
-        threshold value. If lower than threshold, the image is labeled as bad.
+    Args:
+      dwis(numpy array): array with dwis to be classified
+      threshold(float, optional): threshold value. If lower than threshold, the image is labeled as bad.
+      dwis: NDArray:
+      threshold: float:
 
-    Returns
-    -------
-    numpy array
-        vector with labels for each dwi
-        (o = bad, 1 = good)
+    Returns:
+      predicted_label: numpy array with predicted labels for each dwi
+
     """
 
     cnn_name = "/usr/local/dtcmr/dwi_classifier/classifier_dwis.hdf5"

@@ -11,11 +11,10 @@ def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: N
     """
     Plot eigenvalues histograms
 
-    Parameters
-    ----------
-    eigenvalues: NDArray with eigenvalues [slice, row, col, eigenvalue_order]
-    settings: dictionary with the path to the debug folder
-    mask_3c: U-Net segmentation
+    Args:
+        eigenvalues: NDArray with eigenvalues [slice, row, col, eigenvalue_order]
+        settings: dictionary with the path to the debug folder
+        mask_3c: U-Net segmentation
     """
 
     myo_mask = np.copy(mask_3c)
@@ -106,13 +105,11 @@ def make_eigenvectors_z_positive(eigenvectors: NDArray) -> NDArray:
     """
     Flip all the eigenvectors to have the same z orientation for debugging
 
-    Parameters
-    ----------
-    eigenvectors: array with eigenvectors
+    Args:
+        eigenvectors: array with eigenvectors
 
-    Returns
-    -------
-    flipped eigenvectors
+    Returns:
+        eigenvectors: flipped eigenvectors
     """
     temp = eigenvectors.swapaxes(3, 4)
     temp = np.reshape(
@@ -144,22 +141,20 @@ def get_negative_eigenvalues_map(
     average_images: NDArray,
     settings: dict,
     mask_3c: NDArray,
-):
+) -> NDArray:
     """
     Save the negative eigenvalues map
 
-    Parameters
-    ----------
-    eigenvalues: array with negative eigenvalues
-    slices: array with slice positions
-    info: useful info
-    average_images: array with the average image for each slice
-    settings: useful info
-    mask_3c: U-Net segmentation
+    Args:
+        eigenvalues: array with negative eigenvalues
+        slices: array with slice positions
+        info: useful info
+        average_images: array with the average image for each slice
+        settings: useful info
+        mask_3c: U-Net segmentation mask
 
-    Returns
-    ----------
-    NDArray with negative eigenvalue maps
+    Returns:
+        negative_eig_map: NDArray with negative eigenvalue maps
     """
 
     background_mask = np.copy(mask_3c)
@@ -218,24 +213,18 @@ def get_eigensystem(
 
     Calculate eigenvalues and eigenvectors of the DTI tensor
 
-    Parameters
-    ----------
-    dti : dict
-        dictionary with DTI variables
-    slices : NDArray
-        array with slice strings
-    info : dict
-    average_images : NDArray
-        average normalised images
-    settings : dict
-    mask_3c : NDArray
-        segmentation mask
-    options : dict
-    logger : logging.Logger
+    Args:
+        dti: dictionary with DTI variables
+        slices: array with slice strings
+        info: dict
+        average_images: average normalised images
+        settings: dict
+        mask_3c: segmentation mask
+        logger: logging.Logger
 
-    Returns
-    -------
-    [dict, dict]
+    Returns:
+        dti: dti dictionary with eigenvalues and eigenvectors added
+        info: dict
 
     """
     # we need to mask the nans from the tensor array

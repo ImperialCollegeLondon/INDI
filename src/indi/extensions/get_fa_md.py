@@ -1,20 +1,31 @@
+import logging
+from typing import Any
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.stats import moment
 
 
-def get_fa_md(eigv: NDArray, info, mask_3c, slices, logger) -> tuple[NDArray, NDArray, dict]:
+def get_fa_md(
+    eigv: NDArray, info: dict[str, Any], mask_3c: NDArray, slices: NDArray, logger: logging.Logger
+) -> tuple[NDArray, NDArray, NDArray, NDArray, NDArray, dict]:
     """
-    Calculate FA and MD maps
+    Calculate eigenvalue-based DTI scalars: MD, FA, mode, Frobenius norm, and magnitude of anisotropy.
 
-    Parameters
-    ----------
-    eigv: eigenvalues
+    Args:
+        eigv: eigenvalues
+        info: dict
+        mask_3c: segmentation mask
+        slices: array with slice indices
+        logger: logger
 
-    Returns
-    -------
-    MD and FA arrays
-
+    Returns:
+        md: mean diffusivity
+        fa: fractional anisotropy
+        mode: tensor mode
+        frob_norm: Frobenius norm
+        mag_anisotropy: magnitude of anisotropy
+        info: dict
     """
     # get MD and FA
     md = np.expand_dims(np.mean(eigv, axis=-1), axis=-1)

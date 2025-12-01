@@ -15,15 +15,13 @@ def phase_correction_for_complex_averaging(data: pd.DataFrame, logger: logging.L
 
     This should remove motion induced phase errors in the complex data. We expect the motion induced phase errors to be low frequency.
 
-    Parameters
-    ----------
-    data: dataframe with data
-    logger: logger
-    settings: settings dictionary
+    Args:
+        data: dataframe with data
+        logger: logger
+        settings: settings dictionary
 
     Returns
-    -------
-    dataframe data phase corrected
+        data: dataframe with updated data
 
     """
 

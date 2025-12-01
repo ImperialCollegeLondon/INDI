@@ -1,7 +1,7 @@
 """
-## Uformer: A General U-Shaped Transformer for Image Restoration
-## Zhendong Wang, Xiaodong Cun, Jianmin Bao, Jianzhuang Liu
-## https://arxiv.org/abs/2106.03106
+Uformer: A General U-Shaped Transformer for Image Restoration
+Zhendong Wang, Xiaodong Cun, Jianmin Bao, Jianzhuang Liu
+https://arxiv.org/abs/2106.03106
 """
 
 import math
