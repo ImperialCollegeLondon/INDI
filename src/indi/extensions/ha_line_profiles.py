@@ -140,17 +140,24 @@ def get_ha_line_profiles_and_distance_maps(
             lp_all = c_HA[y.astype(int), x.astype(int)]
 
             # get wall thickness in mm (Assuming square pixels with pixel spacing the same in x and y!)
-            wt.append(len(lp_all) * info["pixel_spacing"][0])
+            c_wt = len(lp_all) * info["pixel_spacing"][0]
+            wt.append(c_wt)
 
-            # The function fix_angle_wrap is not used anymore, as it can be dangerous and remove
-            # too much data, or mask disease. It will also misbehave with unusual data like phantoms.
-            # # fix angle wrap
-            # lp_wrap_fix = fix_angle_wrap(lp, 45)
+            if len(lp) < 2:
+                # not enough points to create a line profile
+                lp = np.full((interp_len,), np.nan)
+                lp_matrix[point_idx, :] = lp
 
-            # interpolate line profile valid points to interp_len
-            lp = np.interp(np.linspace(0, len(lp), interp_len), np.linspace(0, len(lp), len(lp)), lp)
-            # store line profile in a matrix
-            lp_matrix[point_idx, :] = lp
+            else:
+                # The function fix_angle_wrap is not used anymore, as it can be dangerous and remove
+                # too much data, or mask disease. It will also misbehave with unusual data like phantoms.
+                # # fix angle wrap
+                # lp_wrap_fix = fix_angle_wrap(lp, 45)
+
+                # interpolate line profile valid points to interp_len
+                lp = np.interp(np.linspace(0, len(lp), interp_len), np.linspace(0, len(lp), len(lp)), lp)
+                # store line profile in a matrix
+                lp_matrix[point_idx, :] = lp
 
         # store HA line profile matrix and wall thickness in dictionaries
         ha_lines_profiles[slice_idx]["lp_matrix"] = lp_matrix
