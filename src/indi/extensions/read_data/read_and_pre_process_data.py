@@ -213,7 +213,7 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: int) -> NDArray:
+def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: int, settings: dict) -> NDArray:
     """
     Get the pixel array from a nii file
 
@@ -222,6 +222,7 @@ def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: in
     nii_px_array
     c_slice_idx
     c_frame_idx
+    settings
 
     Returns
     -------
@@ -230,14 +231,13 @@ def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: in
     """
 
     img = np.rot90(nii_px_array[:, :, c_slice_idx, c_frame_idx], k=1, axes=(0, 1))
-    # check if largest dimension is lower than 192
-    # if so, then interpolate array by a factor of two
-    larger_dim = max(img.shape)
-    interp_img = True if larger_dim <= 192 else False
-    if interp_img:
-        img = scipy.ndimage.zoom(img, 2, order=3)
-        # zero potential negative values from the interpolation
+
+    if "img_interp_factor" in settings and settings["img_interp_factor"] > 1:
+        factor = settings["img_interp_factor"]
+        img = scipy.ndimage.zoom(img, factor, order=3)
+        # zero any negative pixels after interpolation
         img[img < 0] = 0
+
     return img
 
 
@@ -413,7 +413,7 @@ def read_and_process_niis(
                         # file name
                         nii_file,
                         # array of pixel values
-                        get_nii_pixel_array(nii_px_array, slice_idx, img_idx),
+                        get_nii_pixel_array(nii_px_array, slice_idx, img_idx, settings),
                         # b-value
                         bval[slice_idx, img_idx],
                         # b-value original
@@ -445,6 +445,22 @@ def read_and_process_niis(
                         json_header,
                     )
                 )
+
+    if "img_interp_factor" in settings and settings["img_interp_factor"] > 1:
+        factor = settings["img_interp_factor"]
+        header_info["pixel_spacing"] = [
+            header_info["pixel_spacing"][0] / settings["img_interp_factor"],
+            header_info["pixel_spacing"][1] / settings["img_interp_factor"],
+        ]
+
+        # update rows and columns in info dict
+        old_rows_column = [info["Rows"], info["Columns"]]
+        info["Rows"] *= factor
+        info["Columns"] *= factor
+
+        logger.debug(
+            f"Image matrix interpolated from {old_rows_column[0]} x {old_rows_column[1]} to {info["Rows"]} x {info["Columns"]}."
+        )
 
     df = pd.DataFrame(
         df,
