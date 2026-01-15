@@ -19,16 +19,15 @@ A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 
 ## Introduction
 
-INDI is a Python-based post-processing pipeline designed for in-vivo cardiac diffusion tensor imaging (cDTI) data.  
-It supports Siemens and Philips diffusion-weighted DICOMs, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). Both STEAM and spin-echo sequences are supported.
+INDI is a Python-based post-processing pipeline for in-vivo cardiac diffusion tensor imaging (cDTI). It supports Siemens, Philips, GE and United Imaging diffusion-weighted DICOMs, plus [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). Both STEAM and spin-echo sequences are handled.
 
-After loading your data, INDI performs the following steps:
+What it does:
 
 - Image registration
-- Image curation
+- Image curation and outlier handling
 - Tensor fitting
-- Segmentation
-- Results export
+- Segmentation and LV sectorisation
+- Results export (VTK, HDF5, CSV, figures)
 
 ![workflow](docs/assets/images/summary_figure.png)
 
@@ -46,6 +45,16 @@ INDI has been tested on:
 - macOS 15 with Python 3.12
 - Ubuntu 24.04 with Python 3.12
 - Windows 10 with Python 3.12
+
+### Quick start (any OS)
+
+```bash
+git clone https://github.com/ImperialCollegeLondon/INDI.git
+cd INDI
+python3 -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install .
+```
 
 ### Clone the Repository
 
