@@ -695,7 +695,7 @@ def adjust_b_val_and_dir(
         if not settings["ex_vivo"]:
 
             def adjust_b_values(val, nom_interval, ass_rr_int, est_rr_int):
-                if nom_interval != 0.0 and nom_interval != "None":
+                if nom_interval != 0.0 and nom_interval is not None:
                     return val * (nom_interval * 1e-3) / (ass_rr_int * 1e-3)
                 else:
                     return val * (est_rr_int * 1e-3) / (ass_rr_int * 1e-3)

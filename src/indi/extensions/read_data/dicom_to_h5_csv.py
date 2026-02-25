@@ -552,7 +552,7 @@ def add_missing_columns(data: pd.DataFrame) -> pd.DataFrame:
         data: DataFrame with added columns
 
     """
-    list_of_fields = ["series_description"]
+    list_of_fields = ["series_description", "nominal_interval"]
 
     for field in list_of_fields:
         if field not in data.columns:
