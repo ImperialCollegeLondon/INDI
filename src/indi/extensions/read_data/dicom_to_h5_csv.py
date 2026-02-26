@@ -211,6 +211,11 @@ def get_data_from_dicoms(
     else:
         header_field_list = to_keep["fields_to_keep_enhanced"]
 
+    # at the moment we do not support Philips STEAM data because we do not have a good way to adjust the b-values, so output an error if we detect that the data is from Philips and the sequence type is STEAM
+    if settings["sequence_type"] == "steam" and manufacturer == "philips":
+        logger.error("Currently Philips STEAM data is not supported in DICOM format.")
+        raise ValueError("Currently Philips STEAM data is not supported in DICOM format.")
+
     # ===================================================================
     # FRAME HEADER INFO
     # ===================================================================

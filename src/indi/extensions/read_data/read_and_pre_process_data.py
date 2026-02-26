@@ -647,7 +647,11 @@ def adjust_b_val_and_dir(
     # ========================================================================
     # read the assumed RR interval and the calculated real b0 value
     # from the image comments header field
-    if settings["sequence_type"] == "steam" and (data_type == "dicom" or data_type == "pandas"):
+    if (
+        settings["sequence_type"] == "steam"
+        and (data_type == "dicom" or data_type == "pandas")
+        and info["manufacturer"] == "siemens"
+    ):
         if info["image_comments"]:
             logger.debug("Dicom header comment found: " + info["image_comments"])
             # get all numbers from comment field
