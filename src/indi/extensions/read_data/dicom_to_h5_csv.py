@@ -260,18 +260,23 @@ def get_data_from_dicoms(
     return header_table, manufacturer
 
 
-def build_bmatrix(data: pd.DataFrame, logger: logging):
-    """
-    Build the bmatrix from the DICOM header.
+def build_bmatrix(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
+    """Build the b-matrix column from individual DICOM header components.
 
-    Parameters
-    ----------
-    data
-    logger
+    Reads the six independent b-matrix elements from separate columns
+    (XX, XY, XZ, YY, YZ, ZZ) and assembles them into symmetric 3×3 NumPy
+    arrays stored in a new ``"bmatrix"`` column.
 
-    Returns
-    -------
-    data
+    Args:
+        data (pd.DataFrame): DataFrame containing the six
+            ``MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValue*``
+            columns.
+        logger (logging.Logger): Logger (currently unused; kept for API
+            consistency).
+
+    Returns:
+        pd.DataFrame: DataFrame with an added ``"bmatrix"`` column whose
+        entries are ``(3, 3)`` NumPy arrays.
     """
 
     bmatrix_columns = [
@@ -299,18 +304,23 @@ def build_bmatrix(data: pd.DataFrame, logger: logging):
     return data
 
 
-def build_gradient_directions(data: pd.DataFrame, logger: logging):
-    """
-    Build the gradient directions from the DICOM header.
+def build_gradient_directions(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
+    """Build the diffusion gradient direction column from DICOM header components.
 
-    Parameters
-    ----------
-    data
-    logger
+    Reads the three orientation values from separate columns and combines
+    them into a single ``"diffusion_direction"`` column containing
+    ``[x, y, z]`` float lists.
 
-    Returns
-    -------
-    data
+    Args:
+        data (pd.DataFrame): DataFrame containing the three
+            ``MRDiffusionSequence_DiffusionGradientDirectionSequence_\
+ DiffusionGradientOrientation_{1,2,3}`` columns.
+        logger (logging.Logger): Logger (currently unused; kept for API
+            consistency).
+
+    Returns:
+        pd.DataFrame: DataFrame with an added or updated
+        ``"diffusion_direction"`` column.
     """
 
     direction_columns = [

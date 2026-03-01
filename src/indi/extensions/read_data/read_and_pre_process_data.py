@@ -28,18 +28,20 @@ from indi.extensions.read_data.dicom_to_h5_csv import (
 )
 
 
-def data_summary_plots_and_logs(data: pd.DataFrame, settings: dict, info: dict, logger: logging.Logger):
-    """
-    Summarises the data
+def data_summary_plots_and_logs(data: pd.DataFrame, settings: dict, info: dict, logger: logging.Logger) -> None:
+    """Summarise data and save a diagnostic plot.
 
-    Produces a plot showing the b-value, direction, and slice
-    Also prints a summary of the data to the log file
+    Produces a 3-panel figure showing b-values, slice positions, and
+    diffusion direction indices over acquisition order, then logs a detailed
+    summary of the diffusion protocol for each slice.
 
-    Parameters:
-        data: dataframe with all the dwi data
-        settings: dictionary with useful info
-        info: dictionary with useful info
-        logger: logger for console and file
+    Args:
+        data (pd.DataFrame): DataFrame with all DWI metadata and images.
+        settings (dict): Runtime configuration; ``results`` key provides the
+            output directory.
+        info (dict): Metadata dict including ``"n_images"``, ``"img_size"``,
+            ``"slice_spacing"``, and ``"pixel_spacing"``.
+        logger (logging.Logger): Logger for console and file output.
     """
 
     # get directions order as a numeric vector
@@ -133,19 +135,21 @@ def data_summary_plots_and_logs(data: pd.DataFrame, settings: dict, info: dict, 
 def get_diffusion_summary_for_slice(
     logger: logging.Logger, slices: np.ndarray, configs_table: pd.DataFrame, slice_idx: int = 0
 ) -> pd.DataFrame:
-    """Log the diffusion protocol for a given slice
+    """Log the diffusion protocol for a given slice and return its sub-table.
 
-    This function will log the diffusion protocol for a given slice
-    and return a table with the same protocol.
-
-    Parameters:
-        logger: logger for console and file
-        slices: array with the slice numbers
-        configs_table: table with the diffusion protocols for all slices
-        slice_idx: slice integer to return protocol and table, by default 0
+    Args:
+        logger (logging.Logger): Logger for console and file output.
+        slices (np.ndarray): Array of unique slice integers in acquisition
+            order.
+        configs_table (pd.DataFrame): Table with ``"slice_integer"``,
+            ``"b_value_original"``, and ``"diffusion_direction_original"``
+            columns for all slices.
+        slice_idx (int, optional): Index into ``slices`` whose protocol to
+            log. Defaults to ``0``.
 
     Returns:
-        pd.DataFrame: table with the diffusion protocol for the given slice
+        pd.DataFrame: Sub-table containing only the rows for the requested
+        slice.
     """
     configs_table_this_slice = configs_table.loc[configs_table["slice_integer"] == slices[slice_idx]]
     # different b-values
@@ -171,16 +175,20 @@ def get_diffusion_summary_for_slice(
 
 
 def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Sort the dataframe by acquisition date and time
+    """Sort the DataFrame by acquisition date and time in ascending order.
 
-    Parameters
-    ----------
-    df: dataframe with diffusion database
+    Handles both pre-combined ``acquisition_date_time`` columns and separate
+    ``acquisition_date`` / ``acquisition_time`` columns. After sorting the
+    index is reset.
 
-    Returns
-    -------
-    dataframe with sorted values
+    Args:
+        df (pd.DataFrame): DataFrame with a ``"acquisition_date_time"`` column
+            or separate ``"acquisition_date"`` and ``"acquisition_time"``
+            columns.
+
+    Returns:
+        pd.DataFrame: DataFrame sorted by acquisition date-time with a clean
+        integer index.
     """
     # create a new column with date and time, drop the previous two columns
     # if this column doesn't exist already
@@ -214,20 +222,18 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: int, settings: dict) -> NDArray:
-    """
-    Get the pixel array from a nii file
+    """Extract and optionally interpolate a single image from a NIfTI pixel array.
 
-    Parameters
-    ----------
-    nii_px_array
-    c_slice_idx
-    c_frame_idx
-    settings
+    Args:
+        nii_px_array (NDArray): Full pixel array with shape
+            ``(rows, cols, n_slices, n_frames)``.
+        c_slice_idx (int): Slice index to extract.
+        c_frame_idx (int): Frame (volume) index to extract.
+        settings (dict): Configuration dict; ``"img_interp_factor"`` triggers
+            cubic-spline upsampling when greater than ``1``.
 
-    Returns
-    -------
-    pixel array
-
+    Returns:
+        NDArray: 2-D image array, rotated 90° and optionally interpolated.
     """
 
     img = np.rot90(nii_px_array[:, :, c_slice_idx, c_frame_idx], k=1, axes=(0, 1))
@@ -242,17 +248,18 @@ def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: in
 
 
 def get_nii_diffusion_direction(dir: NDArray, settings: dict) -> list:
-    """
-    Get diffusion directions from a nii file
-    Parameters
-    ----------
-    dir: NDArray
-    settings: dict
+    """Return the diffusion direction for a single NIfTI frame.
 
-    Returns
-    -------
-    directions: list
-        list with the diffusion directions
+    If the direction vector is all zeros (b0 image), a fallback direction
+    is returned based on the sequence type.
+
+    Args:
+        dir (NDArray): Diffusion gradient direction vector of length 3.
+        settings (dict): Configuration dict; ``"sequence_type"`` determines
+            the fallback direction for zero vectors.
+
+    Returns:
+        list: Diffusion direction as a 3-element float list.
     """
     if not np.any(dir):
         if settings["sequence_type"] == "steam":
@@ -264,17 +271,14 @@ def get_nii_diffusion_direction(dir: NDArray, settings: dict) -> list:
 
 
 def get_nii_series_description(json_header: dict) -> str:
-    """
-    Get series description from the JSON header
+    """Extract the series description from a NIfTI sidecar JSON header.
 
-    Parameters
-    ----------
-    json_header
+    Args:
+        json_header (dict): JSON sidecar dictionary from the NIfTI file.
 
-    Returns
-    -------
-    series description
-
+    Returns:
+        str: Series description with spaces replaced by underscores, or
+        ``"None"`` if the field is absent.
     """
     if "SeriesDescription" in json_header.keys():
         result = (json_header["SeriesDescription"].replace(" ", "_"),)
@@ -286,20 +290,23 @@ def get_nii_series_description(json_header: dict) -> str:
 def read_and_process_niis(
     list_nii: list, settings: dict, info: dict, logger: logging.Logger
 ) -> Tuple[pd.DataFrame, dict]:
-    """
-    Get diffusion and other parameters from the NIFTI files
+    """Read a list of NIfTI files and build a diffusion imaging DataFrame.
 
-    Parameters
-    ----------
-    list_nii
-    settings
-    info
-    logger
+    Parses each ``.nii`` file together with its companion ``.json``,
+    ``.bval``, ``.bvec``, and optional ``.csv`` files to extract pixel arrays
+    and diffusion parameters.
 
-    Returns
-    -------
-    dataframe with all the gathered information plus info dict with some global information
+    Args:
+        list_nii (list): Relative paths of ``.nii`` files inside
+            ``settings["dicom_folder"]``.
+        settings (dict): Runtime configuration; relevant keys include
+            ``"dicom_folder"`` and ``"img_interp_factor"``.
+        info (dict): Metadata dict to populate with global header info.
+        logger (logging.Logger): Logger for debug and informational messages.
 
+    Returns:
+        Tuple[pd.DataFrame, dict]: The imaging DataFrame and the updated
+        ``info`` dictionary.
     """
     # opening first nii file
     first_nii = nib.load(os.path.join(settings["dicom_folder"], list_nii[0]))
@@ -491,23 +498,23 @@ def read_and_process_niis(
 
 
 def estimate_rr_interval(data: pd.DataFrame, settings: dict) -> pd.DataFrame:
-    """
-    This function will estimate the RR interval from the DICOM header
-    and add it to the dataframe
+    """Estimate the cardiac RR interval from acquisition timestamps.
 
-    # if no nominal interval values are in the headers, then we will adjust
-    # the b-values according to the RR interval by getting the time delta between images
-    # convert time strings to microseconds
+    When ``acquisition_date_time`` values are available, the RR interval is
+    estimated as the half (STEAM) or full (SE) time delta between consecutive
+    images. Outlier estimates are replaced with the backward-fill of adjacent
+    values. When no valid timestamps exist the column is set to ``"None"``.
 
-    Parameters
-    ----------
-    data: dataframe with diffusion database
-    settings: dict
+    Args:
+        data (pd.DataFrame): DataFrame with at least an
+            ``"acquisition_date_time"`` column.
+        settings (dict): Configuration dict; ``"sequence_type"`` selects
+            between ``"steam"`` and ``"se"`` estimation strategies.
 
     Returns:
-    -------
-    dataframe with added estimated RR interval column
-
+        pd.DataFrame: DataFrame with an added ``"estimated_rr_interval"``
+        column (and ``"nominal_interval"`` set to ``"None"`` when no
+        timestamps are present).
     """
 
     # check if we have acquisition date and time values
@@ -541,18 +548,18 @@ def estimate_rr_interval(data: pd.DataFrame, settings: dict) -> pd.DataFrame:
     return data
 
 
-def plot_b_values_adjustment(data: pd.DataFrame, settings: dict):
-    """
-    Plot b_values before and after adjustment, and the estimated RR intervals
+def plot_b_values_adjustment(data: pd.DataFrame, settings: dict) -> None:
+    """Save debug plots of b-values and RR intervals before and after adjustment.
 
-    Parameters
-    ----------
-    data
-    settings
+    Produces two PNG files in ``settings["debug_folder"]``:
+    ``data_b_values.png`` and ``nominal_and_rr_intervals.png``.
 
-    Returns
-    -------
-
+    Args:
+        data (pd.DataFrame): DataFrame with ``"b_value_original"``,
+            ``"b_value"``, ``"nominal_interval"``, and
+            ``"estimated_rr_interval"`` columns.
+        settings (dict): Configuration dict; must include ``"debug_folder"``
+            and ``"sequence_type"``.
     """
 
     b_vals_original = data["b_value_original"].values
@@ -610,21 +617,28 @@ def adjust_b_val_and_dir(
     logger: logging.Logger,
     data_type: str,
 ) -> pd.DataFrame:
-    """
-    This function will adjust:
-    . b-values according to the recorded RR interval
-    . diffusion-directions rotate header directions to the image plane
+    """Adjust b-values and diffusion directions for the imaging plane.
 
-    data: dataframe with diffusion database
-    settings: dict
-    info: dict
-    data: dataframe with diffusion database
-    logger: logger for console and file
-    data_type: str with the type of data (dicom or nii)
+    For STEAM sequences, rescales b-values using the recorded or estimated
+    RR interval. For DICOM/Pandas data, rotates diffusion directions from
+    the scanner frame into the image plane and inverts the Y-axis to match
+    the Cartesian convention.
 
-    Returns
-    -------
-    dataframe with adjusted b-values and diffusion directions
+    Args:
+        data (pd.DataFrame): DataFrame with DWI metadata to update in-place.
+        settings (dict): Runtime configuration including ``"sequence_type"``,
+            ``"ex_vivo"``, ``"assumed_rr_interval"``, and
+            ``"calculated_real_b0"`` keys.
+        info (dict): Metadata dict containing ``"image_orientation_patient"``
+            and ``"manufacturer"``.
+        logger (logging.Logger): Logger for debug messages.
+        data_type (str): Source format — one of ``"dicom"``, ``"pandas"``,
+            or ``"nii"``.
+
+    Returns:
+        pd.DataFrame: DataFrame with updated ``"b_value"``,
+        ``"b_value_original"``, ``"diffusion_direction"``, and
+        ``"diffusion_direction_original"`` columns.
     """
 
     n_entries, _ = data.shape
@@ -817,33 +831,35 @@ def create_2d_montage_from_database(
     segmentation: dict = {},
     print_series: bool = False,
     image_label: str = "image",
-):
-    """
-    Create a grid with all DWIs for each slice
+) -> None:
+    """Save a 2-D montage grid of DWIs organised by b-value and direction.
 
-    Parameters
-    ----------
-    data : pd.DataFrame
-        dataframe with diffusion info
-    b_value_column_name : str
-        string of the column to use as the b-value
-    direction_column_name: str with direction
-    settings : dict
-        settings from YAML file
-    info : dict
-        useful info
-    slices : list
-        list of slices
-    filename : str
-        filename to save the montage
-    save_path: str
-    where to save the image
-    list_to_highlight : list, optional
-        list of indices to highlight, by default []
-    segmentation: dict with segmentation information
-    print_series: bool print series description switch
-    image_label: "image" or "image_phase"
+    One PNG file per slice is written to ``save_path``.  Rows correspond to
+    unique (b-value, direction) combinations; columns show acquisition
+    repetitions.  Optionally overlays rejected-frame highlights and
+    segmentation contours.
 
+    Args:
+        data (pd.DataFrame): DataFrame with DWI metadata and images.
+        b_value_column_name (str): Column name to use as the b-value axis
+            (e.g. ``"b_value_original"``).
+        direction_column_name (str): Column name containing diffusion
+            directions.
+        settings (dict): Runtime configuration; must include
+            ``"print_series_description"``.
+        info (dict): Metadata dict with ``"img_size"`` ``(rows, cols)``.
+        slices (list): Integer slice indices to iterate over.
+        filename (str): Base name for output files (slice index is appended).
+        save_path (str): Directory where PNG files are saved.
+        list_to_highlight (list, optional): Row indices whose images should be
+            highlighted in red. Defaults to ``[]``.
+        segmentation (dict, optional): Mapping from slice index to a dict
+            with ``"epicardium"`` and ``"endocardium"`` contour arrays.
+            Defaults to ``{}``.
+        print_series (bool, optional): Whether to annotate each image with
+            its series description. Defaults to ``False``.
+        image_label (str, optional): Column to use for image data –
+            ``"image"`` or ``"image_phase"``. Defaults to ``"image"``.
     """
 
     # loop over the slices
@@ -1025,31 +1041,28 @@ def create_2d_montage_from_database(
 def reorder_by_slice(
     data: pd.DataFrame, settings: dict, info: dict, logger: logging
 ) -> [pd.DataFrame, dict, list, int]:
-    """
-    Reorder data by slice and remove slices if needed
+    """Reorder the DataFrame by slice position and optionally remove slices.
 
-    Parameters
-    ----------
-    data : pd.DataFrame
-        dataframe with diffusion info
-    settings : dict
-        settings from YAML file
-    info : dict
-        useful info
-    logger : logging
-        logger for console
+    Determines the dominant spatial axis, assigns a monotonic integer index
+    to each unique slice position, and computes inter-slice spacing. Slices
+    listed in ``settings["remove_slices"]`` are dropped.
 
-    Returns
-    -------
-    pd.DataFrame
-        dataframe with reordered data
-    dict
-        info about the data
-    list
-        list of slices
-    int
-        number of slices
+    Args:
+        data (pd.DataFrame): DataFrame with an ``"image_position"`` column.
+        settings (dict): Runtime configuration; must include
+            ``"remove_slices"`` (list of integer slice indices to drop).
+        info (dict): Metadata dict populated with ``"slice_spacing"``,
+            ``"n_slices"``, ``"integer_to_image_positions"``, and
+            ``"image_positions_to_integer"``.
+        logger (logging.Logger): Logger for debug messages.
 
+    Returns:
+        list: A 4-element list of:
+            - ``pd.DataFrame`` – reordered DataFrame with ``"slice_integer"``
+              column.
+            - ``dict`` – updated ``info`` dict.
+            - ``list`` – remaining slice integers after removal.
+            - ``int`` – total number of slices before removal.
     """
     # round the image position values (sometimes there are small differences)
     # round image position to the first significant digit decimal place in the slice thickness
@@ -1135,28 +1148,23 @@ def reorder_by_slice(
 
 
 def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame, dict, NDArray]:
-    """
+    """Read DTCMR data from DICOM, NIfTI, or pre-saved database files.
 
-    Read DTCMR data
+    Auto-detects the source format, builds the diffusion DataFrame, adjusts
+    b-values and directions, reorders by slice, and saves a data summary plot.
 
-    Parameters
-    ----------
-    settings : dict
-        settings from YAML file
-    info : dict
-        useful info
-    logger : logging
-        logger for console
+    Args:
+        settings (dict): Runtime configuration with at minimum
+            ``"dicom_folder"``, ``"sequence_type"``, ``"complex_data"``, and
+            ``"debug"`` keys.
+        info (dict): Metadata dict to populate with global imaging info.
+        logger (logging.Logger): Logger for console and file output.
 
-    Returns
-    -------
-    pd.DataFrame
-        dataframe with all the data
-    info
-        useful info
-    slices
-        array with slices
-
+    Returns:
+        tuple[pd.DataFrame, dict, NDArray]: A 3-tuple of:
+            - The imaging DataFrame with all DWI metadata and pixel data.
+            - The updated ``info`` metadata dictionary.
+            - 1-D array of integer slice indices.
     """
 
     # initiate variables
@@ -1284,20 +1292,25 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
 
 
 def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
-    """
-    Read pandas dataframe
+    """Load a precomputed diffusion database from pickle and HDF5 files.
 
-    Parameters
-    ----------
-    logger
-    settings
+    Args:
+        logger (logging.Logger): Logger used for status and error messages.
+        settings (dict): Runtime configuration. ``dicom_folder`` points to the
+            folder containing ``data.gz`` and ``images.h5``; ``complex_data`` is
+            toggled on when both magnitude and phase data are present.
 
-    Returns
-    -------
-    dataframe with diffusion info
-    dataframe with phase diffusion info (if any)
-    info dict
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame, dict]: The magnitude dataframe with
+        images in ``image`` column, the phase dataframe (empty if not present),
+        and the metadata ``info`` dictionary with manufacturer inferred if
+        missing.
 
+    Raises:
+        FileNotFoundError: If required magnitude or phase database files are
+            missing.
+        ValueError: If manufacturer information cannot be determined or is not
+            supported.
     """
     logger.debug("No DICOM or Nii files found. Checking for diffusion database files previously created.")
     # check if subfolders "mag" and "phase" exist
@@ -1381,27 +1394,31 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
 def read_and_process_dicoms(
     info: dict, list_dicoms: list, list_dicoms_phase: list, logger: logging, settings: dict
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
-    """
-    Read DICOM files into pandas
-    Export the dataframe to a zip file
-    Export diffusion info to css
-    Export pixel values to HDF5
-    Potentially archive DICOMs
+    """Read DICOM files, build diffusion DataFrames, and cache results.
 
-    Parameters
-    ----------
-    info
-    list_dicoms
-    list_dicoms_phase
-    logger
-    settings
+    Reads magnitude (and optionally phase) DICOM files, scales pixel values,
+    corrects directions, exports the DataFrame to a gzip-pickle, saves pixel
+    arrays to HDF5, and optionally encrypts the original DICOMs.
 
-    Returns
-    -------
-    dataframe with diffusion info
-    dataframe with phase diffusion info (if any)
-    info dict
+    Args:
+        info (dict): Metadata dict to populate with manufacturer and image
+            geometry information.
+        list_dicoms (list): Filenames of magnitude DICOM files inside
+            ``settings["dicom_folder"]``.
+        list_dicoms_phase (list): Filenames of phase DICOM files inside
+            ``settings["dicom_folder_phase"]`` (may be empty).
+        logger (logging.Logger): Logger for progress and error messages.
+        settings (dict): Runtime configuration including ``"complex_data"``,
+            ``"dicom_folder"``, ``"workflow_mode"``, and
+            ``"img_interp_factor"`` keys.
 
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame, dict]: A 3-tuple of the magnitude
+        DataFrame, the phase DataFrame (empty if not complex), and the
+        updated ``info`` dict.
+
+    Raises:
+        ValueError: If magnitude and phase DICOM tables do not match.
     """
 
     # create empty dataframe
@@ -1589,22 +1606,30 @@ def read_and_process_dicoms(
 
 
 def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, list, list]:
-    """
-    List possible magnitude DICOMs, phase DICOMs, and NII files
+    """Discover available data files and classify the data source type.
 
-    Parameters
-    ----------
-    data_type: type of data (dicoms, nii or none)
-    logger
-    settings
+    Searches ``settings["dicom_folder"]`` (and its ``mag``/``phase``
+    sub-folders for complex data) for DICOM, NIfTI, or pre-saved database
+    files.
 
-    Returns
-    -------
-    data_type: (dicoms, nii or none)
-    list of dicoms
-    list of phase dicoms
-    list of nii files
+    Args:
+        data_type (str): Initial data type hint (typically ``None`` on first
+            call); will be overridden by what is found on disk.
+        logger (logging.Logger): Logger for debug and error messages.
+        settings (dict): Runtime configuration; ``"dicom_folder"`` must point
+            to the data root.
 
+    Returns:
+        list: A 4-element list of:
+            - ``str`` – resolved data type (``"dicom"``, ``"nii"``, or
+              ``None`` for pre-saved database).
+            - ``list`` – magnitude DICOM filenames.
+            - ``list`` – phase DICOM filenames (empty if not complex).
+            - ``list`` – NIfTI filenames.
+
+    Raises:
+        FileNotFoundError: If the data folder does not exist or no supported
+            files are found.
     """
 
     list_dicoms = []

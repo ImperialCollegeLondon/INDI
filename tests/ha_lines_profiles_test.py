@@ -6,6 +6,7 @@ from indi.extensions import ha_line_profiles
 
 
 def _circle_contour(center_x, center_y, radius, n_points=360):
+    """Create integer contour coordinates for a circle."""
     angles = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
     xs = (center_x + radius * np.cos(angles)).astype(np.int32)
     ys = (center_y + radius * np.sin(angles)).astype(np.int32)
@@ -13,6 +14,7 @@ def _circle_contour(center_x, center_y, radius, n_points=360):
 
 
 def test_get_ha_line_profiles_(monkeypatch, tmp_path):
+    """Exercise HA line profiles workflow with deterministic contours."""
     # Create temporary folders expected by the function
     results_dir = tmp_path / "results"
     results_b = results_dir / "results_b"
@@ -142,6 +144,7 @@ def test_get_ha_line_profiles_(monkeypatch, tmp_path):
 
 
 def test_fix_angle_wrap_no_jump():
+    """Ensure angle series without jumps remains unchanged."""
     lp = np.array([0.0, 10.0, 20.0, 25.0, 30.0])
     out = ha_line_profiles.fix_angle_wrap(lp, angle_jump=45)
     # no change expected
@@ -149,6 +152,7 @@ def test_fix_angle_wrap_no_jump():
 
 
 def test_fix_angle_wrap_with_jump():
+    """Ensure large angle jump zeros out subsequent values."""
     lp = np.array([0.0, 10.0, 20.0, 120.0, 130.0])
     out = ha_line_profiles.fix_angle_wrap(lp, angle_jump=45)
     # after detected jump (20 -> 120) all subsequent values should be NaN

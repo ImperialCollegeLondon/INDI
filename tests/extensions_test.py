@@ -9,7 +9,7 @@ from indi.extensions.get_fa_md import get_fa_md
 
 
 def test_get_fa_md():
-    """test if this function calculates the correct FA and MD values"""
+    """Verify FA and MD calculations against phantom ground truth."""
 
     # load tensor from numerical phantom
     tensor_true = np.load(os.path.join("tests", "data", "DT.npz"))
@@ -57,6 +57,7 @@ def test_get_fa_md():
 
 
 def test_get_snr_maps():
+    """Check SNR maps and noise estimates computed from simulated data."""
     # load RV and LV mask
     mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))
     mask = mask["mask_3c"]
@@ -96,6 +97,7 @@ def test_get_snr_maps():
 
 
 def test_get_cylindrical_coordinates_short_axis():
+    """Confirm cardiac coordinate vectors match phantom references."""
     # load RV and LV mask
     mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))
     mask = mask["mask_3c"]

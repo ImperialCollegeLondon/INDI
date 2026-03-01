@@ -83,6 +83,18 @@ MODEL_CONFIG = {
 
 
 def get_checkpoint_path(model_name: Union[str, int]) -> str:
+    """Resolve the file path for a pre-trained model checkpoint.
+
+    Args:
+        model_name (Union[str, int]): Number of breath-holds or a string alias
+            such as ``"1BH"``, ``"3BH"``, ``"5BH"``, ``1``, ``3``, or ``5``.
+
+    Returns:
+        str: Absolute path to the ``.pth`` checkpoint file.
+
+    Raises:
+        ValueError: If ``model_name`` does not match any known model key.
+    """
     for keys in MODELS.keys():
         if model_name in keys:
             return MODELS[keys]
@@ -91,6 +103,18 @@ def get_checkpoint_path(model_name: Union[str, int]) -> str:
 
 
 def load_checkpoint(checkpoint_path: str, device: str) -> torch.nn.Module:
+    """Load a GAN-Uformer ensemble model from a checkpoint file.
+
+    Instantiates an :class:`IndependentEnsemble` of five GAN-wrapped Uformer
+    models, loads the saved state-dict, and sets the model to evaluation mode.
+
+    Args:
+        checkpoint_path (str): Path to the ``.pth`` state-dict file.
+        device (str): PyTorch device string, e.g. ``"cpu"`` or ``"cuda"``.
+
+    Returns:
+        torch.nn.Module: Loaded model in evaluation mode, moved to ``device``.
+    """
     state_dict = torch.load(checkpoint_path, map_location=device)
 
     model = IndependentEnsemble(
@@ -160,6 +184,19 @@ def inference(model: torch.nn.Module, data: np.ndarray) -> np.ndarray:
 
 
 def main(breath_holds: Union[int, str], data: np.ndarray) -> np.ndarray:
+    """Run end-to-end Uformer tensor denoising.
+
+    Loads the appropriate checkpoint for the given number of breath-holds and
+    runs inference on the input data.
+
+    Args:
+        breath_holds (Union[int, str]): Number of breath-holds used during
+            acquisition, or a string alias (e.g. ``1``, ``\"1BH\"``).
+        data (np.ndarray): Input tensor array of shape ``(N, 6, 128, 128)``.
+
+    Returns:
+        np.ndarray: Denoised tensor array of shape ``(N, 6, 128, 128)``.
+    """
     checkpoint_path = get_checkpoint_path(breath_holds)
     trained_model = load_checkpoint(checkpoint_path, "cpu")
     output_data = inference(trained_model, data)

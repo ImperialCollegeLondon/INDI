@@ -4,36 +4,51 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 
 def phase_correction_for_complex_averaging(data: pd.DataFrame, logger: logging.Logger, settings: dict) -> pd.DataFrame:
-    """
-    Performs phase correction for complex averaging:
-    1. Fourier transforms the complex data
-    2. Apply a 2d Gaussian filter to the k-space data creating a low resolution image
-    3. Subtract the low resolution phase of the original phase
+    """Apply phase correction to complex DWI data before averaging.
 
-    This should remove motion induced phase errors in the complex data. We expect the motion induced phase errors to be low frequency.
+    Performs the following steps for each image:
 
-    Parameters
-    ----------
-    data: dataframe with data
-    logger: logger
-    settings: settings dictionary
+    1. Fourier-transform the complex image to k-space.
+    2. Apply a 2-D Gaussian filter to extract a low-resolution phase map.
+    3. Subtract the low-resolution phase from the original phase.
 
-    Returns
-    -------
-    dataframe data phase corrected
+    This removes low-frequency motion-induced phase errors that would
+    otherwise corrupt complex averaging.
 
+    Args:
+        data (pd.DataFrame): DataFrame containing at least ``"image"``
+            (magnitude) and ``"image_phase"`` columns.
+        logger (logging.Logger): Logger for debug messages.
+        settings (dict): Configuration dict; ``debug`` and ``debug_folder``
+            control optional output figures.
+
+    Returns:
+        pd.DataFrame: DataFrame with phase-corrected magnitude images in the
+        ``"image"`` column.
     """
 
     logger.debug("Phase correction for complex averaging.")
 
     filter_size = 1 / 2
 
-    def gaussian_filter(n_lin, n_col, filter_size=1 / 2):
-        """
-        creates gaussian kernel with size n_lin x n_col
+    def gaussian_filter(n_lin: int, n_col: int, filter_size: float = 1 / 2) -> NDArray:
+        """Create a 2-D Gaussian kernel.
+
+        The full width at tenth of maximum (FWTM) of the kernel equals
+        ``filter_size`` times the corresponding FOV dimension.
+
+        Args:
+            n_lin (int): Number of rows.
+            n_col (int): Number of columns.
+            filter_size (float, optional): Fraction of FOV covered by the
+                FWTM. Defaults to ``0.5``.
+
+        Returns:
+            NDArray: Gaussian kernel array of shape ``(n_lin, n_col)``.
         """
         # The FWTM (full width at tenth of maximum) of the Gaussian filter is:
         # 4.29193 * sigma
