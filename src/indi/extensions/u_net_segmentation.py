@@ -12,18 +12,18 @@ from indi.extensions.extensions import clean_mask, crop_pad_rotate_array
 
 
 def denoise_images(img: NDArray, settings: dict, slices: NDArray) -> NDArray:
-    """
-    Denoise images with non-local means algorithm
+    """Denoise images in-place with a non-local means filter.
 
-    Parameters
-    ----------
-    img: image to be denoised
-    settings: dict with useful info
-    slices: Numpy array with slice position strings
+    Args:
+        img (NDArray): Image stack with shape ``[n_slices, rows, cols]``,
+            modified in-place.
+        settings (dict): Configuration dictionary; ``debug`` and
+            ``debug_folder`` control optional output PNG files.
+        slices (NDArray): Slice indices to iterate over and optionally save
+            debug images for.
 
-    Returns
-    -------
-    denoised image
+    Returns:
+        NDArray: Denoised image stack (same reference as input).
     """
     from skimage.restoration import denoise_nl_means, estimate_sigma
 
@@ -69,20 +69,22 @@ def denoise_images(img: NDArray, settings: dict, slices: NDArray) -> NDArray:
 
 
 def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: logging.Logger) -> NDArray:
-    """
-    U-Net segmentation:
-    - 3 channel (background = 0, LV myocardium, rest of heart)
+    """Run the three-class U-Net segmentation model on average images.
 
-    Parameters
-    ----------
-    img: image to be segmented
-    n_slices: number of slices
-    settings
-    logger
+    Classifies each voxel into background (``0``), LV myocardium (``1``), or
+    rest of heart (``2``). The model expects an input size of ``(n, 256, 96)``;
+    images are padded or cropped automatically.
 
-    Returns
-    -------
-    segmentation mask
+    Args:
+        img (NDArray): Average image stack with shape
+            ``[n_slices, rows, cols]``.
+        n_slices (int): Number of slices.
+        settings (dict): Configuration; must include ``debug_folder``.
+        logger (logging.Logger): Logger for size-change messages.
+
+    Returns:
+        NDArray: Segmentation mask with shape ``[n_slices, rows, cols]``
+        containing class labels ``0``, ``1``, or ``2``.
     """
 
     # we need to make sure the input array has the exact size
@@ -136,15 +138,15 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
     # myocardium dice in tensorflow
     # @tf.function  # in order to be able to add breakpoints inside this function
     def dice_coeff(y_true: object, y_pred: object) -> object:
-        """
-        Parameters
-        ----------
-        y_true: ground truth segmentation mask
-        y_pred: predicted segmentation mask
+        """Compute the Dice coefficient for the LV myocardium class only.
 
-        Returns
-        -------
-        Dice coefficient for the myocardium only
+        Args:
+            y_true (object): Ground-truth segmentation mask tensor.
+            y_pred (object): Predicted logits tensor; argmax is taken along
+                the last axis.
+
+        Returns:
+            object: Scalar Dice coefficient for the myocardium class.
         """
         y_true = y_true[:, :, :, 1]
         y_true = tf.reshape(y_true, [-1])
@@ -203,19 +205,21 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
     return mask_3c
 
 
-def plot_segmentation_unet(n_slices: int, slices: NDArray, mask_3c: NDArray, average_images: NDArray, settings: dict):
-    """
-    Plot the masking of the heart and LV given by the U-Net.
+def plot_segmentation_unet(
+    n_slices: int,
+    slices: NDArray,
+    mask_3c: NDArray,
+    average_images: NDArray,
+    settings: dict,
+) -> None:
+    """Save border-overlay images of the U-Net segmentation for each slice.
 
-    Parameters
-    ----------
-    n_slices : int
-        number of slices
-    mask_3c : NDArray
-        U-Net segmentation mask
-    average_images : NDArray
-        average denoised and normalised images for each slice
-    settings : dict
+    Args:
+        n_slices (int): Total number of slices (kept for API consistency).
+        slices (NDArray): Slice indices to plot.
+        mask_3c (NDArray): Three-class segmentation mask.
+        average_images (NDArray): Normalised average image per slice.
+        settings (dict): Configuration; must include ``debug_folder``.
     """
     for slice_idx in slices:
         # get the borders of the mask
@@ -276,18 +280,24 @@ def u_net_segment_heart(
     settings: dict,
     logger: logging.Logger,
 ) -> NDArray:
-    """
-    Parameters
-    ----------
-    average_images: average images array
-    slices: array with slice locations string
-    n_slices: int number of slices
-    settings: dictionary with useful info
-    logger
+    """Segment the heart using the U-Net model and save the result.
 
-    Returns
-    -------
-    Segmented mask and average image for each slice
+    Runs three-class U-Net segmentation, retains only the largest connected
+    component per slice, optionally plots results, and caches the mask as a
+    compressed NumPy archive.
+
+    Args:
+        average_images (NDArray): Normalised average image stack with shape
+            ``[n_slices, rows, cols]``.
+        slices (NDArray): Slice indices to process.
+        n_slices (int): Total number of slices.
+        settings (dict): Configuration; must include ``session`` directory and
+            ``debug`` flag.
+        logger (logging.Logger): Logger for status messages.
+
+    Returns:
+        NDArray: Three-class segmentation mask with shape
+        ``[n_slices, rows, cols]``.
     """
     mask_3c = u_net_segmentation_3ch(average_images, n_slices, settings, logger)
 

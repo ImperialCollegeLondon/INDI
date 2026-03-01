@@ -6,17 +6,20 @@ from indi.extensions.uformer_tensor_denoising.uformer_tensor_denoising import ma
 
 
 def denoise_tensor(D: NDArray, settings: dict) -> NDArray:
-    """
-    Denoise tensor with MTs Uformer models
+    """Denoise a diffusion tensor field using the Uformer ensemble model.
 
-    Parameters
-    ----------
-    D : original tensors
+    Pads or crops the spatial dimensions to 128×128, runs the Uformer inference
+    pipeline, and restores the original shape.
 
-    Returns
-    -------
-    denoised tensors
+    Args:
+        D (NDArray): Diffusion tensor array with shape
+            ``(n_slices, rows, cols, n_dirs, n_components)``.
+        settings (dict): Configuration dict; must include
+            ``"uformer_breatholds"`` (number of breath-holds used for
+            acquiring the data: ``1``, ``3``, or ``5``).
 
+    Returns:
+        NDArray: Denoised tensor array with the same shape as ``D``.
     """
 
     # Make the tensor H & W [128, 128]

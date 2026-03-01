@@ -15,20 +15,18 @@ from tqdm import tqdm
 
 
 def get_grid_image(img_shape: NDArray, grid_step: int) -> NDArray:
-    """
+    """Create an image containing a regular grid.
 
-    Get an image with a regular grid. This is going to be deformed by the
-    displacement field of the registration
+    The resulting image can be warped by a registration displacement field to
+    give a visual impression of the deformation.
 
-    Parameters
-    ----------
-    img_shape
-    grid_step
+    Args:
+        img_shape (NDArray): Shape ``(rows, cols)`` of the desired grid image.
+        grid_step (int): Spacing in pixels between grid lines.
 
-    Returns
-    -------
-    grid image
-
+    Returns:
+        NDArray: Binary grid image with ones along grid lines and zeros
+        elsewhere.
     """
     grid_img = np.zeros(img_shape)
     for i in range(0, img_shape[0], grid_step):
@@ -39,18 +37,16 @@ def get_grid_image(img_shape: NDArray, grid_step: int) -> NDArray:
 
 
 def denoise_img_nlm(c_img: NDArray) -> NDArray:
-    """
+    """Denoise an image using the non-local means algorithm.
 
-    Denoise image with non-local means
+    Uses a fast NLM implementation with noise-level estimation. Patch size is
+    5 pixels and search window is 6 pixels.
 
-    Parameters
-    ----------
-    c_img
+    Args:
+        c_img (NDArray): 2-D image array to denoise.
 
-    Returns
-    -------
-    denoised image
-
+    Returns:
+        NDArray: Denoised image with the same shape as ``c_img``.
     """
     # nlm config
     patch_kw = dict(
@@ -69,21 +65,28 @@ def denoise_img_nlm(c_img: NDArray) -> NDArray:
 def registration_loop(
     data: pd.DataFrame, ref_images: dict, mask, info: dict, settings: dict, logger: logging.Logger
 ) -> tuple[pd.DataFrame, dict]:
-    """
-    Registration image loop. This is where we perform the registration of the DWIs.
+    """Register DWI images to a reference using the configured method.
 
-    Parameters
-    ----------
-    data: data to be registered
-    ref_images: dictionary with the reference images and some other info
-    mask: registration mask
-    info: useful info
-    settings: useful info
-    logger: logger
+    Iterates over every image in ``data`` and applies the registration
+    strategy specified by ``settings["registration"]`` (Elastix rigid /
+    affine / non-rigid / groupwise, or phase-cross-correlation).
 
-    Returns
-    -------
-    dataframe with registered images, dict with registration info
+    Args:
+        data (pd.DataFrame): DataFrame containing DWI images for a single
+            slice.
+        ref_images (dict): Dictionary with at least ``"image"`` (the
+            reference array) and ``"groupwise_reg_info"`` entries.
+        mask: Registration mask array (ubyte) restricting the registration
+            cost function.
+        info (dict): Imaging metadata (e.g. ``"img_size"``).
+        settings (dict): Pipeline configuration including ``"registration"``,
+            ``"registration_speed"``, and ``"debug"`` keys.
+        logger (logging.Logger): Logger for progress and timing messages.
+
+    Returns:
+        tuple[pd.DataFrame, dict]: Updated DataFrame with registered images
+        and a dictionary of pre-/post-registration image stacks for debug
+        visualisation.
     """
 
     # ============================================================
@@ -363,23 +366,27 @@ def registration_loop(
 
 
 def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict, logger: logging.Logger) -> dict:
-    """
+    """Build a reference image for registration from the lowest-b-value frames.
 
-    Get all the lower b-value images, and groupwise register them if more than one.
-    Then get the mean. That will be our reference image for the subsequent registration.
-    If the registration is groupwise, then we do not need to calculate a reference.
+    When a single low-b image exists, it is denoised and used directly.
+    When multiple low-b images exist they can be groupwise-registered and
+    averaged. If the pipeline uses ``elastix_groupwise`` registration no
+    reference is required and the returned image is ``None``.
 
-    Parameters
-    ----------
-    current_entries dataframe with one slice only
-    slice_str slice position string
-    settings
-    logger
+    Args:
+        current_entries (pd.DataFrame): Rows belonging to a single slice.
+        slice_idx (int): Integer slice index used for logging.
+        settings (dict): Configuration dict; relevant keys are
+            ``"registration"``, ``"registration_reference_method"``.
+        logger (logging.Logger): Logger for informational messages.
 
-    Returns
-    -------
-    dict with reference image
-
+    Returns:
+        dict: Dictionary containing:
+            - ``"image"`` – reference image array or ``None``.
+            - ``"index"`` – row index (or list of indices) of the source frame(s).
+            - ``"n_images"`` – total number of entries in ``current_entries``.
+            - ``"groupwise_reg_info"`` – dict with ``"pre"`` / ``"post"`` stacks
+              from groupwise registration, or an empty dict.
     """
 
     ref_images = {}
@@ -534,21 +541,23 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
     return ref_images
 
 
-def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, settings: dict):
-    """
+def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, settings: dict) -> None:
+    """Save debug PNG images of reference frames and the registration mask.
 
-    Parameters
-    ----------
-    data: dataframe with diffusion info
-    ref_images dictionaary with all the info on the reference images used
-    mask: registration mask
-    contour: registration mask contours
-    slices array with strings of slice positions
-    settings
+    Only executes when ``settings["debug"]`` is ``True`` and the registration
+    type is not ``"elastix_groupwise"``. For groupwise pre-registrations the
+    function also saves a before-/after-/difference composite figure.
 
-    Returns
-    -------
-
+    Args:
+        data (pd.DataFrame): Full imaging DataFrame (used to compute per-slice
+            mean images for mask overlay).
+        ref_images (dict): Mapping from slice index to reference image dict
+            as returned by :func:`get_ref_image`.
+        mask: Registration mask array (unused here, kept for API symmetry).
+        contour (NDArray): Contour points of the registration mask for
+            overlay plotting, shape ``(N, 2)``.
+        slices (NDArray): Slice indices to iterate over.
+        settings (dict): Must include ``"debug"`` and ``"debug_folder"``.
     """
     if settings["debug"] and settings["registration"] != "elastix_groupwise":
         # plot reference images
@@ -636,20 +645,22 @@ def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, sett
 
 
 def get_registration_mask(info: dict, settings: dict) -> tuple[NDArray, NDArray]:
-    """
-    Define registration mask. A circular region from the centre of the FOV.
-    Radius is scaled by settings["registration_mask_scale"]. A scale of 1 gives us
-    a diameter equal to the shortest dimension of the image.
+    """Create a circular registration mask centred on the FOV.
 
-    Parameters
-    ----------
-    info
-    settings
+    The circle radius equals half the shortest image dimension multiplied by
+    ``settings["registration_mask_scale"]`` (a scale of ``1.0`` gives a
+    diameter equal to the shortest image side).
 
-    Returns
-    -------
-    registratio mask and its contour points for debug plotting
+    Args:
+        info (dict): Must contain ``"img_size"`` as a ``(rows, cols)``
+            sequence.
+        settings (dict): Must contain ``"registration_mask_scale"`` (float).
 
+    Returns:
+        tuple[NDArray, NDArray]: A tuple of:
+            - ``mask`` – ubyte binary mask array of shape ``(rows, cols)``.
+            - ``contour`` – ``(N, 2)`` array of contour pixel coordinates for
+              debug overlay plotting.
     """
 
     # create a circular mask for the registration
@@ -669,21 +680,37 @@ def get_registration_mask(info: dict, settings: dict) -> tuple[NDArray, NDArray]
 def image_registration(
     data: pd.DataFrame, slices: NDArray, info: dict, settings: dict, logger: logging.Logger
 ) -> tuple[pd.DataFrame, dict, dict]:
-    """
-    Image registration
+    """Orchestrate per-slice image registration for all DWI frames.
 
-    Parameters
-    ----------
-    data: data to be registered
-    slices: array with slice integer
-    info: dictionary with useful info
-    settings: dict with settings
-    logger: logger
+    For each slice the function (1) computes or loads a cached reference image,
+    (2) generates the circular registration mask, (3) optionally plots debug
+    images, and (4) runs or loads the per-image registration loop.
+    Results are cached to disk so that repeated runs skip already-completed
+    slices.
 
-    Returns
-    -------
-    registered dataframe, images pre- and post-registration, reference images, registration mask
+    Args:
+        data (pd.DataFrame): Full imaging DataFrame with at least
+            ``"slice_integer"``, ``"image"``, ``"file_name"``, and
+            ``"acquisition_date_time"`` columns.
+        slices (NDArray): Integer slice indices to process.
+        info (dict): Imaging metadata including ``"img_size"``.
+        settings (dict): Pipeline configuration (registration type, speed,
+            session directory, debug flags, etc.).
+        logger (logging.Logger): Logger for progress and error messages.
 
+    Returns:
+        tuple: A 4-tuple of:
+            - ``data`` – DataFrame with registered images in the ``"image"``
+              (and optionally ``"image_phase"``) columns.
+            - ``registration_image_data`` – dict mapping slice index to
+              pre-/post-registration image stacks.
+            - ``ref_images`` – dict mapping slice index to reference image
+              info as returned by :func:`get_ref_image`.
+            - ``reg_mask`` – registration mask array.
+
+    Raises:
+        ValueError: If the loaded cached registration DataFrame does not match
+            the current pre-registration DataFrame.
     """
 
     # Registration is going to be a loop over each slice

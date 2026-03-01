@@ -10,12 +10,21 @@ from indi.extensions.tensor_fittings import dipy_tensor_fit
 
 @pytest.fixture
 def logger():
+    """Provide a logger instance for tensor fitting tests."""
     return logging.getLogger("test_logger")
 
 
 @pytest.mark.parametrize("debug", [True, False])
 @pytest.mark.parametrize("method", ["NLLS", "LS", "WLS", "RESTORE", "RNLLS", "RWLS"])
 def test_dipy_tensor_fit(tmp_path, debug, method, logger):
+    """Run tensor fitting pipeline and compare with ground-truth tensors.
+
+    Args:
+        tmp_path (Path): Temporary directory for debug and results outputs.
+        debug (bool): Whether to enable debug outputs in settings.
+        method (str): Tensor fitting method under test.
+        logger (logging.Logger): Logger for diagnostics.
+    """
     # Here I am loading data from DTI_numerical_phantom_3D repo
     # load table with pixel values, b_values and directions
     # For this test there is no noise, so SNR is infinite

@@ -3,18 +3,36 @@ from numpy.typing import NDArray
 from scipy.stats import moment
 
 
-def get_fa_md(eigv: NDArray, info, mask_3c, slices, logger) -> tuple[NDArray, NDArray, dict]:
-    """
-    Calculate FA and MD maps
+def get_fa_md(
+    eigv: NDArray,
+    info: dict,
+    mask_3c: NDArray,
+    slices: NDArray,
+    logger,
+) -> tuple[NDArray, NDArray, NDArray, NDArray, NDArray, dict]:
+    """Calculate DTI scalar maps from eigenvalues.
 
-    Parameters
-    ----------
-    eigv: eigenvalues
+    Computes mean diffusivity (MD), fractional anisotropy (FA), tensor mode,
+    Frobenius norm, and magnitude of anisotropy. Values outside the LV
+    myocardium (``mask_3c != 1``) are set to ``NaN``.
 
-    Returns
-    -------
-    MD and FA arrays
+    Args:
+        eigv (NDArray): Eigenvalue array with shape ``[slices, rows, cols, 3]``,
+            ordered from smallest to largest.
+        info (dict): Metadata dictionary (returned unchanged).
+        mask_3c (NDArray): Three-class heart mask; only label ``1`` (LV
+            myocardium) is used.
+        slices (NDArray): Slice indices for logging.
+        logger: Logger for debug output.
 
+    Returns:
+        tuple[NDArray, NDArray, NDArray, NDArray, NDArray, dict]:
+            md (NDArray): Mean diffusivity map.
+            fa (NDArray): Fractional anisotropy map.
+            mode (NDArray): Tensor mode map.
+            frob_norm (NDArray): Frobenius norm map.
+            mag_anisotropy (NDArray): Magnitude of anisotropy map.
+            info (dict): Unchanged metadata dictionary.
     """
     # get MD and FA
     md = np.expand_dims(np.mean(eigv, axis=-1), axis=-1)

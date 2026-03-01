@@ -12,12 +12,24 @@ from numpy.typing import NDArray
 from indi.extensions.polygon_selector import PolygonSelectorSpline
 
 
-def get_sa_contours(lv_mask):
-    # get the contours of the epicardium
-    # From stackoverflow: In the hierarchy (hier), the fourth index tells you, to which outer
-    # (or parent) contour a possible inner (or child) contour is related. Most outer contours have an
-    # index of -1, all others have non-negative values. So I should get 2 contours. The epicardium
-    # should have the hierarchy x, x, x, -1. It should also be the longest contour.
+def get_sa_contours(lv_mask: NDArray) -> tuple[NDArray, NDArray]:
+    """Extract epicardial and endocardial contours from a binary mask.
+
+    Uses OpenCV contour detection to identify the two dominant contours in the
+    mask. The outermost contour (hierarchy ``-1``) is taken as the epicardium;
+    the inner contour is the endocardium.
+
+    Args:
+        lv_mask (NDArray): Binary mask of the LV myocardium (uint8 compatible).
+
+    Returns:
+        tuple[NDArray, NDArray]: ``(epi_contour, endo_contour)`` where each
+        array has shape ``[N, 2]`` with ``(x, y)`` pixel coordinates.
+
+    Raises:
+        AssertionError: If more than one epicardial or endocardial contour is
+            detected.
+    """
     c_mask = np.array(lv_mask * 255, dtype=np.uint8)
     contours, hier = cv.findContours(c_mask, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
 
@@ -49,12 +61,22 @@ def get_sa_contours(lv_mask):
     return epi_contour, endo_contour
 
 
-def get_epi_contour(lv_mask):
-    # get the contours of the epicardium
-    # From stackoverflow: In the hierarchy (hier), the fourth index tells you, to which outer
-    # (or parent) contour a possible inner (or child) contour is related. Most outer contours have an
-    # index of -1, all others have non-negative values. So I should get 2 contours. The epicardium
-    # should have the hierarchy x, x, x, -1. It should also be the longest contour.
+def get_epi_contour(lv_mask: NDArray) -> NDArray:
+    """Extract only the epicardial contour from a binary mask.
+
+    Selects the longest contour in the mask, which corresponds to the
+    epicardium.
+
+    Args:
+        lv_mask (NDArray): Binary mask of the LV region (uint8 compatible).
+
+    Returns:
+        NDArray: Epicardial contour with shape ``[N, 2]`` in ``(x, y)``
+        pixel coordinates.
+
+    Raises:
+        AssertionError: If more than one outermost contour is detected.
+    """
     c_mask = np.array(lv_mask * 255, dtype=np.uint8)
     contours, hier = cv.findContours(c_mask, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
 
@@ -79,7 +101,19 @@ def get_epi_contour(lv_mask):
     return epi_contour
 
 
-def clean_image(img, factor):
+def clean_image(img: NDArray, factor: float) -> tuple[NDArray, NDArray]:
+    """Zero out image pixels below a threshold fraction.
+
+    Args:
+        img (NDArray): Input image normalised to ``[0, 1]``.
+        factor (float): Pixels with value below ``factor`` are zeroed.
+
+    Returns:
+        tuple[NDArray, NDArray]:
+            clean_img (NDArray): Image with sub-threshold pixels set to zero.
+            mask (NDArray): Binary mask where ``1`` indicates pixels that
+            survived thresholding.
+    """
     clean_img = np.copy(img)
     clean_img[img < factor] = 0
     mask = np.ones(img.shape)
@@ -87,9 +121,16 @@ def clean_image(img, factor):
     return clean_img, mask
 
 
-def get_mask_from_poly(poly, dims):
-    """
-    Get a mask from a polygon
+def get_mask_from_poly(poly: NDArray, dims: tuple) -> NDArray:
+    """Rasterise a polygon into a binary mask.
+
+    Args:
+        poly (NDArray): Polygon vertices with shape ``[N, 2]`` in ``(x, y)``
+            pixel coordinates.
+        dims (tuple): Desired mask dimensions ``(rows, cols)``.
+
+    Returns:
+        NDArray: Binary mask with the polygon interior filled with ``1``.
     """
     # create a mask with zeros
     mask = np.zeros(dims)
@@ -98,24 +139,27 @@ def get_mask_from_poly(poly, dims):
     return mask
 
 
-def reduce_polygon(polygon_coords: NDArray, angle_th: float = 0, distance_th: float = 0):
-    """
-    Reduce the number of points in a polygon by removing points that are close to each other
-    and have a small angle between them.
+def reduce_polygon(polygon_coords: NDArray, angle_th: float = 0, distance_th: float = 0) -> list:
+    """Simplify a polygon by removing nearly-collinear and close-together points.
 
-    Code from here: https://stackoverflow.com/questions/48562739/reducing-number-of-nodes-in-polygons-using-python
+    Iteratively removes vertices where the angle between adjacent segments is
+    below ``angle_th`` **and** both incident edge lengths are below
+    ``distance_th``.
 
-    Parameters
-    ----------
-    polygon_coords
-    angle_th
-    distance_th
+    Reference: https://stackoverflow.com/questions/48562739
 
-    Returns
-    -------
+    Args:
+        polygon_coords (NDArray): Array of polygon vertices with shape
+            ``[N, 2]``.
+        angle_th (float): Angular threshold in degrees; vertices with a
+            turning angle smaller than this are candidates for removal.
+            Defaults to 0 (no angle-based removal).
+        distance_th (float): Distance threshold in pixels; both incident
+            edges must be shorter than this value for removal. Defaults to
+            0 (no distance-based removal).
 
-    reduced polygon
-
+    Returns:
+        list: Simplified polygon as a list of ``[x, y]`` vertices.
     """
     angle_th_rad = np.deg2rad(angle_th)
     points_removed = [0]
@@ -156,23 +200,22 @@ def plot_manual_lv_segmentation(
     settings: dict,
     filename: str,
     save_path: str,
-):
-    """
-    Plot the manual segmentation LV contours and insertion points
+) -> None:
+    """Save overlay images of manual LV segmentation contours and insertion points.
 
-    Parameters
-    ----------
-    n_slices : int
-        number of slices
-    segmentation : dict
-        segmentation information
-    average_images : NDArray
-        average denoised and normalized images for each slice
-    mask_3c : NDArray
-        mask with  segmentation
-    settings : dict
-    filename: str,
-    save_path: str,
+    Args:
+        n_slices (int): Total number of slices (kept for API consistency).
+        slices (NDArray): Slice indices to plot.
+        segmentation (dict): Per-slice segmentation data with keys
+            ``"epicardium"``, ``"endocardium"``, ``"anterior_ip"``, and
+            ``"inferior_ip"``.
+        average_maps (NDArray): Normalised average image per slice.
+        mask_3c (NDArray): Three-class segmentation mask used as an alpha
+            overlay.
+        settings (dict): Configuration dictionary (currently unused but kept
+            for API consistency).
+        filename (str): Base filename prefix for the saved PNG files.
+        save_path (str): Directory where the output PNG files are saved.
     """
 
     for slice_idx in slices:
@@ -515,35 +558,29 @@ def manual_lv_segmentation(
     colormaps: dict,
     slice_idx: int,
     slices: NDArray,
-):
-    """
-    Manually define the epicardial and endocardial contours and the insertion points
-    for the LV.
-    The epicardial border is compulsory, the endocardial border and insertion points are optional.
-    If no epicardial segmentation slice is going to be marked to be removed.
-    An initial LV mask is passed into the function. This mask is used to define the
-    epicardial and endocardial initial contours. If the mask is all zeros, then no initial
-    contour will be used, and we need to manually draw one.
-    This initial mask can be for example a U-Net prediction.
+) -> dict:
+    """Interactively define LV epicardial/endocardial contours and insertion points.
 
-    Parameters
-    ----------
-    mask_3c : NDArray
-        initial mask
-    average_map : NDArray
-        average denoised and normalized images for each slice
-    ha_map : NDArray
-        HA maps for each slice
-    md_map : NDArray
-        MD maps for each slice
-    n_points : int
-        number of points to interpolate the contours
-    settings : dict
-    colormaps : dict
-    slice_idx : int
-        slice index
-    slices : NDArray
-        slice indices
+    Displays the average image and DTI maps for one slice and lets the user
+    draw or edit spline-based contours using a matplotlib GUI. An initial
+    contour is seeded from the U-Net mask when available.
+
+    Args:
+        mask_3c (NDArray): Three-class heart mask (``0`` background, ``1`` LV
+            myocardium, ``2`` rest of heart) for the current slice.
+        average_map (NDArray): Normalised average magnitude image for the
+            current slice.
+        ha_map (NDArray): Helix angle map for the current slice.
+        md_map (NDArray): Mean diffusivity map for the current slice.
+        n_points (int): Number of spline interpolation points on the contours.
+        settings (dict): Configuration dictionary including ``screen_size``.
+        colormaps (dict): Custom colourmaps for HA and MD overlays.
+        slice_idx (int): Index of the slice being segmented.
+        slices (NDArray): All slice indices (used in the window title).
+
+    Returns:
+        dict: Segmentation result with keys ``"epicardium"``,
+        ``"endocardium"``, ``"anterior_ip"``, and ``"inferior_ip"``.
     """
     lv_masks = mask_3c.copy()
     lv_masks[lv_masks == 2] = 0

@@ -8,20 +8,26 @@ def get_ha_e2a_maps(
     mask: NDArray,
     local_cardiac_coordinates: dict,
     eigenvectors: NDArray,
-) -> tuple[NDArray, NDArray]:
-    """
-    Calculate HA and E2A maps
+) -> tuple[NDArray, NDArray, NDArray]:
+    """Calculate helix angle (HA), transverse angle (TA), and E2A maps.
 
-    Parameters
-    ----------
-    mask: segmentation masks
-    local_cardiac_coordinates: local cardiac coordinates
-    (longitudinal, radial, circumferential)
-    eigenvectors: array with eigenvectors
+    Projects the primary and secondary eigenvectors onto the local cardiac
+    coordinate planes to compute orientation angles in degrees.
 
-    Returns
-    -------
-    HA, E2A maps
+    Args:
+        mask (NDArray): Segmentation mask; computation is performed only for
+            voxels where ``mask == 1``.
+        local_cardiac_coordinates (dict): Dictionary with keys ``"circ"``,
+            ``"long"``, and ``"radi"`` holding the circumferential,
+            longitudinal, and radial unit-vector fields respectively.
+        eigenvectors (NDArray): Array of eigenvectors with shape
+            ``[slices, rows, cols, xyz, order]``.
+
+    Returns:
+        tuple[NDArray, NDArray, NDArray]:
+            ha_map (NDArray): Helix angle map in degrees (range ``[-90, 90]``).
+            ta_map (NDArray): Transverse angle map in degrees.
+            e2a_map (NDArray): E2A (sheetlet angle) map in degrees.
     """
 
     ev1 = eigenvectors[:, :, :, :, 2]
@@ -154,28 +160,30 @@ def get_tensor_orientation_maps(
     settings: dict,
     info: dict,
     logger: logging.Logger,
-) -> tuple[NDArray, NDArray, dict]:
-    """_summary_
+) -> tuple[NDArray, NDArray, NDArray, dict]:
+    """Compute HA, TA, and E2A orientation maps and log summary statistics.
 
-    Parameters
-    ----------
-    slices : NDArray
-        _description_
-    mask_3c : NDArray
-        _description_
-    local_cardiac_coordinates : dict
-        _description_
-    dti : dict
-        _description_
-    settings : dict
-        _description_
-    info : dict
-        _description_
+    Wraps :func:`get_ha_e2a_maps` and zeroes out values outside the LV
+    myocardium before logging median E2A per slice.
 
-    Returns
-    -------
-    [NDArray, NDArray, dict]
-        _description_
+    Args:
+        slices (NDArray): Slice indices to process and summarise.
+        mask_3c (NDArray): Three-class heart segmentation mask; only label
+            ``1`` (LV myocardium) is used.
+        local_cardiac_coordinates (dict): Local cardiac coordinate frame with
+            keys ``"circ"``, ``"long"``, and ``"radi"``.
+        dti (dict): DTI data dictionary; must contain ``"eigenvectors"``.
+        settings (dict): Configuration dictionary (currently unused but
+            reserved for future options).
+        info (dict): Metadata dictionary to return unchanged.
+        logger (logging.Logger): Logger for per-slice debug messages.
+
+    Returns:
+        tuple[NDArray, NDArray, NDArray, dict]:
+            ha (NDArray): Helix angle map.
+            ta (NDArray): Transverse angle map.
+            e2a (NDArray): E2A (sheetlet angle) map.
+            info (dict): Unchanged metadata dictionary.
     """
 
     ha, ta, e2a = get_ha_e2a_maps(mask_3c, local_cardiac_coordinates, dti["eigenvectors"])

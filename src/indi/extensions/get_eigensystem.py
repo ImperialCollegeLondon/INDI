@@ -8,14 +8,14 @@ from numpy.typing import NDArray
 
 
 def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: NDArray):
-    """
-    Plot eigenvalues histograms
+    """Plot histograms of eigenvalues for the LV myocardium.
 
-    Parameters
-    ----------
-    eigenvalues: NDArray with eigenvalues [slice, row, col, eigenvalue_order]
-    settings: dictionary with the path to the debug folder
-    mask_3c: U-Net segmentation
+    Args:
+        eigenvalues (NDArray): Array with shape ``[slice, row, col, 3]``
+            ordered from smallest to largest.
+        settings (dict): Configuration dictionary; must include
+            ``debug_folder`` with the output path.
+        mask_3c (NDArray): Three-class heart segmentation mask.
     """
 
     myo_mask = np.copy(mask_3c)
@@ -66,7 +66,24 @@ def plot_eigenvalues_histograms(eigenvalues: NDArray, settings: dict, mask_3c: N
     plt.close()
 
 
-def plot_eigenvector_maps(eigenvectors, average_images, mask_3c, slices, settings):
+def plot_eigenvector_maps(
+    eigenvectors: NDArray,
+    average_images: NDArray,
+    mask_3c: NDArray,
+    slices: NDArray,
+    settings: dict,
+) -> None:
+    """Plot eigenvector component maps overlaid on average images.
+
+    Args:
+        eigenvectors (NDArray): Array of eigenvectors with shape
+            ``[slices, rows, cols, xyz, order]``.
+        average_images (NDArray): Normalised average image per slice.
+        mask_3c (NDArray): Three-class heart segmentation mask used for
+            alpha masking.
+        slices (NDArray): Slice indices to iterate over.
+        settings (dict): Configuration; must include ``debug_folder``.
+    """
     # plot the eigenvectors
     direction_str = ["x", "y", "z"]
     order_str = ["tertiary", "secondary", "primary"]
@@ -103,16 +120,16 @@ def plot_eigenvector_maps(eigenvectors, average_images, mask_3c, slices, setting
 
 
 def make_eigenvectors_z_positive(eigenvectors: NDArray) -> NDArray:
-    """
-    Flip all the eigenvectors to have the same z orientation for debugging
+    """Flip eigenvectors so that their z-component is always positive.
 
-    Parameters
-    ----------
-    eigenvectors: array with eigenvectors
+    This normalises orientation ambiguity for easier visual debugging.
 
-    Returns
-    -------
-    flipped eigenvectors
+    Args:
+        eigenvectors (NDArray): Array of eigenvectors with shape
+            ``[slices, rows, cols, xyz, order]``.
+
+    Returns:
+        NDArray: Eigenvector array with z-components flipped to be positive.
     """
     temp = eigenvectors.swapaxes(3, 4)
     temp = np.reshape(
@@ -144,22 +161,24 @@ def get_negative_eigenvalues_map(
     average_images: NDArray,
     settings: dict,
     mask_3c: NDArray,
-):
-    """
-    Save the negative eigenvalues map
+) -> NDArray:
+    """Compute and plot a map of negative-eigenvalue voxels per slice.
 
-    Parameters
-    ----------
-    eigenvalues: array with negative eigenvalues
-    slices: array with slice positions
-    info: useful info
-    average_images: array with the average image for each slice
-    settings: useful info
-    mask_3c: U-Net segmentation
+    Args:
+        eigenvalues (NDArray): Eigenvalue array with shape
+            ``[slices, rows, cols, 3]``.
+        slices (NDArray): Slice indices to process and save.
+        info (dict): Metadata dictionary containing ``n_slices`` and
+            ``img_size``.
+        average_images (NDArray): Normalised average image per slice, used
+            as the underlay for the overlay plot.
+        settings (dict): Configuration; must include ``results`` path.
+        mask_3c (NDArray): Three-class heart segmentation mask.
 
-    Returns
-    ----------
-    NDArray with negative eigenvalue maps
+    Returns:
+        NDArray: Negative-eigenvalue count map with shape
+        ``[n_slices, rows, cols]``, where each voxel value indicates how many
+        of the three eigenvalues are negative.
     """
 
     background_mask = np.copy(mask_3c)
@@ -214,29 +233,28 @@ def get_eigensystem(
     mask_3c: NDArray,
     logger: logging.Logger,
 ) -> tuple[dict, dict]:
-    """
+    """Compute eigenvalues and eigenvectors of the diffusion tensor.
 
-    Calculate eigenvalues and eigenvectors of the DTI tensor
+    Decomposes the symmetric diffusion tensor stored in ``dti["tensor"]``,
+    orients all eigenvectors so that z is positive, replaces negative
+    eigenvalues with a small epsilon, and optionally saves diagnostic plots.
 
-    Parameters
-    ----------
-    dti : dict
-        dictionary with DTI variables
-    slices : NDArray
-        array with slice strings
-    info : dict
-    average_images : NDArray
-        average normalised images
-    settings : dict
-    mask_3c : NDArray
-        segmentation mask
-    options : dict
-    logger : logging.Logger
+    Args:
+        dti (dict): DTI data dictionary; must contain ``"tensor"`` and will be
+            populated with ``"eigenvalues"``, ``"eigenvectors"``, and
+            ``"negative_eigenvalues"``.
+        slices (NDArray): Slice indices to process.
+        info (dict): Metadata dictionary; will be updated with
+            ``n_negative_eigenvalues`` and ``percentage_negative_eigenvalues``.
+        average_images (NDArray): Normalised average image per slice.
+        settings (dict): Configuration dictionary; ``debug`` toggles
+            diagnostic plots.
+        mask_3c (NDArray): Three-class heart segmentation mask.
+        logger (logging.Logger): Logger for progress and diagnostic messages.
 
-    Returns
-    -------
-    [dict, dict]
-
+    Returns:
+        tuple[dict, dict]: Updated ``dti`` dictionary and updated ``info``
+        dictionary.
     """
     # we need to mask the nans from the tensor array
     dti["eigenvalues"], dti["eigenvectors"] = np.linalg.eigh(

@@ -5,9 +5,20 @@ from matplotlib.widgets import RectangleSelector, ToolHandles, _SelectorWidget
 from scipy.interpolate import splev, splprep
 
 
-def spline_interpolate_contour(contour, n_points, join_ends=False):
-    """
-    Interpolate a contour to a spline curve with n_points
+def spline_interpolate_contour(contour: np.ndarray, n_points: int, join_ends: bool = False) -> np.ndarray:
+    """Fit a periodic spline to a contour and resample it at ``n_points``.
+
+    Args:
+        contour (np.ndarray): Input contour vertices with shape ``[N, 2]``
+            in ``(x, y)`` coordinates.
+        n_points (int): Number of evenly-spaced points to sample from the
+            fitted spline.
+        join_ends (bool): When ``True``, the first vertex is appended at the
+            end before fitting, making the spline truly closed. Defaults to
+            ``False``.
+
+    Returns:
+        np.ndarray: Resampled contour with shape ``[n_points, 2]``.
     """
     if join_ends:
         contour = np.append(contour, [contour[0]], axis=0)
@@ -18,8 +29,24 @@ def spline_interpolate_contour(contour, n_points, join_ends=False):
     return np.array([xi, yi]).T
 
 
-def dist_to_line(p1, p2, p3):
-    """Calculates the distance of the line connecting the points p1 and p2 to point p3"""
+def dist_to_line(p1: tuple, p2: tuple, p3: tuple) -> tuple[float, float]:
+    """Compute the perpendicular distance from point ``p3`` to line ``p1``–``p2``.
+
+    Args:
+        p1 (tuple): First point on the line ``(x, y)``.
+        p2 (tuple): Second point on the line ``(x, y)``.
+        p3 (tuple): Query point ``(x, y)``.
+
+    Returns:
+        tuple[float, float]:
+            distance (float): Perpendicular distance from ``p3`` to the line.
+            u (float): Scalar projection parameter; ``u`` in ``[0, 1]``
+            indicates the foot of the perpendicular lies between ``p1`` and
+            ``p2``.
+
+    Raises:
+        ValueError: If ``p1`` and ``p2`` are the same point.
+    """
 
     def dist_sqr(p, q):
         return (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2
@@ -34,8 +61,7 @@ def dist_to_line(p1, p2, p3):
 
 
 class PolygonSelectorSpline(_SelectorWidget):
-    """
-    Select a polygon region of an Axes.
+    """Select a polygon region of an Axes with spline interpolation.
 
     Place vertices with each mouse click, and make the selection by completing
     the polygon (clicking on the first vertex). Once drawn individual vertices
@@ -52,61 +78,39 @@ class PolygonSelectorSpline(_SelectorWidget):
 
     For the selector to remain responsive you must keep a reference to it.
 
-    Parameters
-    ----------
-    ax : `~matplotlib.axes.Axes`
-        The parent Axes for the widget.
+    Args:
+        ax (~matplotlib.axes.Axes): The parent Axes for the widget.
+        onselect (function): Called when a polygon is completed or modified
+            after completion; passed a list of ``(xdata, ydata)`` vertex
+            tuples.
+        num_points (int, optional): Number of spline interpolation points
+            per segment. Defaults to ``100``.
+        useblit (bool, optional): Whether to use blitting for faster drawing
+            (if supported by the backend). Defaults to ``False``.
+        curve_props (dict, optional): Properties for the spline curve line.
+        props (dict, optional): Properties with which the line is drawn;
+            see `.Line2D` for valid properties.
+            Default: ``dict(color='k', linestyle='-', linewidth=2, alpha=0.5)``.
+        handle_props (dict, optional): Artist properties for vertex markers;
+            see the marker arguments in `.Line2D`. Default values come from
+            ``mpl.rcParams``.
+        grab_range (float, optional): Pixel radius within which a click
+            selects or completes a vertex. Defaults to ``10``.
+        draw_bounding_box (bool, optional): If ``True``, draw a bounding box
+            around the completed polygon. Defaults to ``False``.
+        box_handle_props (dict, optional): Properties for bounding-box
+            handles; see `RectangleSelector`.
+        box_props (dict, optional): Properties for the bounding box; see
+            `RectangleSelector`.
 
-    onselect : function
-        When a polygon is completed or modified after completion,
-        the *onselect* function is called and passed a list of the vertices as
-        ``(xdata, ydata)`` tuples.
+    Examples:
+        :doc:`/gallery/widgets/polygon_selector_simple`
+        :doc:`/gallery/widgets/polygon_selector_demo`
 
-    useblit : bool, default: False
-        Whether to use blitting for faster drawing (if supported by the
-        backend). See the tutorial :ref:`blitting`
-        for details.
-
-    props : dict, optional
-        Properties with which the line is drawn, see `.Line2D` for valid properties.
-        Default::
-
-            dict(color='k', linestyle='-', linewidth=2, alpha=0.5)
-
-    handle_props : dict, optional
-        Artist properties for the markers drawn at the vertices of the polygon.
-        See the marker arguments in `.Line2D` for valid
-        properties.  Default values are defined in ``mpl.rcParams`` except for
-        the default value of ``markeredgecolor`` which will be the same as the
-        ``color`` property in *props*.
-
-    grab_range : float, default: 10
-        A vertex is selected (to complete the polygon or to move a vertex) if
-        the mouse click is within *grab_range* pixels of the vertex.
-
-    draw_bounding_box : bool, optional
-        If `True`, a bounding box will be drawn around the polygon selector
-        once it is complete. This box can be used to move and resize the
-        selector.
-
-    box_handle_props : dict, optional
-        Properties to set for the box handles. See the documentation for the
-        *handle_props* argument to `RectangleSelector` for more info.
-
-    box_props : dict, optional
-        Properties to set for the box. See the documentation for the *props*
-        argument to `RectangleSelector` for more info.
-
-    Examples
-    --------
-    :doc:`/gallery/widgets/polygon_selector_simple`
-    :doc:`/gallery/widgets/polygon_selector_demo`
-
-    Notes
-    -----
-    If only one point remains after removing points, the selector reverts to an
-    incomplete state and you can start drawing a new polygon from the existing
-    point.
+    Note:
+        If only one point remains after removing points, the selector reverts
+        to an incomplete state and you can start drawing a new polygon from
+        the existing point.
     """
 
     def __init__(

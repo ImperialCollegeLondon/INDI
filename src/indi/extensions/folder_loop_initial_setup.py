@@ -10,22 +10,27 @@ import yaml
 def folder_loop_initial_setup(
     current_folder: str, settings: dict, logger: logging.Logger, log_format: logging.Formatter
 ) -> tuple[dict, dict, logging.Logger]:
-    """
-    Initial setup for the folder loop.
-    Parameters
-    ----------
-    current_folder : str with current folder with diffusion data
-    settings : settings from YAML file
-    logger : logger
-    log_format : logging.Formatter
-    Returns
-    -------
-    info : dict
-    dti_data : dict
-    settings : dict
-    logger : logger
+    """Prepare per-folder working directories and logging for each data folder.
 
+    Creates the required output directory tree (debug, results, session),
+    attaches a per-folder file handler to the logger, and saves the current
+    settings to a YAML file inside the working folder.
 
+    Args:
+        current_folder (str): Absolute path to the data folder being processed.
+        settings (dict): Global pipeline settings that will be augmented with
+            folder-specific paths (``dicom_folder``, ``work_folder``,
+            ``debug_folder``, ``results``, ``session``).
+        logger (logging.Logger): Shared logger; a new ``FileHandler`` pointing
+            to ``analysis.log`` inside the working folder is attached.
+        log_format (logging.Formatter): Formatter applied to the new file
+            handler.
+
+    Returns:
+        tuple[dict, dict, logging.Logger]:
+            info (dict): Freshly initialised empty metadata dictionary.
+            settings (dict): Updated settings with all folder-specific paths.
+            logger (logging.Logger): Logger with the updated file handler.
     """
     # initialise dictionaries
     info = {}
