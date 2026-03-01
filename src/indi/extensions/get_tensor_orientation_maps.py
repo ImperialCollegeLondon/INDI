@@ -161,10 +161,11 @@ def get_tensor_orientation_maps(
     info: dict,
     logger: logging.Logger,
 ) -> tuple[NDArray, NDArray, NDArray, dict]:
-    """Compute HA, TA, and E2A orientation maps and log summary statistics.
+    """Compute HA, TA, and E2A orientation maps and log E2A summary statistics.
 
-    Wraps :func:`get_ha_e2a_maps` and zeroes out values outside the LV
-    myocardium before logging median E2A per slice.
+    Wraps :func:`get_ha_e2a_maps` and sets values outside the LV myocardium
+    (i.e. where ``mask_3c != 1``) to ``np.nan`` before logging the median and
+    interquartile range of the absolute E2A per slice.
 
     Args:
         slices (NDArray): Slice indices to process and summarise.
