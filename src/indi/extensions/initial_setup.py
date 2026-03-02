@@ -97,6 +97,64 @@ def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Lo
     return settings
 
 
+def initial_setup_gui(
+    yaml_path: str,
+    data_folder: str,
+    extra_handlers: list | None = None,
+) -> tuple[dict, dict, dict, logging.Logger, logging.Formatter, list]:
+    """Perform initial pipeline setup for the GUI launcher, bypassing argparse.
+
+    Args:
+        yaml_path (str): Absolute path to the YAML settings file.
+        data_folder (str): Absolute path to the root data folder (overrides
+            any ``start_folder`` value in the YAML file).
+        extra_handlers (list | None): Additional :class:`logging.Handler`
+            instances to attach to the logger (e.g. a GUI queue handler).
+
+    Returns:
+        tuple: Same six-element tuple as :func:`initial_setup`.
+    """
+    log_format = logging.Formatter("%(levelname)s : %(asctime)s :: %(message)s")
+    logger = logging.getLogger("indi.gui")
+    logger.setLevel(logging.DEBUG)
+    # remove any previously attached handlers so we start fresh
+    logger.handlers.clear()
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_format)
+    console_handler.setLevel(logging.INFO)
+    logger.addHandler(console_handler)
+
+    if extra_handlers:
+        for handler in extra_handlers:
+            handler.setFormatter(log_format)
+            logger.addHandler(handler)
+
+    dti = {}
+
+    with open(yaml_path, "r") as handle:
+        settings = yaml.safe_load(handle)
+
+    settings["code_path"] = os.path.dirname(os.path.abspath(yaml_path))
+
+    if settings.get("debug"):
+        console_handler.setLevel(logging.DEBUG)
+
+    # Build a minimal namespace so solve_conflicts can work
+    class _Args:
+        start_folder = data_folder
+
+    settings = solve_conflicts(settings, _Args(), logger)
+
+    all_to_be_analysed_folders = glob.glob(settings["start_folder"] + "/**/diffusion_images", recursive=True)
+    all_to_be_analysed_folders.sort()
+    if len(all_to_be_analysed_folders) == 0:
+        logger.error("No subfolder named 'diffusion_images' found!")
+        raise FileNotFoundError("No subfolder named 'diffusion_images' found!")
+
+    return dti, settings, logger, log_format, all_to_be_analysed_folders
+
+
 def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, logging.Formatter, list]:
     """Perform initial pipeline setup: parse arguments, load settings, and configure logging.
 

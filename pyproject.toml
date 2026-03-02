@@ -78,6 +78,7 @@ doc = ["mkdocs", "mkdocs-material", "mkdocstrings[python]", "markdown-callouts"]
 
 [project.scripts]
 indi = "indi.scripts.main:main"
+indi-gui = "indi.scripts.gui:main"
 
 [tool.black]
 line-length = 119
