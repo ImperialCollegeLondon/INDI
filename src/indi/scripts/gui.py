@@ -37,9 +37,11 @@ from __future__ import annotations
 import logging
 import os
 import queue
+import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, font, messagebox, ttk
+from typing import Callable
 
 # ── Matplotlib must be configured before any pyplot import ─────────────────
 import matplotlib
@@ -48,7 +50,7 @@ matplotlib.use("TkAgg")  # share the tkinter event loop
 
 
 # ── Constants ──────────────────────────────────────────────────────────────
-_POLL_INTERVAL_MS = 80  # GUI polling interval (ms)
+_POLL_INTERVAL_MS = 40  # GUI polling interval (ms)
 _LOG_COLOURS = {
     "ERROR": "#f14c4c",
     "WARNING": "#cca700",
@@ -56,17 +58,52 @@ _LOG_COLOURS = {
     "DEBUG": "#888888",
 }
 
+_STEP_LABELS: tuple[str, ...] = (
+    "Initial setup",
+    "Read data",
+    "Phase correction",
+    "Image denoising",
+    "Image registration",
+    "Manual outliers pre",
+    "Average images",
+    "Heart segmentation",
+    "Remove slices",
+    "Crop FOV",
+    "Manual outliers post",
+    "Remove outliers",
+    "Record image registration",
+    "SNR maps",
+    "Complex averaging",
+    "Tensor fitting",
+    "Uformer denoise",
+    "Eigensystem",
+    "FA/MD/maps",
+    "Cardiac coordinates",
+    "LV segments",
+    "Tensor orientation maps",
+    "HA line profiles",
+    "Export results",
+    "Cleanup",
+)
+
 
 # ── Logging helper ─────────────────────────────────────────────────────────
 class _QueueHandler(logging.Handler):
-    """Logging handler that forwards records to a :class:`queue.Queue`."""
+    """Logging handler that forwards records to a :class:`queue.Queue` and optionally triggers a UI flush."""
 
-    def __init__(self, log_queue: queue.Queue[logging.LogRecord]) -> None:
+    def __init__(
+        self,
+        log_queue: queue.Queue[logging.LogRecord],
+        flush_ui: Callable[[], None] | None = None,
+    ) -> None:
         super().__init__()
         self._queue = log_queue
+        self._flush_ui = flush_ui
 
     def emit(self, record: logging.LogRecord) -> None:
         self._queue.put(record)
+        if self._flush_ui:
+            self._flush_ui()
 
 
 # ── Main application ───────────────────────────────────────────────────────
@@ -88,6 +125,8 @@ class INDIApp(tk.Tk):
 
         self._pipeline_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+        self._step_total = 1
+        self._step_progress = 0
 
         # result storage for cross-thread dialogues
         self._dialog_result: bool | None = None
@@ -95,6 +134,52 @@ class INDIApp(tk.Tk):
 
         self._build_ui()
         self._poll()  # start the recurring polling loop
+
+    # ------------------------------------------------------------------
+    # Thread helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _on_ui_thread() -> bool:
+        return threading.current_thread() is threading.main_thread()
+
+    def _run_on_ui(self, func: Callable[[], None]) -> None:
+        """Run *func* immediately when already on the UI thread, otherwise schedule via ``after``."""
+
+        if self._on_ui_thread():
+            func()
+        else:
+            self.after(0, func)
+
+    def _advance_progress(self, label: str, steps: int = 1) -> None:
+        """Advance the determinate progress bar and update the status label."""
+
+        self._step_progress += steps
+        current = self._step_progress
+        total = max(self._step_total, 1)
+
+        self._run_on_ui(
+            lambda c=current, t=total, lbl=label: (
+                self._progress.configure(value=min(c, t)),
+                self._status_var.set(f"{lbl} ({c}/{t})"),
+            )
+        )
+
+        # When running on the main thread, pump events so the UI paints immediately
+        self._pump_events()
+
+    def _pump_events(self) -> None:
+        """Process pending Tk events and flush logs when running long tasks on the UI thread."""
+
+        if not self._on_ui_thread():
+            return
+        try:
+            self._flush_log_queue()
+            self.update_idletasks()
+            self.update()
+        except tk.TclError:
+            # The window may have been closed while processing
+            pass
 
     # ------------------------------------------------------------------
     # UI construction
@@ -223,12 +308,23 @@ class INDIApp(tk.Tk):
         self._progress.start(10)
         self._status_var.set("Starting…")
 
-        self._pipeline_thread = threading.Thread(
-            target=self._pipeline_worker,
-            args=(yaml_path, data_folder),
-            daemon=True,
-        )
-        self._pipeline_thread.start()
+        start_on_main_thread = sys.platform == "darwin"
+
+        if start_on_main_thread:
+            # macOS requires all NSWindow creation (Matplotlib/Tk) to happen on the main thread
+            self._append_log(
+                "INFO",
+                "macOS detected – running pipeline on the main thread so Matplotlib windows can open.",
+            )
+            self._pipeline_thread = None
+            self.after(10, self._pipeline_worker_main_thread, yaml_path, data_folder)
+        else:
+            self._pipeline_thread = threading.Thread(
+                target=self._pipeline_worker,
+                args=(yaml_path, data_folder),
+                daemon=True,
+            )
+            self._pipeline_thread.start()
 
     def _on_stop(self) -> None:
         self._stop_event.set()
@@ -238,7 +334,7 @@ class INDIApp(tk.Tk):
     def _pipeline_done(self, error: Exception | None = None) -> None:
         """Reset controls after the pipeline thread finishes (main thread)."""
         self._progress.stop()
-        self._progress.configure(mode="determinate", value=100 if error is None else 0)
+        self._progress.configure(mode="determinate", value=self._step_total if error is None else 0)
         self._run_btn.configure(state="normal")
         self._stop_btn.configure(state="disabled")
         if error is None:
@@ -282,7 +378,17 @@ class INDIApp(tk.Tk):
         except Exception as exc:
             error = exc
         finally:
-            self.after(0, self._pipeline_done, error)
+            self._run_on_ui(lambda: self._pipeline_done(error))
+
+    def _pipeline_worker_main_thread(self, yaml_path: str, data_folder: str) -> None:
+        """Run the pipeline without a worker thread (needed for macOS Matplotlib/Tk windows)."""
+
+        error: Exception | None = None
+        try:
+            self._run_pipeline(yaml_path, data_folder)
+        except Exception as exc:
+            error = exc
+        self._pipeline_done(error)
 
     def _run_pipeline(self, yaml_path: str, data_folder: str) -> None:
         """Mirror of ``main.main()`` adapted for GUI execution."""
@@ -321,8 +427,12 @@ class INDIApp(tk.Tk):
         from indi.extensions.select_outliers import select_outliers
         from indi.extensions.tensor_fittings import dipy_tensor_fit
 
-        # Attach the queue handler so log records appear in the GUI panel
-        queue_handler = _QueueHandler(self._log_queue)
+        # Attach the queue handler so log records appear in the GUI panel and flush immediately
+        queue_handler = _QueueHandler(self._log_queue, flush_ui=lambda: self._run_on_ui(self._flush_log_queue))
+
+        root_logger = logging.getLogger()
+        if not any(isinstance(h, _QueueHandler) for h in root_logger.handlers):
+            root_logger.addHandler(queue_handler)
 
         colormaps = get_colourmaps()
 
@@ -332,15 +442,18 @@ class INDIApp(tk.Tk):
 
         settings["screen_size"] = pyautogui.size()
         n_folders = len(all_to_be_analysed_folders)
+        steps_per_folder = len(_STEP_LABELS)
 
-        # Switch progress bar to determinate now we know the folder count
-        self.after(
-            0,
+        self._step_total = max(1, n_folders * steps_per_folder)
+        self._step_progress = 0
+
+        # Switch progress bar to determinate now we know the total step count
+        self._run_on_ui(
             lambda: (
                 self._progress.stop(),
-                self._progress.configure(mode="determinate", maximum=n_folders, value=0),
-                self._status_var.set(f"0 / {n_folders} folders"),
-            ),
+                self._progress.configure(mode="determinate", maximum=self._step_total, value=0),
+                self._status_var.set(f"Starting… (0/{self._step_total})"),
+            )
         )
 
         # Anonymisation confirmation via GUI dialogue instead of stdin
@@ -359,35 +472,47 @@ class INDIApp(tk.Tk):
                 logger.warning("Pipeline stopped by user.")
                 break
 
-            self.after(
-                0,
-                lambda fi=folder_idx, n=n_folders: (
-                    self._progress.configure(value=fi - 1),
-                    self._status_var.set(f"Folder {fi} / {n}"),
-                ),
-            )
+            step_idx = 0
+
+            def advance(label: str, steps: int = 1) -> None:
+                nonlocal step_idx
+                step_idx += steps
+                self._advance_progress(label, steps)
+
+            self._pump_events()
 
             try:
                 info, settings, logger = folder_loop_initial_setup(current_folder, settings, logger, log_format)
+                advance(_STEP_LABELS[0])
 
                 [data, info, slices] = read_data(settings, info, logger)
+                advance(_STEP_LABELS[1])
 
                 if settings["workflow_mode"] == "anon":
                     logger.info("Anonymisation-only mode. Stopping here.")
+                    advance("Anonymisation-only stop", steps=len(_STEP_LABELS) - step_idx)
                     continue
 
                 if settings["complex_data"]:
                     data = phase_correction_for_complex_averaging(data, logger, settings)
+                    advance(_STEP_LABELS[2])
+                else:
+                    advance(f"{_STEP_LABELS[2]} (skipped)")
 
                 if settings["image_denoising"]:
                     data = image_denoising(data, logger, settings)
+                    advance(_STEP_LABELS[3])
+                else:
+                    advance(f"{_STEP_LABELS[3]} (skipped)")
 
                 data, registration_image_data, ref_images, reg_mask = image_registration(
                     data, slices, info, settings, logger
                 )
+                advance(_STEP_LABELS[4])
 
                 if settings["workflow_mode"] == "reg":
                     logger.info("Registration-only mode. Stopping here.")
+                    advance("Registration-only stop", steps=len(_STEP_LABELS) - step_idx)
                     continue
 
                 if settings["remove_outliers_manually_pre"]:
@@ -404,18 +529,23 @@ class INDIApp(tk.Tk):
                         mask=reg_mask,
                         prelim_residuals={},
                     )
+                    advance(_STEP_LABELS[5])
                 else:
                     logger.info("Manual removal of outliers pre segmentation is False")
                     info["rejected_indices"] = []
                     info["n_images_rejected"] = 0
+                    advance(f"{_STEP_LABELS[5]} (skipped)")
 
                 average_images = get_average_images(data, slices, info, logger)
+                advance(_STEP_LABELS[6])
 
                 segmentation, mask_3c, prelim_residuals = heart_segmentation(
                     data, average_images, slices, info["n_slices"], colormaps, settings, info, logger
                 )
+                advance(_STEP_LABELS[7])
 
                 data, slices, segmentation = remove_slices(data, slices, segmentation, logger)
+                advance(_STEP_LABELS[8])
 
                 dti, data, mask_3c, reg_mask, segmentation, average_images, info, crop_mask = crop_fov(
                     dti,
@@ -431,6 +561,7 @@ class INDIApp(tk.Tk):
                     logger,
                     settings,
                 )
+                advance(_STEP_LABELS[9])
 
                 logger.info("Manual removal of outliers – post segmentation")
                 [data, info, slices] = select_outliers(
@@ -445,17 +576,24 @@ class INDIApp(tk.Tk):
                     mask=reg_mask,
                     prelim_residuals=prelim_residuals,
                 )
+                advance(_STEP_LABELS[10])
 
                 data, info = remove_outliers(data, info, settings)
+                advance(_STEP_LABELS[11])
 
                 record_image_registration(registration_image_data, ref_images, mask_3c, slices, settings, logger)
+                advance(_STEP_LABELS[12])
 
                 [dti["snr"], noise, snr_b0_lv, info] = get_snr_maps(
                     data, mask_3c, average_images, slices, settings, logger, info
                 )
+                advance(_STEP_LABELS[13])
 
                 if settings["complex_data"]:
                     data = complex_averaging(data, logger)
+                    advance(_STEP_LABELS[14])
+                else:
+                    advance(f"{_STEP_LABELS[14]} (skipped)")
 
                 (
                     dti["tensor"],
@@ -475,6 +613,7 @@ class INDIApp(tk.Tk):
                     method=settings["tensor_fit_method"],
                     quick_mode=False,
                 )
+                advance(_STEP_LABELS[15])
 
                 if settings["uformer_denoise"]:
                     try:
@@ -487,24 +626,31 @@ class INDIApp(tk.Tk):
                         settings["uformer_breatholds"],
                     )
                     dti["tensor"] = denoise_tensor(dti["tensor"], settings)
+                    advance(_STEP_LABELS[16])
                 else:
                     logger.info("Uformer tensor denoising is disabled")
+                    advance(f"{_STEP_LABELS[16]} (skipped)")
 
                 dti, info = get_eigensystem(dti, slices, info, average_images, settings, mask_3c, logger)
+                advance(_STEP_LABELS[17])
 
                 dti["md"], dti["fa"], dti["mode"], dti["frob_norm"], dti["mag_anisotropy"], info = get_fa_md(
                     dti["eigenvalues"], info, mask_3c, slices, logger
                 )
+                advance(_STEP_LABELS[18])
 
                 local_cardiac_coordinates, lv_centres, phi_matrix = get_cardiac_coordinates_short_axis(
                     mask_3c, segmentation, slices, info["n_slices"], settings, dti, average_images, info
                 )
+                advance(_STEP_LABELS[19])
 
                 dti["lv_sectors"] = get_lv_segments(segmentation, phi_matrix, mask_3c, lv_centres, slices, logger)
+                advance(_STEP_LABELS[20])
 
                 dti["ha"], dti["ta"], dti["e2a"], info = get_tensor_orientation_maps(
                     slices, mask_3c, local_cardiac_coordinates, dti, settings, info, logger
                 )
+                advance(_STEP_LABELS[21])
 
                 (
                     dti["ha_line_profiles"],
@@ -525,6 +671,7 @@ class INDIApp(tk.Tk):
                     average_images,
                     logger,
                 )
+                advance(_STEP_LABELS[22])
 
                 export_results(
                     data,
@@ -538,6 +685,7 @@ class INDIApp(tk.Tk):
                     colormaps,
                     logger,
                 )
+                advance(_STEP_LABELS[23])
 
                 logger.info("Cleaning up before the next folder")
                 del (
@@ -557,14 +705,18 @@ class INDIApp(tk.Tk):
                     snr_b0_lv,
                 )
                 dti = {}
+                advance(_STEP_LABELS[24])
 
                 logger.info("=" * 60)
                 logger.info("FINISHED folder %d / %d", folder_idx, n_folders)
                 logger.info("=" * 60)
 
-                self.after(0, lambda fi=folder_idx: self._progress.configure(value=fi))
+                self._pump_events()
 
             except Exception as exc:
+                remaining = len(_STEP_LABELS) - step_idx
+                if remaining > 0:
+                    advance("Error – fast-forward", steps=remaining)
                 failed_folders.append(os.path.dirname(current_folder))
                 logger.error("Error in folder: %s", os.path.dirname(current_folder))
                 logger.error(exc)
