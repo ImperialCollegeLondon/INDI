@@ -17,6 +17,11 @@ import scipy.ndimage
 from dotenv import dotenv_values
 from numpy.typing import NDArray
 
+from indi.extensions.find_rr_outliers import (
+    check_mostly_identical_mad,
+    detect_outliers_mad,
+    detect_outliers_percentage,
+)
 from indi.extensions.read_data.dicom_to_h5_csv import (
     add_missing_columns,
     check_global_info,
@@ -533,9 +538,21 @@ def estimate_rr_interval(data: pd.DataFrame, settings: dict) -> pd.DataFrame:
             time_delta = np.diff(time_stamps)
         # prepend nan to the time delta
         time_delta = np.insert(time_delta, 0, np.nan)
-        # get median time delta, and replace values above 4x the median with nan
-        median_time = np.nanmedian(time_delta)
-        time_delta[time_delta > 4 * median_time] = np.nan
+
+        # remove outliers, but first detect if this is in-vivo or phantom.
+        # Phantom data has mostly idential time deltas,
+        # while in-vivo data has more variability.
+        # So the detection of outliers requires different statistical approaches.
+        is_mostly_identical, mad, median = check_mostly_identical_mad(time_delta)
+
+        if is_mostly_identical:
+            mask, outliers = detect_outliers_percentage(time_delta)
+        else:
+            mask, outliers = detect_outliers_mad(time_delta)
+
+        # change to nan outliers in the time delta
+        time_delta[mask] = np.nan
+
         # add time delta to the dataframe
         data["estimated_rr_interval"] = time_delta
         # replace nans with the next non-nan value

@@ -1329,6 +1329,9 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
                 c_vals = dti["snr"][slice_idx][key]
                 c_vals = c_vals[~np.isnan(c_vals)]
                 c_vals = c_vals[np.isfinite(c_vals)]
+                # check if c_vals is not empty
+                if len(c_vals) == 0:
+                    continue
                 table_per_slice.append(
                     [
                         "SNR_" + key + "_slice_" + str(slice_idx).zfill(2),
