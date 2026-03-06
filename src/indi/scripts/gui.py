@@ -43,6 +43,26 @@ import tkinter as tk
 from tkinter import filedialog, font, messagebox, ttk
 from typing import Callable
 
+import yaml
+
+try:
+    from pygments import lex
+    from pygments.lexers.data import YamlLexer
+    from pygments.styles import get_style_by_name
+    from pygments.token import Token
+
+    _HAVE_PYGMENTS = True
+    # Try to load atom-one-dark, fall back to monokai-inspired dark theme
+    try:
+        _PYGMENTS_STYLE = get_style_by_name("one-dark")
+    except Exception:
+        _PYGMENTS_STYLE = get_style_by_name("monokai")
+except ImportError:  # pragma: no cover - optional dependency
+    _HAVE_PYGMENTS = False
+    YamlLexer = None  # type: ignore
+    Token = None  # type: ignore
+    _PYGMENTS_STYLE = None  # type: ignore
+
 # ── Matplotlib must be configured before any pyplot import ─────────────────
 import matplotlib
 
@@ -127,6 +147,9 @@ class INDIApp(tk.Tk):
         self._stop_event = threading.Event()
         self._step_total = 1
         self._step_progress = 0
+        self._yaml_loaded_path: str | None = None
+        self._highlight_after_id: str | None = None
+        self._pygments_warned = False
 
         # result storage for cross-thread dialogues
         self._dialog_result: bool | None = None
@@ -196,7 +219,9 @@ class INDIApp(tk.Tk):
         # YAML file row
         ttk.Label(top, text="YAML settings file:").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=3)
         self._yaml_var = tk.StringVar()
-        ttk.Entry(top, textvariable=self._yaml_var).grid(row=0, column=1, sticky="ew", padx=4, pady=3)
+        yaml_entry = ttk.Entry(top, textvariable=self._yaml_var)
+        yaml_entry.grid(row=0, column=1, sticky="ew", padx=4, pady=3)
+        yaml_entry.bind("<FocusOut>", lambda _e: self._maybe_load_yaml_from_var())
         ttk.Button(top, text="Browse…", command=self._browse_yaml).grid(
             row=0, column=2, sticky="w", padx=(4, 0), pady=3
         )
@@ -225,11 +250,16 @@ class INDIApp(tk.Tk):
         )
         self._stop_btn.pack(side="left")
 
-        # ── Middle: log output panel ──────────────────────────────────
-        log_frame = ttk.LabelFrame(self, text="Log output", padding=PAD)
-        log_frame.pack(fill="both", expand=True, padx=PAD, pady=(PAD, 0))
+        # ── Middle: split pane for log output and YAML settings ──────
+        paned = ttk.Panedwindow(self, orient="horizontal")
+        paned.pack(fill="both", expand=True, padx=PAD, pady=(PAD, 0))
 
         mono = font.Font(family="Courier", size=10)
+
+        # Log panel
+        log_frame = ttk.LabelFrame(paned, text="Log output", padding=PAD)
+        paned.add(log_frame, weight=3)
+
         self._log_text = tk.Text(
             log_frame,
             state="disabled",
@@ -245,9 +275,71 @@ class INDIApp(tk.Tk):
         log_scroll.pack(side="right", fill="y")
         self._log_text.configure(yscrollcommand=log_scroll.set)
 
-        # Colour tags for log levels
         for level, colour in _LOG_COLOURS.items():
             self._log_text.tag_configure(level, foreground=colour)
+
+        # YAML settings panel
+        yaml_frame = ttk.LabelFrame(paned, text="YAML settings", padding=PAD)
+        paned.add(yaml_frame, weight=2)
+
+        yaml_controls = ttk.Frame(yaml_frame)
+        yaml_controls.pack(fill="x", pady=(0, 6))
+
+        ttk.Button(yaml_controls, text="Reload", command=self._reload_yaml_from_disk).pack(side="left", padx=(0, 6))
+        ttk.Button(yaml_controls, text="Save", command=self._save_yaml_from_editor).pack(side="left")
+
+        self._yaml_text = tk.Text(
+            yaml_frame,
+            wrap="none",
+            font=mono,
+            background="#1e1e1e",
+            foreground="#d4d4d4",
+            insertbackground="white",
+        )
+        self._yaml_text.pack(side="left", fill="both", expand=True)
+
+        if _HAVE_PYGMENTS:
+            # Get colors from the Pygments style dictionary
+            def get_color(token_type: type, fallback: str) -> str:
+                """Extract foreground color from Pygments style string, fall back to hardcoded color."""
+                try:
+                    if token_type in _PYGMENTS_STYLE.styles:
+                        style_str = _PYGMENTS_STYLE.styles[token_type]
+                        if style_str:
+                            # Style string format: "#RRGGBB" or "#RRGGBB bold italic" or "#RRGGBB bg:#RRGGBB"
+                            # Extract the first token (foreground color)
+                            first_token = style_str.split()[0]
+                            if first_token.startswith("#"):
+                                return first_token
+                except Exception:
+                    pass
+                return fallback
+
+            # Configure tags using Pygments style theme
+            self._yaml_text.tag_configure("yaml-key", foreground=get_color(Token.Name, "#4ec9b0"), overstrike=False)
+            self._yaml_text.tag_configure(
+                "yaml-string", foreground=get_color(Token.Literal.String, "#ce9178"), overstrike=False
+            )
+            self._yaml_text.tag_configure(
+                "yaml-number", foreground=get_color(Token.Literal.Number, "#b5cea8"), overstrike=False
+            )
+            self._yaml_text.tag_configure(
+                "yaml-bool", foreground=get_color(Token.Keyword, "#569cd6"), overstrike=False
+            )
+            self._yaml_text.tag_configure(
+                "yaml-comment", foreground=get_color(Token.Comment, "#6a9955"), overstrike=False
+            )
+            self._yaml_text.tag_configure(
+                "yaml-punct", foreground=get_color(Token.Punctuation, "#9cdcfe"), overstrike=False
+            )
+
+            self._yaml_text.bind("<<Modified>>", self._on_yaml_modified)
+            self._yaml_text.bind("<KeyRelease>", self._on_yaml_modified)
+            self._yaml_text.edit_modified(False)
+
+        yaml_scroll = ttk.Scrollbar(yaml_frame, command=self._yaml_text.yview)
+        yaml_scroll.pack(side="right", fill="y")
+        self._yaml_text.configure(yscrollcommand=yaml_scroll.set)
 
         # ── Bottom: progress bar ──────────────────────────────────────
         bot = ttk.Frame(self, padding=(PAD, PAD // 2))
@@ -274,11 +366,174 @@ class INDIApp(tk.Tk):
         )
         if path:
             self._yaml_var.set(path)
+            self._load_yaml_into_editor(path)
 
     def _browse_data(self) -> None:
         path = filedialog.askdirectory(title="Select data root folder")
         if path:
             self._data_var.set(path)
+
+    # ------------------------------------------------------------------
+    # YAML editor helpers
+    # ------------------------------------------------------------------
+
+    def _maybe_load_yaml_from_var(self) -> None:
+        path = self._yaml_var.get().strip()
+        if not path or path == self._yaml_loaded_path:
+            return
+        if os.path.isfile(path):
+            self._load_yaml_into_editor(path)
+
+    def _load_yaml_into_editor(self, path: str) -> None:
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                content = handle.read()
+        except OSError as exc:
+            messagebox.showerror("File error", f"Could not read YAML file:\n\n{exc}")
+            self._append_log("ERROR", f"Could not read YAML file: {exc}")
+            return
+
+        self._yaml_text.configure(state="normal")
+        self._yaml_text.delete("1.0", "end")
+        self._yaml_text.insert("1.0", content)
+        self._yaml_loaded_path = path
+        self._apply_yaml_highlight()
+        self._append_log("INFO", f"Loaded YAML settings from {path}")
+
+    def _reload_yaml_from_disk(self) -> None:
+        path = self._yaml_var.get().strip()
+        if not path:
+            messagebox.showinfo("No file", "Please select a YAML settings file first.")
+            return
+        if not os.path.isfile(path):
+            messagebox.showerror("File not found", f"YAML file not found:\n\n{path}")
+            return
+        self._load_yaml_into_editor(path)
+
+    def _save_yaml_from_editor(self) -> bool:
+        path = self._yaml_var.get().strip()
+        if not path:
+            messagebox.showerror("No file", "Please select a YAML settings file before saving.")
+            return False
+
+        content = self._yaml_text.get("1.0", "end-1c")
+        if not content.strip():
+            messagebox.showerror("Empty YAML", "The YAML settings are empty. Please add settings before running.")
+            return False
+
+        try:
+            parsed = yaml.safe_load(content)
+            if not isinstance(parsed, dict):
+                raise ValueError("The YAML file must contain a mapping at the top level.")
+        except Exception as exc:
+            messagebox.showerror("Invalid YAML", f"Please fix the YAML content before running:\n\n{exc}")
+            self._append_log("ERROR", f"Invalid YAML: {exc}")
+            return False
+
+        try:
+            with open(path, "w", encoding="utf-8") as handle:
+                if content.endswith("\n"):
+                    handle.write(content)
+                else:
+                    handle.write(content + "\n")
+        except OSError as exc:
+            messagebox.showerror("Write error", f"Could not save YAML settings:\n\n{exc}")
+            self._append_log("ERROR", f"Could not save YAML settings: {exc}")
+            return False
+
+        self._yaml_loaded_path = path
+        self._append_log("INFO", f"Saved YAML settings to {path}")
+        self._apply_yaml_highlight()
+        return True
+
+    def _on_yaml_modified(self, _event: tk.Event) -> None:
+        if not _HAVE_PYGMENTS:
+            return
+        if not self._yaml_text.edit_modified():
+            return
+        self._yaml_text.edit_modified(False)
+        if self._highlight_after_id:
+            self.after_cancel(self._highlight_after_id)
+        self._highlight_after_id = self.after(120, self._apply_yaml_highlight)
+
+    def _apply_yaml_highlight(self) -> None:
+        if not _HAVE_PYGMENTS:
+            if not self._pygments_warned:
+                self._append_log(
+                    "INFO", "Install 'pygments' to enable YAML syntax highlighting (e.g. pip install pygments)"
+                )
+                self._pygments_warned = True
+            return
+
+        content = self._yaml_text.get("1.0", "end-1c")
+
+        # Remove all old tags
+        for tag in ("yaml-key", "yaml-string", "yaml-number", "yaml-bool", "yaml-comment", "yaml-punct"):
+            self._yaml_text.tag_remove(tag, "1.0", "end")
+
+        line = 1
+        col = 0
+        added = 0
+        try:
+            for token, text in lex(content, YamlLexer()):
+                if not text:
+                    continue
+
+                start_line, start_col = line, col
+                for ch in text:
+                    if ch == "\n":
+                        line += 1
+                        col = 0
+                    else:
+                        col += 1
+                end_line, end_col = line, col
+
+                tag = None
+                if token in Token.Comment:
+                    tag = "yaml-comment"
+                elif token in (
+                    Token.Literal.Number,
+                    Token.Literal.Number.Integer,
+                    Token.Literal.Number.Float,
+                ):
+                    tag = "yaml-number"
+                elif token in (
+                    Token.Keyword,
+                    Token.Keyword.Constant,
+                    Token.Keyword.Pseudo,
+                ):
+                    tag = "yaml-bool"
+                elif token in (
+                    Token.Literal.String,
+                    Token.Literal.String.Double,
+                    Token.Literal.String.Single,
+                    Token.Literal.Scalar,
+                    Token.Literal.Scalar.Plain,
+                    Token.Literal.Scalar.Other,
+                    Token.Literal.Scalar.BlockScalar,
+                ):
+                    tag = "yaml-string"
+                elif token in (
+                    Token.Name,
+                    Token.Name.Tag,
+                    Token.Name.Attribute,
+                    Token.Name.Variable,
+                    Token.Name.Other,
+                ):
+                    tag = "yaml-key"
+                elif token in (Token.Punctuation, Token.Operator):
+                    tag = "yaml-punct"
+
+                if tag:
+                    start = f"{start_line}.{start_col}"
+                    end = f"{end_line}.{end_col}"
+                    self._yaml_text.tag_add(tag, start, end)
+                    added += 1
+        except Exception as exc:  # pragma: no cover - defensive
+            self._append_log("ERROR", f"YAML highlighting failed: {exc}")
+            return
+
+        self._highlight_after_id = None
 
     # ------------------------------------------------------------------
     # Run / Stop
@@ -287,6 +542,8 @@ class INDIApp(tk.Tk):
     def _on_run(self) -> None:
         yaml_path = self._yaml_var.get().strip()
         data_folder = self._data_var.get().strip()
+
+        self._maybe_load_yaml_from_var()
 
         if not yaml_path:
             self._append_log("ERROR", "Please select a YAML settings file.")
@@ -299,6 +556,9 @@ class INDIApp(tk.Tk):
             return
         if not os.path.isdir(data_folder):
             self._append_log("ERROR", f"Data folder not found: {data_folder}")
+            return
+
+        if not self._save_yaml_from_editor():
             return
 
         self._stop_event.clear()
