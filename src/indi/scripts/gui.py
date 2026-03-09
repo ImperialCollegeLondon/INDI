@@ -40,6 +40,7 @@ import queue
 import sys
 import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, font, messagebox, ttk
 from typing import Callable
 
@@ -139,6 +140,9 @@ class INDIApp(tk.Tk):
         self.title("INDI – Cardiac Diffusion Tensor Processing")
         self.resizable(True, True)
         self.minsize(720, 520)
+        self._window_icon: tk.PhotoImage | None = None
+
+        self._set_app_icon()
 
         self._log_queue: queue.Queue[logging.LogRecord] = queue.Queue()
         self._dialog_queue: queue.Queue[tuple] = queue.Queue()
@@ -157,6 +161,41 @@ class INDIApp(tk.Tk):
 
         self._build_ui()
         self._poll()  # start the recurring polling loop
+
+    def _resolve_icon_path(self, filename: str) -> str | None:
+        """Resolve icon files from the repo root first, then from the current working directory."""
+
+        script_path = Path(__file__).resolve()
+        repo_root = script_path.parents[3] if len(script_path.parents) > 3 else script_path.parent
+        candidates = (
+            repo_root / "assets" / "app_icon" / filename,
+            Path.cwd() / "assets" / "app_icon" / filename,
+        )
+
+        for candidate in candidates:
+            if candidate.is_file():
+                return str(candidate)
+        return None
+
+    def _set_app_icon(self) -> None:
+        """Set the application/window icon using the project's icon assets."""
+
+        icns_path = self._resolve_icon_path("app_icon.icns")
+        if icns_path:
+            try:
+                self.iconbitmap(default=icns_path)
+                return
+            except tk.TclError:
+                # Some Tk builds cannot load .icns directly.
+                pass
+
+        png_path = self._resolve_icon_path("app_icon.png")
+        if png_path:
+            try:
+                self._window_icon = tk.PhotoImage(file=png_path)
+                self.iconphoto(True, self._window_icon)
+            except tk.TclError:
+                pass
 
     # ------------------------------------------------------------------
     # Thread helpers
