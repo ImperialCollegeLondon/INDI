@@ -900,6 +900,7 @@ class INDIApp(tk.Tk):
                     dti["residuals_plot"],
                     dti["residuals_map"],
                     _,
+                    _,
                     info,
                 ) = dipy_tensor_fit(
                     slices,

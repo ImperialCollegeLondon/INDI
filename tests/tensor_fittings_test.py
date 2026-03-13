@@ -65,7 +65,7 @@ def test_dipy_tensor_fit(tmp_path, debug, method, logger):
     settings["tensor_fit_method"] = method
 
     # calculate tensors with DiPy functions
-    tensor, s0, residuals_img, residuals_map, residuals_img_all, info = dipy_tensor_fit(
+    tensor, s0, residuals_img, residuals_map, residuals_img_all, average_signals, info = dipy_tensor_fit(
         slices=slices,
         data=table,
         info=info,
