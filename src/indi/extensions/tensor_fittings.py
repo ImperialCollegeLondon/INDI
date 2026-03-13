@@ -51,7 +51,7 @@ def plot_average_signals(average_signals: NDArray, slice_idx: int, settings: dic
     Plot the average myocardial signals per image and save the figure.
 
     Args:
-        residuals (NDArray): Residuals per image (averaged over myocardial voxels).
+        average_signals (NDArray): Average signals per image (averaged over myocardial voxels).
         slice_idx (int): Index of the slice being plotted.
         settings (dict): Dictionary with configuration and output paths.
         prefix (str, optional): Prefix for the output file name. Defaults to "".
@@ -61,7 +61,7 @@ def plot_average_signals(average_signals: NDArray, slice_idx: int, settings: dic
     """
     plt.figure(figsize=(5, 5))
     plt.subplot(1, 1, 1)
-    plt.plot(average_signals)
+    plt.plot(average_signals, linestyle="", marker="o", markersize=3)
     plt.xlabel("image #")
     plt.ylabel("signal (AU)")
     plt.tick_params(axis="both", which="major")
