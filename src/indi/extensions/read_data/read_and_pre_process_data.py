@@ -605,10 +605,10 @@ def plot_b_values_adjustment(data: pd.DataFrame, settings: dict) -> None:
     plt.figure(figsize=(5, 5))
     plt.subplot(1, 1, 1)
     if "nominal_interval" in data:
-        plt.plot(data["nominal_interval"], alpha=0.8, linestyle="", marker="o", markersize=3)
+        plt.plot(data["nominal_interval"], alpha=0.8, linestyle="", marker="o", markersize=3, label="nominal")
     if settings["sequence_type"] == "steam":
-        plt.plot(data["estimated_rr_interval"], alpha=0.8, linestyle="", marker="o", markersize=3)
-    plt.legend(["nominal", "acq times"])
+        plt.plot(data["estimated_rr_interval"], alpha=0.8, linestyle="", marker="o", markersize=3, label="acq times")
+    plt.legend()
     plt.xlabel("image #")
     plt.ylabel("nominal intervals")
     plt.ylim([0, 2000])

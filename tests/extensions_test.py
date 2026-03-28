@@ -163,10 +163,6 @@ def test_get_cylindrical_coordinates_short_axis():
     circ_true = mask_xyz * cardiac_coordinates["circumferential_component"]
     radial_true = mask_xyz * cardiac_coordinates["radial_component"]
 
-    # mock settings
-    settings = {}
-
-    settings["debug"] = False
     local_cardiac_coordinates = get_cylindrical_coordinates_short_axis(mask)
     long_calculated = mask_xyz * local_cardiac_coordinates["long"]
     circ_calculated = mask_xyz * local_cardiac_coordinates["circ"]
