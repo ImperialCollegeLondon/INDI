@@ -126,7 +126,7 @@ def heart_segmentation(
             )
 
             # get basic tensor fit and residuals
-            tensor, _, _, _, temp_residuals, info = dipy_tensor_fit(
+            tensor, _, _, _, temp_residuals, _, info = dipy_tensor_fit(
                 [slice_idx],
                 data,
                 info,
@@ -155,7 +155,7 @@ def heart_segmentation(
 
         else:
             # get residuals of a preliminary basic tensor fit
-            _, _, _, _, temp_residuals, info = dipy_tensor_fit(
+            _, _, _, _, temp_residuals, _, info = dipy_tensor_fit(
                 [slice_idx],
                 data,
                 info,
