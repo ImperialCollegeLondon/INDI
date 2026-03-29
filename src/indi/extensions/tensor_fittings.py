@@ -351,21 +351,25 @@ def dipy_tensor_fit(
         residuals_map[slice_idx] = res_map
         # also save the non-averaged residuals
         residuals_img_all[slice_idx] = np.squeeze(res)
-        # save the average signal per image
-        myo_signals = np.squeeze(
-            np.reshape(
-                image_data, [image_data.shape[0] * image_data.shape[1], image_data.shape[2], image_data.shape[3]]
+
+        if not quick_mode:
+            # save the average signal per image
+            myo_signals = np.squeeze(
+                np.reshape(
+                    image_data, [image_data.shape[0] * image_data.shape[1], image_data.shape[2], image_data.shape[3]]
+                )
             )
-        )
-        myo_signals = np.nanmean(myo_signals[myo_pxs, :], axis=0)
-        average_signals[slice_idx] = myo_signals
+            myo_signals = np.nanmean(myo_signals[myo_pxs, :], axis=0)
+            average_signals[slice_idx] = myo_signals
 
-        # z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
+            # z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
 
-        if settings["debug"]:
-            plot_residuals_plot(res_img, slice_idx, settings, prefix="")
-            plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
-            plot_average_signals(myo_signals, slice_idx, settings, prefix="")
+            if settings["debug"]:
+                plot_residuals_plot(res_img, slice_idx, settings, prefix="")
+                plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
+                plot_average_signals(myo_signals, slice_idx, settings, prefix="")
+        else:
+            average_signals[slice_idx] = None
 
     if message_tensor_fitting_flag == 0:
         logger.info("Tensor fitting used: b-values and b-matrix")
