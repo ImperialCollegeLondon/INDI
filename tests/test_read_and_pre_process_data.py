@@ -65,9 +65,11 @@ def create_test_images_h5(folder, n=3, shape=(2, 2)):
 def test_read_and_process_pandas_basic(logger, basic_settings):
     """Validate successful load of magnitude-only datasets."""
     # Setup
-    # dicom_folder = basic_settings["dicom_folder"]
-    # df = create_test_data_gz(dicom_folder)
-    # arr = create_test_images_h5(dicom_folder, n=3, shape=(2, 2))
+    dicom_folder = basic_settings["dicom_folder"]
+
+    # Create mag data
+    create_test_data_gz(dicom_folder)
+    create_test_images_h5(dicom_folder)
 
     # Run
     data, data_phase, info = read_and_process_pandas(logger, basic_settings)

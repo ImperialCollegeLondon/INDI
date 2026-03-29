@@ -255,16 +255,18 @@ def main() -> None:
             # =========================================================
             # Calculate tensor
             # =========================================================
-            dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], _, info = dipy_tensor_fit(
-                slices,
-                data,
-                info,
-                settings,
-                mask_3c,
-                average_images,
-                logger,
-                method=settings["tensor_fit_method"],
-                quick_mode=False,
+            dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], _, dti["average_signals"], info = (
+                dipy_tensor_fit(
+                    slices,
+                    data,
+                    info,
+                    settings,
+                    mask_3c,
+                    average_images,
+                    logger,
+                    method=settings["tensor_fit_method"],
+                    quick_mode=False,
+                )
             )
 
             # =========================================================
