@@ -293,27 +293,26 @@ def dipy_tensor_fit(
         # remove any images that have been marked to be removed
         current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
 
-        # At the moment the b-matrix is deactivated, because it is not taking into account the small
-        # diffusion weighting of the b0 images, and the b-value adjustment for STEAM. We may be able to use the
-        # b-matrix in the future, but for now we will use the b-values and b-vectors for tensor fitting.
-        # These limitations of the b-matrix need to be addressed in the sequence first.
+        # At the moment the b-matrix is deactivated for the STEAM sequence
+        # because it is not taking into account the small diffusion weighting
+        # of the b0 images, and the b-value adjustment for STEAM.
 
-        # if not current_entries["bmatrix"].isnull().all():
-        #     # If the b-matrix is present, we should use it instead of b-values and b-vectors
-        #     if i == 0:
-        #         message_tensor_fitting_flag = 0
-        #     bmatrix = np.stack(current_entries["bmatrix"].values)
-        #     vals, vectors = np.linalg.eigh(bmatrix)
-        #     idx = vals.argsort(axis=1)[:, ::-1]
-        #     gradient = np.array([vectors[i, :, idx[i, 0]] for i in range(vals.shape[0])])
-        #     bvals = np.trace(bmatrix, axis1=-1, axis2=-2)
-        #     gtab = gradient_table(bvals, bvecs=gradient, btens=bmatrix)
-        # else:
-        if i == 0:
-            message_tensor_fitting_flag = 1
-        bvals = current_entries["b_value"].values
-        bvecs = np.vstack(current_entries["diffusion_direction"])
-        gtab = gradient_table(bvals, bvecs=bvecs)
+        if not current_entries["bmatrix"].isnull().all() and settings["sequence_type"] == "se":
+            # If the b-matrix is present, we should use it instead of b-values and b-vectors
+            if i == 0:
+                message_tensor_fitting_flag = 0
+            bmatrix = np.stack(current_entries["bmatrix"].values)
+            vals, vectors = np.linalg.eigh(bmatrix)
+            idx = vals.argsort(axis=1)[:, ::-1]
+            gradient = np.array([vectors[i, :, idx[i, 0]] for i in range(vals.shape[0])])
+            bvals = np.trace(bmatrix, axis1=-1, axis2=-2)
+            gtab = gradient_table(bvals, bvecs=gradient, btens=bmatrix)
+        else:
+            if i == 0:
+                message_tensor_fitting_flag = 1
+            bvals = current_entries["b_value"].values
+            bvecs = np.vstack(current_entries["diffusion_direction"])
+            gtab = gradient_table(bvals, bvecs=bvecs)
 
         image_data = np.stack(current_entries["image"])
         image_data = image_data[..., np.newaxis]
@@ -372,7 +371,7 @@ def dipy_tensor_fit(
             average_signals[slice_idx] = np.array([])
 
     if message_tensor_fitting_flag == 0:
-        logger.info("Tensor fitting used: b-values and b-matrix")
+        logger.info("Tensor fitting used: b-matrix")
     elif message_tensor_fitting_flag == 1:
         logger.info("Tensor fitting used: b-values and b-vecs")
 
