@@ -314,8 +314,8 @@ class Actions:
             ax_seg, select_epi, useblit=True, num_points=num_points, curve_props=spline_props, props=line_props
         )
 
-        (self.endo_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
-        (self.epi_preview,) = self.ax_preview.plot([], [], color="tab:orange", lw=2, alpha=0.5)
+        (self.endo_preview,) = self.ax_preview.plot([], [], color="tab:purple", lw=2, alpha=1.0)
+        (self.epi_preview,) = self.ax_preview.plot([], [], color="tab:purple", lw=2, alpha=1.0)
         (self.ip_preview,) = self.ax_preview.plot([], [], "X", color="tab:green", markersize=8, alpha=0.8)
 
         if initial_epi_poly is not None:
