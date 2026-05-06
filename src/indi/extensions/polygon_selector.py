@@ -309,6 +309,18 @@ class PolygonSelectorSpline(_SelectorWidget):
                     if min_dist > dist:
                         min_dist = dist
                         index = i
+                else:
+                    # If the perpendicular from p3 to the line p1-p2 does not
+                    # intersect the line segment, check the distance to the
+                    # endpoints.
+                    dist_to_p1 = np.hypot(p3[0] - p1[0], p3[1] - p1[1])
+                    dist_to_p2 = np.hypot(p3[0] - p2[0], p3[1] - p2[1])
+                    if min_dist > dist_to_p1:
+                        min_dist = dist_to_p1
+                        index = i
+                    if min_dist > dist_to_p2:
+                        min_dist = dist_to_p2
+                        index = i + 1
             self._xys.insert(index + 1, p3)
             self._draw_polygon()
 
@@ -321,7 +333,15 @@ class PolygonSelectorSpline(_SelectorWidget):
 
         # Place new vertex.
         elif not self._selection_completed and "move_all" not in self._state and "move_vertex" not in self._state:
-            self._xys.insert(-1, self._get_data_coords(event))
+            if len(self._xys) == 3:
+                # self._xys.insert(-1, self._get_data_coords(event))
+                self._xys.append(self._xys[0])
+                self._selection_completed = True
+                if self._draw_box and self._box is None:
+                    self._add_box()
+                self._draw_polygon()
+            else:
+                self._xys.insert(-1, self._get_data_coords(event))
 
         if self._selection_completed:
             self.onselect(self.verts)
@@ -400,6 +420,8 @@ class PolygonSelectorSpline(_SelectorWidget):
             self._selection_completed = False
             self._remove_box()
             self.set_visible(True)
+            self.curve.set_visible(False)
+            self._draw_polygon()
 
     def _draw_polygon_without_update(self):
         """Redraw the polygon based on new vertex positions, no update()."""
