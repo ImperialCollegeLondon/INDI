@@ -147,6 +147,26 @@ def registration_loop(
         #             "current_parameters{0}.txt".format(index),
         #         ),
         #     )
+    if settings["registration"] == "elastix_non_rigid_fb":
+        parameter_object = itk.ParameterObject.New()
+        parameter_object.AddParameterFile(os.path.join(script_path, "image_registration_recipes", "Elastix_rigid.txt"))
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
+
+        parameter_object.AddParameterFile(
+            os.path.join(script_path, "image_registration_recipes", "Elastix_affine.txt")
+        )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
+
+        parameter_object.AddParameterFile(
+            os.path.join(script_path, "image_registration_recipes", "Elastix_bspline_fb.txt")
+        )
+        if settings["registration_speed"] == "slow":
+            parameter_object.SetParameter("MaximumNumberOfIterations", "2000")
+            parameter_object.SetParameter("NumberOfResolutions", "4")
 
     if settings["registration"] == "elastix_groupwise":
         parameter_object = itk.ParameterObject.New()
@@ -202,6 +222,7 @@ def registration_loop(
         settings["registration"] == "elastix_rigid"
         or settings["registration"] == "elastix_affine"
         or settings["registration"] == "elastix_non_rigid"
+        or settings["registration"] == "elastix_non_rigid_fb"
     ):
         ref = itk.GetImageFromArray(ref)
 
@@ -262,6 +283,7 @@ def registration_loop(
                 settings["registration"] == "elastix_rigid"
                 or settings["registration"] == "elastix_affine"
                 or settings["registration"] == "elastix_non_rigid"
+                or settings["registration"] == "elastix_non_rigid_fb"
             ):
                 # apply the registration to a denoised version (helps with registration of low SNR images)
                 mov_norm = (mov - np.min(mov)) / (np.max(mov) - np.min(mov))
@@ -439,7 +461,8 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
             c_img = (c_img - np.min(c_img)) / (np.max(c_img) - np.min(c_img))
 
             # denoise image
-            denoised_img = denoise_img_nlm(c_img)
+            # denoised_img = denoise_img_nlm(c_img)
+            denoised_img = c_img
 
             ref_images["image"] = denoised_img
             ref_images["index"] = index_pos[np.argmax(image_stack_sum)]
@@ -459,27 +482,26 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
             image_stack = np.stack(current_entries["image"][index_pos].values)
 
             # groupwise registration recipe
-            parameter_object = itk.ParameterObject.New()
-            parameter_object.AddParameterFile(
-                os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)),
-                    "image_registration_recipes",
-                    "Elastix_groupwise.txt",
-                )
-            )
-
             # parameter_object = itk.ParameterObject.New()
-            # groupwise_parameter_map = parameter_object.GetDefaultParameterMap("groupwise")
-            # parameter_object.AddParameterMap(groupwise_parameter_map)
+            # parameter_object.AddParameterFile(
+            #     os.path.join(
+            #         os.path.dirname(os.path.dirname(__file__)),
+            #         "image_registration_recipes",
+            #         "Elastix_groupwise.txt",
+            #     )
+            # )
+            parameter_object = itk.ParameterObject.New()
+            groupwise_parameter_map = parameter_object.GetDefaultParameterMap("groupwise")
+            parameter_object.AddParameterMap(groupwise_parameter_map)
 
             # modify type for itk
             image_stack = np.ascontiguousarray(np.array(image_stack, dtype=np.float32))
             # store images before registration
             img_pre = image_stack
 
-            # denoise stack before masking
-            for i in range(image_stack.shape[0]):
-                image_stack[i] = denoise_img_nlm(image_stack[i])
+            # # denoise stack before masking
+            # for i in range(image_stack.shape[0]):
+            #     image_stack[i] = denoise_img_nlm(image_stack[i])
 
             # create mask stack of the FOV central region
             mask = np.zeros([image_stack.shape[1], image_stack.shape[2]])
