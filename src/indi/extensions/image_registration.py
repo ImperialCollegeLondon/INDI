@@ -195,6 +195,9 @@ def registration_loop(
         #         ),
         #     )
 
+    if settings["registration"] == "ants_non_rigid":
+        import ants
+
     # dicts to store information about the registration
     registration_image_data = {}
 
@@ -225,14 +228,24 @@ def registration_loop(
         or settings["registration"] == "elastix_non_rigid_fb"
     ):
         ref = itk.GetImageFromArray(ref)
+    if settings["registration"] == "ants_non_rigid":
+        ref = ants.from_numpy(ref)
 
     # images to be registered
     mov_all = np.transpose(np.dstack(data["image"].values), (2, 0, 1))
     if settings["complex_data"]:
         mov_all_phase = np.transpose(np.dstack(data["image_phase"].values), (2, 0, 1))
 
-    # mask only regions of interest in the middle of the FOV.
-    mask = itk.GetImageFromArray(mask)
+    if (
+        settings["registration"] == "elastix_rigid"
+        or settings["registration"] == "elastix_affine"
+        or settings["registration"] == "elastix_non_rigid"
+        or settings["registration"] == "elastix_non_rigid_fb"
+    ):
+        # mask only regions of interest in the middle of the FOV.
+        mask = itk.GetImageFromArray(mask)
+
+        # masking makes things worse for ANTs registration
 
     # Groupwise registration
     if settings["registration"] == "elastix_groupwise":
@@ -331,6 +344,20 @@ def registration_loop(
                     mov = itk.GetImageFromArray(mov)
                     img_reg = itk.transformix_filter(mov, result_transform_parameters)
                     img_reg = itk.GetArrayFromImage(img_reg)
+
+            # ANTs registration
+            elif settings["registration"] == "ants_non_rigid":
+                mov = ants.from_numpy(mov)
+                mytx = ants.registration(
+                    fixed=ref,
+                    moving=mov,
+                    type_of_transform="SyNAggro",
+                    aff_random_sampling_rate=0.2,
+                    syn_sampling=128,
+                    aff_metric="CC",
+                    reg_iterations=(160, 160, 160),
+                )
+                img_reg = mytx["warpedmovout"].numpy()
 
             # basic quick rigid
             elif settings["registration"] == "quick_rigid":
