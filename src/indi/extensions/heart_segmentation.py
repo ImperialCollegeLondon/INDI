@@ -278,13 +278,16 @@ def heart_segmentation(
                     epi_contour = get_epi_contour(mask_lv)
                     endo_contour = np.array([])
 
+                segmentation[slice_idx]["epicardium_true_border"] = epi_contour
+                segmentation[slice_idx]["endocardium_true_border"] = endo_contour
+
                 epi_len = len(epi_contour)
                 endo_len = len(endo_contour)
-                epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
+                epi_contour = spline_interpolate_contour(epi_contour, 10, join_ends=False)
                 epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
 
                 if segmentation[slice_idx]["endocardium"].size != 0:
-                    endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
+                    endo_contour = spline_interpolate_contour(endo_contour, 10, join_ends=False)
                     endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
 
                 segmentation[slice_idx]["epicardium"] = epi_contour

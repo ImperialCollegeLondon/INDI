@@ -57,7 +57,7 @@ def denoise_img_nlm(c_img: NDArray) -> NDArray:
     # estimate the noise standard deviation from the noisy image
     sigma_est = np.mean(estimate_sigma(c_img, channel_axis=None))
     # fast algorithm, sigma provided
-    denoised_img = denoise_nl_means(c_img, h=10 * sigma_est, sigma=sigma_est, fast_mode=True, **patch_kw)
+    denoised_img = denoise_nl_means(c_img, h=1 * sigma_est, sigma=sigma_est, fast_mode=True, **patch_kw)
 
     return denoised_img
 
@@ -299,8 +299,13 @@ def registration_loop(
                 or settings["registration"] == "elastix_non_rigid_fb"
             ):
                 # apply the registration to a denoised version (helps with registration of low SNR images)
-                mov_norm = (mov - np.min(mov)) / (np.max(mov) - np.min(mov))
-                denoised_mov = denoise_img_nlm(mov_norm)
+                # denoisng used only for STEAM images, for SE the SNR is usually good enough without denoising
+                if settings["sequence_type"] == "steam":
+                    mov_norm = (mov - np.min(mov)) / (np.max(mov) - np.min(mov))
+                    denoised_mov = denoise_img_nlm(mov_norm)
+                else:
+                    mov_norm = (mov - np.min(mov)) / (np.max(mov) - np.min(mov))
+                    denoised_mov = mov_norm
 
                 denoised_mov = itk.GetImageFromArray(denoised_mov)
 
@@ -347,17 +352,64 @@ def registration_loop(
 
             # ANTs registration
             elif settings["registration"] == "ants_non_rigid":
-                mov = ants.from_numpy(mov)
-                mytx = ants.registration(
+                if settings["complex_data"]:
+                    # complex data registration
+                    c_real = np.multiply(mov, np.cos(mov_phase))
+                    c_real = ants.from_numpy(c_real)
+                    c_imag = np.multiply(mov, np.sin(mov_phase))
+                    c_imag = ants.from_numpy(c_imag)
+                    mov = ants.from_numpy(mov)
+                    mytx = ants.registration(
+                        fixed=ref,
+                        moving=mov,
+                        type_of_transform="SyNAggro",
+                        aff_random_sampling_rate=0.2,
+                        syn_sampling=128,
+                        aff_metric="CC",
+                        reg_iterations=(160, 160, 160),
+                    )
+                    img_reg_real = ants.apply_transforms(
+                        fixed=ref,
+                        moving=img_reg_real,
+                        transformlist=mytx["fwdtransforms"],
+                        whichtoinvert=[False, False],
+                    )
+                    img_reg_real = img_reg_real.numpy()
+                    img_reg_imag = ants.apply_transforms(
+                        fixed=ref,
+                        moving=img_reg_imag,
+                        transformlist=mytx["fwdtransforms"],
+                        whichtoinvert=[False, False],
+                    )
+                    img_reg_imag = img_reg_imag.numpy()
+                    img_reg = np.sqrt(np.square(img_reg_real) + np.square(img_reg_imag))
+                    img_phase_reg = np.arctan2(img_reg_imag, img_reg_real)
+
+                else:
+                    # get moving image and register it to the reference
+                    mov = ants.from_numpy(mov)
+                    mytx = ants.registration(
+                        fixed=ref,
+                        moving=mov,
+                        type_of_transform="SyNAggro",
+                        aff_random_sampling_rate=0.2,
+                        syn_sampling=128,
+                        aff_metric="CC",
+                        reg_iterations=(160, 160, 160),
+                    )
+                    img_reg = mytx["warpedmovout"].numpy()
+
+                # apply the deformation field to the grid image
+                grid_img = get_grid_image(info["img_size"], 6)
+                grid_img = ants.from_numpy(grid_img)
+                grid_img = ants.apply_transforms(
                     fixed=ref,
-                    moving=mov,
-                    type_of_transform="SyNAggro",
-                    aff_random_sampling_rate=0.2,
-                    syn_sampling=128,
-                    aff_metric="CC",
-                    reg_iterations=(160, 160, 160),
+                    moving=grid_img,
+                    transformlist=mytx["fwdtransforms"],
+                    whichtoinvert=[False, False],
                 )
-                img_reg = mytx["warpedmovout"].numpy()
+                grid_img = grid_img.numpy()
+                registration_image_data["deformation_field"]["grid"][i] = grid_img
 
             # basic quick rigid
             elif settings["registration"] == "quick_rigid":
@@ -487,9 +539,11 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
             # normalise 0 to 1
             c_img = (c_img - np.min(c_img)) / (np.max(c_img) - np.min(c_img))
 
-            # denoise image
-            # denoised_img = denoise_img_nlm(c_img)
-            denoised_img = c_img
+            # denoise image (only for STEAM, for SE the SNR is usually good enough without denoising)
+            if settings["sequence_type"] == "steam":
+                denoised_img = denoise_img_nlm(c_img)
+            else:
+                denoised_img = c_img
 
             ref_images["image"] = denoised_img
             ref_images["index"] = index_pos[np.argmax(image_stack_sum)]
@@ -526,9 +580,10 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
             # store images before registration
             img_pre = image_stack
 
-            # # denoise stack before masking
-            # for i in range(image_stack.shape[0]):
-            #     image_stack[i] = denoise_img_nlm(image_stack[i])
+            # denoise stack before masking (for STEAM images, for SE the SNR is usually good enough without denoising)
+            if settings["sequence_type"] == "steam":
+                for i in range(image_stack.shape[0]):
+                    image_stack[i] = denoise_img_nlm(image_stack[i])
 
             # create mask stack of the FOV central region
             mask = np.zeros([image_stack.shape[1], image_stack.shape[2]])
@@ -652,7 +707,7 @@ def plot_ref_images(data, ref_images: dict, mask, contour, slices: NDArray, sett
                 img_reg = ref_images[slice_idx]["groupwise_reg_info"]["post"]
                 c_ref = ref_images[slice_idx]["image"]
 
-                plt.figure()
+                plt.figure(figsize=(n_images, 5))
                 for i in range(n_images):
                     plt.subplot(4, n_images, i + 1)
                     plt.imshow(img_pre[i], vmin=np.min(img_pre[i]), vmax=np.max(img_pre[i]) * 0.3, cmap="Greys_r")

@@ -159,16 +159,16 @@ def manual_image_removal(
                     line_colour = c_colour
 
                     axs[idx, idx2].plot(
-                        segmentation[slice_idx]["epicardium"][:, 0],
-                        segmentation[slice_idx]["epicardium"][:, 1],
+                        segmentation[slice_idx]["epicardium_true_border"][:, 0],
+                        segmentation[slice_idx]["epicardium_true_border"][:, 1],
                         lw=0.5,
                         color=line_colour,
                         alpha=1.0,
                     )
                     if segmentation[slice_idx]["endocardium"].size != 0:
                         axs[idx, idx2].plot(
-                            segmentation[slice_idx]["endocardium"][:, 0],
-                            segmentation[slice_idx]["endocardium"][:, 1],
+                            segmentation[slice_idx]["endocardium_true_border"][:, 0],
+                            segmentation[slice_idx]["endocardium_true_border"][:, 1],
                             lw=0.5,
                             color=line_colour,
                             alpha=1.0,

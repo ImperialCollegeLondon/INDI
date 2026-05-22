@@ -88,10 +88,18 @@ def crop_images(
             segmentation[slice_name]["epicardium"] = np.array(segmentation[slice_name]["epicardium"]) - np.flip(
                 first_corner
             )
+        if segmentation[slice_name]["epicardium_true_border"].size != 0:
+            segmentation[slice_name]["epicardium_true_border"] = np.array(
+                segmentation[slice_name]["epicardium_true_border"]
+            ) - np.flip(first_corner)
         if segmentation[slice_name]["endocardium"].size != 0:
             segmentation[slice_name]["endocardium"] = np.array(segmentation[slice_name]["endocardium"]) - np.flip(
                 first_corner
             )
+        if segmentation[slice_name]["endocardium_true_border"].size != 0:
+            segmentation[slice_name]["endocardium_true_border"] = np.array(
+                segmentation[slice_name]["endocardium_true_border"]
+            ) - np.flip(first_corner)
 
     # add crop info to info dictionary
     temp_val = list(first_corner)
@@ -185,7 +193,7 @@ def record_image_registration(
         ]
         store_v_lp_post = np.mean(store_v_lp_post, axis=2)
 
-        plt.figure(figsize=(5, 5))
+        plt.figure(figsize=(10, 10))
         plt.subplot(2, 2, 1)
         plt.imshow(store_h_lp_pre, cmap="inferno")
         plt.axis("off")
@@ -272,7 +280,9 @@ def record_image_registration(
                 )
                 comp_1 = compare_images(c_ref, c_img_post, method="checkerboard")
                 comp_2 = compare_images(c_ref, c_img_post, method="diff")
-                comp_3 = compare_images(c_ref, c_img_post, method="blend")
+                comp_3 = np.zeros((c_ref.shape[0], c_ref.shape[1], 3))
+                comp_3[:, :, 0] = c_ref
+                comp_3[:, :, 2] = c_img_post
 
                 plt.figure(figsize=(5, 5))
 
