@@ -367,6 +367,8 @@ def registration_loop(
                         syn_sampling=128,
                         aff_metric="CC",
                         reg_iterations=(160, 160, 160),
+                        mask=ants.from_numpy(mask),
+                        moving_mask=ants.from_numpy(mask),
                     )
                     img_reg_real = ants.apply_transforms(
                         fixed=ref,
@@ -396,6 +398,10 @@ def registration_loop(
                         syn_sampling=128,
                         aff_metric="CC",
                         reg_iterations=(160, 160, 160),
+                        mask=ants.from_numpy(mask),
+                        moving_mask=ants.from_numpy(mask),
+                        flow_sigma=0,
+                        aff_smoothing_sigmas=(0, 0, 0, 0),
                     )
                     img_reg = mytx["warpedmovout"].numpy()
 

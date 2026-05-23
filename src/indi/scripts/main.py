@@ -81,6 +81,8 @@ def main() -> None:
 
     # limit the amount of parallel threads during registration
     # itk.MultiThreaderBase.SetGlobalMaximumNumberOfThreads(1)
+    ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS = 8
+    os.environ["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS)
 
     # DTCMR tailored colormaps
     colormaps = get_colourmaps()

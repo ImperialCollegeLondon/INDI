@@ -219,8 +219,19 @@ def heart_segmentation(
                 allow_pickle=True,
             )
             mask_3c[slice_idx] = npzfile["mask_3c"]
-            segmentation[slice_idx] = npzfile["segmentation"]
-            segmentation[slice_idx] = segmentation[slice_idx].item()
+            segmentation[slice_idx] = npzfile["segmentation"].item()
+
+            # check if there is a true border defined
+            if (
+                "epicardium_true_border" not in segmentation[slice_idx].keys()
+                and segmentation[slice_idx]["epicardium"].size != 0
+            ):
+                mask_lv = mask_3c[slice_idx].copy()
+                mask_lv[mask_lv != 1] = 0
+                epi_contour, endo_contour = get_sa_contours(mask_lv)
+                segmentation[slice_idx]["epicardium_true_border"] = epi_contour
+                if segmentation[slice_idx]["endocardium"].size != 0:
+                    segmentation[slice_idx]["endocardium_true_border"] = endo_contour
 
             # if there is no epicardial border defined, mark this slice to be removed in the dataframe
             if segmentation[slice_idx]["epicardium"].size == 0:
