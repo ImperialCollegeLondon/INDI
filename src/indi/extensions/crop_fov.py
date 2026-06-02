@@ -254,6 +254,14 @@ def record_image_registration(
         # step of the vector field for the displacement transform
         step = 3
 
+        def fake_color_reg(a, b):
+            factor = 2.0
+            fake_colour_pre = np.zeros((b.shape[0], b.shape[1], 3), dtype=np.uint8)
+            fake_colour_pre[..., 0] = np.clip(a / np.max(a) * factor * 255, 0, 255)
+            fake_colour_pre[..., 2] = np.clip(b / np.max(b) * factor * 255, 0, 255)
+            fake_colour_pre[..., 1] = 0
+            return fake_colour_pre
+
         for slice_idx in slices:
             X, Y = np.meshgrid(
                 np.arange(0, registration_image_data[slice_idx]["deformation_field"]["grid"][1].shape[1], step),
@@ -279,10 +287,8 @@ def record_image_registration(
                     np.max(registration_image_data[slice_idx]["img_post_reg"][img_idx]),
                 )
                 comp_1 = compare_images(c_ref, c_img_post, method="checkerboard")
-                comp_2 = compare_images(c_ref, c_img_post, method="diff")
-                comp_3 = np.zeros((c_ref.shape[0], c_ref.shape[1], 3))
-                comp_3[:, :, 0] = c_ref
-                comp_3[:, :, 2] = c_img_post
+                comp_2 = fake_color_reg(c_ref, c_img_post)
+                comp_3 = fake_color_reg(c_ref, c_img_pre)
 
                 plt.figure(figsize=(5, 5))
 
