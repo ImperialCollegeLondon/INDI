@@ -57,7 +57,7 @@ def denoise_img_nlm(c_img: NDArray) -> NDArray:
     # estimate the noise standard deviation from the noisy image
     sigma_est = np.mean(estimate_sigma(c_img, channel_axis=None))
     # fast algorithm, sigma provided
-    denoised_img = denoise_nl_means(c_img, h=1 * sigma_est, sigma=sigma_est, fast_mode=True, **patch_kw)
+    denoised_img = denoise_nl_means(c_img, h=5 * sigma_est, sigma=sigma_est, fast_mode=True, **patch_kw)
 
     return denoised_img
 
