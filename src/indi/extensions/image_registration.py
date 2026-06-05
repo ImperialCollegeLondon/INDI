@@ -362,11 +362,7 @@ def registration_loop(
                     mytx = ants.registration(
                         fixed=ref,
                         moving=mov,
-                        type_of_transform="SyNAggro",
-                        aff_random_sampling_rate=0.2,
-                        syn_sampling=128,
-                        aff_metric="CC",
-                        reg_iterations=(160, 160, 160),
+                        type_of_transform="antsRegistrationSyN[b]",
                         mask=ants.from_numpy(mask),
                         moving_mask=ants.from_numpy(mask),
                     )
@@ -393,15 +389,9 @@ def registration_loop(
                     mytx = ants.registration(
                         fixed=ref,
                         moving=mov,
-                        type_of_transform="SyNAggro",
-                        aff_random_sampling_rate=0.2,
-                        syn_sampling=128,
-                        aff_metric="CC",
-                        reg_iterations=(160, 160, 160),
+                        type_of_transform="antsRegistrationSyN[b]",
                         mask=ants.from_numpy(mask),
                         moving_mask=ants.from_numpy(mask),
-                        flow_sigma=0,
-                        aff_smoothing_sigmas=(0, 0, 0, 0),
                     )
                     img_reg = mytx["warpedmovout"].numpy()
 
