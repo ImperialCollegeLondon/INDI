@@ -315,12 +315,12 @@ def record_image_registration(
                 plt.subplot(3, 3, 5)
                 plt.imshow(comp_2)
                 plt.axis("off")
-                plt.title("diff", fontsize=7)
+                plt.title("fake colour blend", fontsize=7)
 
                 plt.subplot(3, 3, 6)
                 plt.imshow(comp_3)
                 plt.axis("off")
-                plt.title("blend", fontsize=7)
+                plt.title("fake colour blend", fontsize=7)
 
                 plt.subplot(3, 3, 7)
                 plt.imshow(
