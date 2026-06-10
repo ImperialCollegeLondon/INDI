@@ -27,6 +27,7 @@ def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, pref
     plt.xlabel("image #")
     plt.ylabel("residuals")
     plt.tick_params(axis="both", which="major")
+    plt.grid()
     plt.title("Tensor residuals (average of all myocardial voxels)")
     plt.tight_layout(pad=1.0)
     plt.savefig(
@@ -34,6 +35,40 @@ def plot_residuals_plot(residuals: NDArray, slice_idx: int, settings: dict, pref
             settings["results"],
             "results_b",
             "tensor_residuals" + prefix + "_slice_" + str(slice_idx).zfill(2) + ".png",
+        ),
+        dpi=100,
+        pad_inches=0,
+        transparent=False,
+    )
+    plt.close()
+
+
+def plot_average_signals(average_signals: NDArray, slice_idx: int, settings: dict, prefix: str = ""):
+    """
+    Plot the average myocardial signals per image and save the figure.
+
+    Args:
+        average_signals (NDArray): Average signals per image (averaged over myocardial voxels).
+        slice_idx (int): Index of the slice being plotted.
+        settings (dict): Dictionary with configuration and output paths.
+        prefix (str, optional): Prefix for the output file name. Defaults to "".
+
+    Returns:
+        None
+    """
+    plt.figure(figsize=(5, 5))
+    plt.subplot(1, 1, 1)
+    plt.plot(average_signals, linestyle="", marker="o", markersize=3)
+    plt.xlabel("image #")
+    plt.ylabel("signal (AU)")
+    plt.tick_params(axis="both", which="major")
+    plt.grid()
+    plt.title("Average signals (average of all myocardial voxels)")
+    plt.tight_layout(pad=1.0)
+    plt.savefig(
+        os.path.join(
+            settings["debug_folder"],
+            "average_signals" + prefix + "_slice_" + str(slice_idx).zfill(2) + ".png",
         ),
         dpi=100,
         pad_inches=0,
@@ -64,6 +99,7 @@ def plot_residuals_map(
     plt.imshow(residuals, alpha=alphas_whole_heart)
     plt.colorbar(fraction=0.046, pad=0.04)
     # cbar.ax.tick_params(labelsize=5)
+    plt.grid()
     plt.title("Tensor residuals (average of all DWIs)")
     plt.axis("off")
     plt.tight_layout(pad=1.0)
@@ -211,15 +247,17 @@ def dipy_tensor_fit(
         average_images (NDArray): Array of average images for each slice.
         logger (logging.Logger): Logger for status and debug messages.
         method (str, optional): Tensor fitting method. One of "LS", "WLS", "NLLS", or "RESTORE". Defaults to "NLLS".
-        quick_mode (bool, optional): If True, skips residual calculations and plotting. Defaults to False.
+        quick_mode (bool, optional): If True, skips plotting and some calculations. Defaults to False.
 
     Returns:
-        tensor (NDArray): Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
-        s0 (NDArray): Estimated S0 images, shape [n_slices, rows, cols].
-        residuals_img (dict): Residuals per image for each slice, or empty dict if not computed.
-        residuals_map (dict): Residuals per voxel for each slice, or empty dict if not computed.
-        residuals_img_all (dict): All residuals for each slice, or empty dict if not computed.
-        info (dict): Updated info dictionary with fitting statistics.
+        tuple:
+            tensor (NDArray): Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
+            s0 (NDArray): Estimated S0 images, shape [n_slices, rows, cols].
+            residuals_img (dict): Residuals per image for each slice.
+            residuals_map (dict): Residuals per voxel for each slice.
+            residuals_img_all (dict): All residuals for each slice.
+            average_signals (dict): Average signal per image for each slice.
+            info (dict): Updated info dictionary with fitting statistics.
     """
     import dipy.denoise.noise_estimate as ne
     import dipy.reconst.dti as dti
@@ -232,6 +270,7 @@ def dipy_tensor_fit(
     residuals_img = {}
     residuals_map = {}
     residuals_img_all = {}
+    average_signals = {}
 
     myo_mask = np.copy(mask_3c.reshape(mask_3c.shape[0], mask_3c.shape[1] * mask_3c.shape[2]))
     myo_mask[myo_mask > 1] = 0
@@ -245,7 +284,11 @@ def dipy_tensor_fit(
         # remove any images that have been marked to be removed
         current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
 
-        if not current_entries["bmatrix"].isnull().all():
+        # At the moment the b-matrix is deactivated for the STEAM sequence
+        # because it is not taking into account the small diffusion weighting
+        # of the b0 images, and the b-value adjustment for STEAM.
+
+        if not current_entries["bmatrix"].isnull().all() and settings["sequence_type"] == "se":
             # If the b-matrix is present, we should use it instead of b-values and b-vectors
             if i == 0:
                 message_tensor_fitting_flag = 0
@@ -299,14 +342,27 @@ def dipy_tensor_fit(
         # also save the non-averaged residuals
         residuals_img_all[slice_idx] = np.squeeze(res)
 
-        # z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
+        if not quick_mode:
+            # save the average signal per image
+            myo_signals = np.squeeze(
+                np.reshape(
+                    image_data, [image_data.shape[0] * image_data.shape[1], image_data.shape[2], image_data.shape[3]]
+                )
+            )
+            myo_signals = np.nanmean(myo_signals[myo_pxs, :], axis=0)
+            average_signals[slice_idx] = myo_signals
 
-        if settings["debug"]:
-            plot_residuals_plot(res_img, slice_idx, settings, prefix="")
-            plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
+            # z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
+
+            if settings["debug"]:
+                plot_residuals_plot(res_img, slice_idx, settings, prefix="")
+                plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
+                plot_average_signals(myo_signals, slice_idx, settings, prefix="")
+        else:
+            average_signals[slice_idx] = np.array([])
 
     if message_tensor_fitting_flag == 0:
-        logger.info("Tensor fitting used: b-values and b-matrix")
+        logger.info("Tensor fitting used: b-matrix")
     elif message_tensor_fitting_flag == 1:
         logger.info("Tensor fitting used: b-values and b-vecs")
 
@@ -318,4 +374,4 @@ def dipy_tensor_fit(
         if settings["debug"]:
             plot_tensor_components(tensor, average_images, mask_3c, slices, settings)
 
-    return tensor, s0, residuals_img, residuals_map, residuals_img_all, info
+    return tensor, s0, residuals_img, residuals_map, residuals_img_all, average_signals, info

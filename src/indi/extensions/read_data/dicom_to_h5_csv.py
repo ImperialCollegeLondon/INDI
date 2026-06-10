@@ -211,6 +211,12 @@ def get_data_from_dicoms(
     else:
         header_field_list = to_keep["fields_to_keep_enhanced"]
 
+    # at the moment we do not support Philips STEAM data because we do not have a good way to adjust the b-values, so output an error if we detect that the data is from Philips and the sequence type is STEAM
+    if settings["sequence_type"] == "steam" and manufacturer != "siemens":
+        message = "Currently only SIEMENS STEAM data with the Brompton sequence is supported in DICOM format."
+        logger.error(message)
+        raise ValueError(message)
+
     # ===================================================================
     # FRAME HEADER INFO
     # ===================================================================
@@ -255,15 +261,22 @@ def get_data_from_dicoms(
 
 
 def build_bmatrix(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
-    """
-    Build the bmatrix from the DICOM header.
+    """Build the b-matrix column from individual DICOM header components.
+
+    Reads the six independent b-matrix elements from separate columns
+    (XX, XY, XZ, YY, YZ, ZZ) and assembles them into symmetric 3x3 NumPy
+    arrays stored in a new ``"bmatrix"`` column.
 
     Args:
-        data: DataFrame with DICOM header information
-        logger: Logger for error messages
+        data (pd.DataFrame): DataFrame containing the six
+            ``MRDiffusionSequence_DiffusionBMatrixSequence_DiffusionBValue*``
+            columns.
+        logger (logging.Logger): Logger (currently unused; kept for API
+            consistency).
 
     Returns:
-        data: DataFrame with updated bmatrix
+        pd.DataFrame: DataFrame with an added ``"bmatrix"`` column whose
+        entries are ``(3, 3)`` NumPy arrays.
     """
 
     bmatrix_columns = [
@@ -292,15 +305,22 @@ def build_bmatrix(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
 
 
 def build_gradient_directions(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
-    """
-    Build the gradient directions from the DICOM header.
+    """Build the diffusion gradient direction column from DICOM header components.
+
+    Reads the three orientation values from separate columns and combines
+    them into a single ``"diffusion_direction"`` column containing
+    ``[x, y, z]`` float lists.
 
     Args:
-        data: DataFrame with DICOM header information
-        logger: Logger for error messages
+        data (pd.DataFrame): DataFrame containing the three
+            ``MRDiffusionSequence_DiffusionGradientDirectionSequence_\
+ DiffusionGradientOrientation_{1,2,3}`` columns.
+        logger (logging.Logger): Logger (currently unused; kept for API
+            consistency).
 
     Returns:
-        data: DataFrame with updated gradient directions
+        pd.DataFrame: DataFrame with an added or updated
+        ``"diffusion_direction"`` column.
     """
 
     direction_columns = [
@@ -548,7 +568,7 @@ def add_missing_columns(data: pd.DataFrame) -> pd.DataFrame:
         data: DataFrame with added columns
 
     """
-    list_of_fields = ["series_description"]
+    list_of_fields = ["series_description", "nominal_interval"]
 
     for field in list_of_fields:
         if field not in data.columns:

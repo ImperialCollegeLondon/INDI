@@ -10,10 +10,23 @@ from torch.distributed.optim import ZeroRedundancyOptimizer
 
 
 def instantiate(config, *args, is_func: bool = False, **kwargs):
-    """
-    wrapper function for hydra.utils.instantiate.
-    1. return None if config.class is None
-    2. return function handle if is_func is True
+    """Wrapper around :func:`hydra.utils.instantiate` with extra features.
+
+    1. Returns ``None`` when ``config["_target_"]`` is ``None``.
+    2. Returns a partial function handle when ``is_func`` is ``True``.
+
+    Args:
+        config (dict): Hydra-style config dict with at least a ``"_target_"``
+            key specifying the class or function to instantiate.
+        *args: Positional arguments forwarded to the target.
+        is_func (bool, optional): When ``True`` the target is treated as a
+            function and a :func:`functools.partial` is returned instead of
+            calling the constructor. Defaults to ``False``.
+        **kwargs: Keyword arguments forwarded to the target.
+
+    Returns:
+        Any: An instance of the target class, a partial function handle, or
+        ``None`` if ``config["_target_"]`` is ``None``.
     """
     assert "_target_" in config, "Config should have '_target_' for class instantiation."
     target = config["_target_"]

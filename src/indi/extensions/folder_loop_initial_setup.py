@@ -10,20 +10,27 @@ import yaml
 def folder_loop_initial_setup(
     current_folder: str, settings: dict, logger: logging.Logger, log_format: logging.Formatter
 ) -> tuple[dict, dict, logging.Logger]:
-    """Initial setup for the folder loop.
+    """Prepare per-folder working directories and logging for each data folder.
+
+    Creates the required output directory tree (debug, results, session),
+    attaches a per-folder file handler to the logger, and saves the current
+    settings to a YAML file inside the working folder.
 
     Args:
-      current_folder: str with current folder with diffusion data
-      settings: settings from YAML file
-      logger: logger
-      current_folder: str
-      log_format: logging.Formatter
+        current_folder (str): Absolute path to the data folder being processed.
+        settings (dict): Global pipeline settings that will be augmented with
+            folder-specific paths (``dicom_folder``, ``work_folder``,
+            ``debug_folder``, ``results``, ``session``).
+        logger (logging.Logger): Shared logger; a new ``FileHandler`` pointing
+            to ``analysis.log`` inside the working folder is attached.
+        log_format (logging.Formatter): Formatter applied to the new file
+            handler.
 
     Returns:
-        info: dict
-        settings: dict
-        logger: logger
-
+        tuple[dict, dict, logging.Logger]:
+            info (dict): Freshly initialised empty metadata dictionary.
+            settings (dict): Updated settings with all folder-specific paths.
+            logger (logging.Logger): Logger with the updated file handler.
     """
     # initialise dictionaries
     info = {}
@@ -65,10 +72,20 @@ def folder_loop_initial_setup(
         yaml.dump(settings, outfile, default_flow_style=False)
 
     # file logger setup
-    # delete previous log file
+    # delete previous log file if exists
     log_filename = os.path.join(settings["work_folder"], "analysis.log")
     if os.path.exists(log_filename):
         os.remove(log_filename)
+
+    # logger.handlers[0] is the console handler, logger.handlers[1] is the file handler
+    # if len > 1 then we have a file handler already so we need to remove it
+    # and then assign a new file for the new folder
+    if len(logger.handlers) > 1:
+        # Close the existing file handler and create a new one below
+        logger.handlers[1].close()
+        # Remove the handler from the logger
+        logger.removeHandler(logger.handlers[1])
+
     file_handler = logging.FileHandler(log_filename)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(log_format)

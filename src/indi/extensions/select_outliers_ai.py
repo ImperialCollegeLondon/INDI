@@ -16,19 +16,23 @@ def remove_outliers_ai(
     logger: logging.Logger,
     threshold: float = 0.3,
 ) -> tuple[pd.DataFrame, NDArray]:
-    """Remove the bad frames from the dataframe using the AI classifier
+    """Remove bad DWI frames from the DataFrame using the AI classifier.
 
     Args:
-        data: dataframe with diffusion info
-        info: useful info
-        settings: settings
-    slices: array with slice positions as strings
-    logger: logger
-    threshold: threshold value to consider bad in [0, 1], by default 0.3
+        data (pd.DataFrame): DataFrame containing diffusion imaging data.
+        info (dict): Metadata dict with ``"n_images"`` and ``"img_size"``
+            keys.
+        settings (dict): Pipeline configuration (unused here, kept for API
+            consistency).
+        slices (NDArray): Array of slice position strings.
+        logger (logging.Logger): Logger for debug messages.
+        threshold (float, optional): Probability threshold in ``[0, 1]``
+            below which a frame is considered bad. Defaults to ``0.3``.
 
     Returns:
-        data_new: dataframe without bad frames
-        rows_to_drop: array with bad frames positions
+        tuple[pd.DataFrame, NDArray]: A tuple of:
+            - DataFrame with bad frames removed.
+            - 1-D integer array of the dropped row indices.
     """
 
     # gather images from dataframe

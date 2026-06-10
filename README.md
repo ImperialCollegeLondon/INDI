@@ -13,22 +13,30 @@ A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 
 - [Introduction](#introduction)
 - [Installation](#installation)
+	- [Quick start](#quick-start-any-os)
+	- [Clone the repository](#clone-the-repository)
+	- [macOS](#installation-on-macos-intel-and-apple-silicon)
+	- [Ubuntu](#installation-on-ubuntu-2404)
+	- [Windows (Conda)](#installation-on-windows-10-with-conda)
+	- [Optional AI modules](#installing-optional-ai-modules-under-development-)
+- [For Development](#for-development)
+	- [Documentation](#documentation)
+	- [pre-commit](#install-pre-commit)
 - [Basic Usage](#basic-usage-example)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 
 ## Introduction
 
-INDI is a Python-based post-processing pipeline designed for in-vivo cardiac diffusion tensor imaging (cDTI) data.  
-It supports Siemens and Philips diffusion-weighted DICOMs, as well as [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). Both STEAM and spin-echo sequences are supported.
+INDI is a Python-based post-processing pipeline for in-vivo cardiac diffusion tensor imaging (cDTI). It supports Siemens, Philips, GE and United Imaging diffusion-weighted DICOMs, plus [anonymised NIFTI data](https://github.com/ImperialCollegeLondon/cdti_data_export). Both STEAM and spin-echo sequences are handled.
 
-After loading your data, INDI performs the following steps:
+What it does:
 
 - Image registration
-- Image curation
+- Image curation and outlier handling
 - Tensor fitting
-- Segmentation
-- Results export
+- Segmentation and LV sectorisation
+- Results export (VTK, HDF5, CSV, figures)
 
 ![workflow](docs/assets/images/summary_figure.png)
 
@@ -46,6 +54,16 @@ INDI has been tested on:
 - macOS 15 with Python 3.12
 - Ubuntu 24.04 with Python 3.12
 - Windows 10 with Python 3.12
+
+### Quick start (any OS)
+
+```bash
+git clone https://github.com/ImperialCollegeLondon/INDI.git
+cd INDI
+python3 -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install .
+```
 
 ### Clone the Repository
 
@@ -157,7 +175,7 @@ Install [ImageMagick](https://imagemagick.org/).
 
 ### Installing Optional AI Modules (under development 🚧)
 
-We provide an ensemble of U-Net models trained to segment cardiac borders in STEAM data. For details, see `docs/documentation.md` (under development 🚧).  
+We provide an ensemble of U-Net models trained to segment cardiac borders in STEAM data. For details, see `docs/documentation.md` (under development 🚧).
 To use these models, install the AI dependencies:
 
 ```bash
@@ -205,7 +223,7 @@ This helps ensure code quality and style before committing changes.
 
 To post-process a synthetic phantom dataset with non-rigid distortions, first unzip [the phantom data](docs/test_phantom_cdti_dicoms.zip).
 
-The `test_phantom_cdti_dicoms` folder contains a `diffusion_images` subfolder with simulated cDTI DICOMs. These files include noisy diffusion-weighted images with periodic non-rigid distortions, simulating a typical in-vivo scan.  
+The `test_phantom_cdti_dicoms` folder contains a `diffusion_images` subfolder with simulated cDTI DICOMs. These files include noisy diffusion-weighted images with periodic non-rigid distortions, simulating a typical in-vivo scan.
 **INDI always looks recursively for subfolders named `diffusion_images`. The DICOM files must be inside a folder with this name.**
 
 Before running INDI, copy the [`settings_template.yaml`](settings_template.yaml) file near your data folder. This file contains default settings for the processing pipeline. Review and adjust the parameters as needed for your dataset. More information is available in [the YAML settings documentation](docs/YAML_settings.md).

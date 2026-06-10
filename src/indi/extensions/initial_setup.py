@@ -8,9 +8,15 @@ import os
 import yaml
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Pipeline for processing diffusion images")
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the diffusion image pipeline.
 
+    Returns:
+        argparse.Namespace: Parsed arguments with at least ``settings`` (path
+        to the YAML file) and an optional ``start_folder`` override.
+    """
+
+    parser = argparse.ArgumentParser(description="Pipeline for processing diffusion images")
     parser.add_argument("settings", type=str, help="path to the settings YAML file")
 
     parser.add_argument(
@@ -24,15 +30,24 @@ def parse_args():
 
 
 def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Logger) -> dict:
-    """Solve conflicts in YAML file
+    """Resolve interdependent option conflicts in the settings dictionary.
+
+    Enforces consistency rules (e.g., disabling AI outlier removal when
+    manual removal is active) and validates that the start folder exists.
 
     Args:
-        settings: settings from YAML file
-        args: command line arguments
-        logger: logger for console
+        settings (dict): Settings loaded from the YAML configuration file.
+        args (argparse.Namespace): Parsed command-line arguments; a non-None
+            ``start_folder`` overrides the YAML value.
+        logger (logging.Logger): Logger for informational messages about
+            resolved conflicts.
 
     Returns:
-        settings: settings with conflicts resolved
+        dict: Updated settings dictionary with all conflicts resolved.
+
+    Raises:
+        ValueError: If no start folder is specified or the specified folder
+            does not exist.
     """
 
     if settings["remove_outliers_manually"]:
@@ -83,18 +98,21 @@ def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Lo
 
 
 def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, logging.Formatter, list]:
-    """
-    Initial setup for the pipeline
+    """Perform initial pipeline setup: parse arguments, load settings, and configure logging.
 
     Args:
-        script_path: path to the script folder
+        script_path (str): Absolute path to the directory containing the
+            pipeline script; used to resolve relative paths in the YAML file.
 
     Returns:
-        dti: DTI dictionary to hold tensor and parameters
-        settings: settings from YAML file
-        logger: logger for console
-        log_format: logger format
-        all_to_be_analysed_folders: list of folders to be analysed
+        tuple[dict, dict, dict, logging.Logger, logging.Formatter, list]:
+            dti (dict): Empty DTI data dictionary ready to be populated.
+            settings (dict): Resolved settings from the YAML file.
+            info (dict): Empty ``info`` dictionary reserved for metadata.
+            logger (logging.Logger): Configured root logger.
+            log_format (logging.Formatter): Formatter used by log handlers.
+            all_to_be_analysed_folders (list): Sorted list of data folders
+                discovered under ``settings["start_folder"]``.
     """
     # logger setup
     log_format = logging.Formatter("%(levelname)s : %(asctime)s :: %(message)s")

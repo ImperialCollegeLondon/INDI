@@ -1,31 +1,38 @@
-import logging
-from typing import Any
-
 import numpy as np
 from numpy.typing import NDArray
 from scipy.stats import moment
 
 
 def get_fa_md(
-    eigv: NDArray, info: dict[str, Any], mask_3c: NDArray, slices: NDArray, logger: logging.Logger
+    eigv: NDArray,
+    info: dict,
+    mask_3c: NDArray,
+    slices: NDArray,
+    logger,
 ) -> tuple[NDArray, NDArray, NDArray, NDArray, NDArray, dict]:
-    """
-    Calculate eigenvalue-based DTI scalars: MD, FA, mode, Frobenius norm, and magnitude of anisotropy.
+    """Calculate DTI scalar maps from eigenvalues.
+
+    Computes mean diffusivity (MD), fractional anisotropy (FA), tensor mode,
+    Frobenius norm, and magnitude of anisotropy. Values outside the LV
+    myocardium (``mask_3c != 1``) are set to ``NaN``.
 
     Args:
-        eigv: eigenvalues
-        info: dict
-        mask_3c: segmentation mask
-        slices: array with slice indices
-        logger: logger
+        eigv (NDArray): Eigenvalue array with shape ``[slices, rows, cols, 3]``,
+            ordered from smallest to largest.
+        info (dict): Metadata dictionary (returned unchanged).
+        mask_3c (NDArray): Three-class heart mask; only label ``1`` (LV
+            myocardium) is used.
+        slices (NDArray): Slice indices for logging.
+        logger: Logger for debug output.
 
     Returns:
-        md: mean diffusivity
-        fa: fractional anisotropy
-        mode: tensor mode
-        frob_norm: Frobenius norm
-        mag_anisotropy: magnitude of anisotropy
-        info: dict
+        tuple[NDArray, NDArray, NDArray, NDArray, NDArray, dict]:
+            md (NDArray): Mean diffusivity map.
+            fa (NDArray): Fractional anisotropy map.
+            mode (NDArray): Tensor mode map.
+            frob_norm (NDArray): Frobenius norm map.
+            mag_anisotropy (NDArray): Magnitude of anisotropy map.
+            info (dict): Unchanged metadata dictionary.
     """
     # get MD and FA
     md = np.expand_dims(np.mean(eigv, axis=-1), axis=-1)

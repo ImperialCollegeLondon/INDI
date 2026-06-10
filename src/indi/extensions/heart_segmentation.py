@@ -25,18 +25,23 @@ def get_average_images(
     info: dict,
     logger: logging.Logger,
 ) -> NDArray:
-    """
-    Get average denoised and normalised image for each slice
+    """Compute a normalised average image for each slice.
+
+    Rejected frames (where ``to_be_removed`` is ``True``) are excluded before
+    averaging.
 
     Args:
-        data: database with DWIs
-        slices: array with slice locations string
-        info: dict
-        logger: logger
+        data (pd.DataFrame): DataFrame with at least ``"slice_integer"`` and
+            ``"image"`` columns, and optionally a ``"to_be_removed"`` boolean
+            column.
+        slices (NDArray): Integer slice indices to process.
+        info (dict): Metadata dict with keys ``"n_slices"`` and ``"img_size"``
+            (``(rows, cols)``).
+        logger (logging.Logger): Logger for informational messages.
 
     Returns:
-        average_images: NDarray with average images
-
+        NDArray: Array of shape ``(n_slices, rows, cols)`` containing the
+        mean image for each slice, normalised to ``[0, 1]``.
     """
 
     average_images = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
@@ -121,7 +126,7 @@ def heart_segmentation(
             )
 
             # get basic tensor fit and residuals
-            tensor, _, _, _, temp_residuals, info = dipy_tensor_fit(
+            tensor, _, _, _, temp_residuals, _, info = dipy_tensor_fit(
                 [slice_idx],
                 data,
                 info,
@@ -150,7 +155,7 @@ def heart_segmentation(
 
         else:
             # get residuals of a preliminary basic tensor fit
-            _, _, _, _, temp_residuals, info = dipy_tensor_fit(
+            _, _, _, _, temp_residuals, _, info = dipy_tensor_fit(
                 [slice_idx],
                 data,
                 info,

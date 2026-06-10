@@ -1,30 +1,41 @@
-import os
 import logging
+import os
+
+import h5py
 import numpy as np
 import pandas as pd
-import h5py
 import pytest
 
 from indi.extensions.read_data.read_and_pre_process_data import read_and_process_pandas
 
+
 @pytest.fixture
 def logger():
+    """Provide a logger instance for tests."""
     return logging.getLogger("test_logger")
+
 
 @pytest.fixture
 def basic_settings(tmp_path):
+    """Set up a temporary diffusion_images folder with minimal settings."""
     dicom_folder = tmp_path / "diffusion_images"
     dicom_folder.mkdir()
-    return {
-        "dicom_folder": str(dicom_folder),
-        "complex_data": False
-    }
+    return {"dicom_folder": str(dicom_folder), "complex_data": False}
+
 
 def create_test_data_gz(folder, info=None, manufacturer="siemens", n=3):
-    df = pd.DataFrame({
-        "Manufacturer": [manufacturer] * n,
-        "some_col": np.arange(n)
-    })
+    """Create a gzipped dataframe resembling diffusion metadata.
+
+    Args:
+        folder (Path | str): Destination directory for the pickle file.
+        info (dict | None): Optional metadata stored in ``attrs``.
+        manufacturer (str): Manufacturer name to inject in the dataframe.
+        n (int): Number of rows to generate.
+
+    Returns:
+        pd.DataFrame: Generated dataframe with attached ``info`` metadata.
+    """
+    df = pd.DataFrame({"Manufacturer": [manufacturer] * n, "some_col": np.arange(n)})
     if info is None:
         info = {"Rows": 2, "Columns": 2}
     df.attrs["info"] = info
@@ -32,18 +43,33 @@ def create_test_data_gz(folder, info=None, manufacturer="siemens", n=3):
     df.to_pickle(save_path)
     return df
 
-def create_test_images_h5(folder, n=3, shape=(2,2)):
+
+def create_test_images_h5(folder, n=3, shape=(2, 2)):
+    """Create an HDF5 file with dummy image data.
+
+    Args:
+        folder (Path | str): Destination directory for the H5 file.
+        n (int): Number of images to create.
+        shape (tuple[int, int]): Spatial dimensions of each image.
+
+    Returns:
+        np.ndarray: Array of generated images.
+    """
     arr = np.arange(n * shape[0] * shape[1]).reshape(n, *shape)
     save_path = os.path.join(folder, "images.h5")
     with h5py.File(save_path, "w") as hf:
         hf.create_dataset("pixel_values", data=arr)
     return arr
 
+
 def test_read_and_process_pandas_basic(logger, basic_settings):
+    """Validate successful load of magnitude-only datasets."""
     # Setup
     dicom_folder = basic_settings["dicom_folder"]
-    df = create_test_data_gz(dicom_folder)
-    arr = create_test_images_h5(dicom_folder, n=3, shape=(2,2))
+
+    # Create mag data
+    create_test_data_gz(dicom_folder)
+    create_test_images_h5(dicom_folder)
 
     # Run
     data, data_phase, info = read_and_process_pandas(logger, basic_settings)
@@ -59,29 +85,32 @@ def test_read_and_process_pandas_basic(logger, basic_settings):
     assert info["Columns"] == 2
     assert info["manufacturer"] == "siemens"
 
+
 def test_read_and_process_pandas_missing_data_gz(logger, basic_settings):
+    """Ensure missing data.gz raises FileNotFoundError."""
     # No data.gz file
     with pytest.raises(FileNotFoundError):
         read_and_process_pandas(logger, basic_settings)
 
+
 def test_read_and_process_pandas_missing_images_h5(logger, basic_settings):
+    """Ensure missing images.h5 triggers an OSError."""
     dicom_folder = basic_settings["dicom_folder"]
     create_test_data_gz(dicom_folder)
     # No images.h5
     with pytest.raises(OSError):
         read_and_process_pandas(logger, basic_settings)
 
+
 def test_read_and_process_pandas_complex_data(tmp_path, logger):
+    """Handle complex data paths and infer manufacturer."""
     # Setup mag and phase folders
     dicom_folder = tmp_path / "diffusion_images"
     mag_folder = dicom_folder / "mag"
     phase_folder = dicom_folder / "phase"
     mag_folder.mkdir(parents=True)
     phase_folder.mkdir()
-    settings = {
-        "dicom_folder": str(dicom_folder),
-        "complex_data": False
-    }
+    settings = {"dicom_folder": str(dicom_folder), "complex_data": False}
     # Create mag data
     create_test_data_gz(mag_folder)
     create_test_images_h5(mag_folder)
@@ -100,21 +129,22 @@ def test_read_and_process_pandas_complex_data(tmp_path, logger):
     assert "image" in data_phase.columns
     assert info["manufacturer"] == "siemens"
 
+
 def test_read_and_process_pandas_missing_phase_folder(tmp_path, logger):
+    """Raise when complex data is requested without a phase folder."""
     dicom_folder = tmp_path / "diffusion_images"
     mag_folder = dicom_folder / "mag"
     mag_folder.mkdir(parents=True)
-    settings = {
-        "dicom_folder": str(dicom_folder),
-        "complex_data": False
-    }
+    settings = {"dicom_folder": str(dicom_folder), "complex_data": False}
     create_test_data_gz(mag_folder)
     create_test_images_h5(mag_folder)
     # No phase folder
     with pytest.raises(FileNotFoundError):
         read_and_process_pandas(logger, settings)
 
+
 def test_read_and_process_pandas_missing_manufacturer_column(logger, basic_settings):
+    """Error when manufacturer column is absent in saved dataframe."""
     dicom_folder = basic_settings["dicom_folder"]
     df = pd.DataFrame({"some_col": [1, 2, 3]})
     df.attrs["info"] = {}
@@ -123,7 +153,9 @@ def test_read_and_process_pandas_missing_manufacturer_column(logger, basic_setti
     with pytest.raises(ValueError, match="The 'Manufacturer' column is missing"):
         read_and_process_pandas(logger, basic_settings)
 
+
 def test_read_and_process_pandas_empty_dataframe(logger, basic_settings):
+    """Error when dataframe contains no rows."""
     dicom_folder = basic_settings["dicom_folder"]
     df = pd.DataFrame({"Manufacturer": []})
     df.attrs["info"] = {}
@@ -132,7 +164,9 @@ def test_read_and_process_pandas_empty_dataframe(logger, basic_settings):
     with pytest.raises(ValueError, match="The data DataFrame is empty"):
         read_and_process_pandas(logger, basic_settings)
 
+
 def test_read_and_process_pandas_unsupported_manufacturer(logger, basic_settings):
+    """Reject unsupported manufacturer strings."""
     dicom_folder = basic_settings["dicom_folder"]
     df = pd.DataFrame({"Manufacturer": ["unknown"]})
     df.attrs["info"] = {}

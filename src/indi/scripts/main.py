@@ -39,7 +39,20 @@ from indi.extensions.select_outliers import select_outliers
 from indi.extensions.tensor_fittings import dipy_tensor_fit
 
 
-def main():
+def main() -> None:
+    """Run the full DTCMR diffusion tensor processing pipeline.
+
+    Performs end-to-end processing for every folder listed in the session
+    configuration, including: data reading, phase correction, image
+    denoising, registration, outlier removal, heart segmentation, tensor
+    fitting, optional Uformer denoising, orientation map computation, and
+    results export.
+
+    Raises:
+        Exception: Re-raises any processing exception when only a single
+            folder is queued (to aid debugging), otherwise logs the error and
+            continues to the next folder.
+    """
     # # for debugging numpy warnings
     # np.seterr(all="raise")
 
@@ -242,16 +255,18 @@ def main():
             # =========================================================
             # Calculate tensor
             # =========================================================
-            dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], _, info = dipy_tensor_fit(
-                slices,
-                data,
-                info,
-                settings,
-                mask_3c,
-                average_images,
-                logger,
-                method=settings["tensor_fit_method"],
-                quick_mode=False,
+            dti["tensor"], dti["s0"], dti["residuals_plot"], dti["residuals_map"], _, dti["average_signals"], info = (
+                dipy_tensor_fit(
+                    slices,
+                    data,
+                    info,
+                    settings,
+                    mask_3c,
+                    average_images,
+                    logger,
+                    method=settings["tensor_fit_method"],
+                    quick_mode=False,
+                )
             )
 
             # =========================================================
@@ -319,7 +334,15 @@ def main():
                 dti["distance_transmural"],
                 dti["ha_line_profiles_2"],
             ) = get_ha_line_profiles_and_distance_maps(
-                dti["ha"], lv_centres, slices, mask_3c, segmentation, settings, info, average_images
+                dti["ha"],
+                lv_centres,
+                slices,
+                mask_3c,
+                segmentation,
+                settings,
+                info,
+                average_images,
+                logger,
             )
 
             # =========================================================
