@@ -19,7 +19,7 @@ def denoise_tensor(D: NDArray, settings: dict) -> NDArray:
             acquiring the data: ``1``, ``3``, or ``5``).
 
     Returns:
-        NDArray: Denoised tensor array with the same shape as ``D``.
+        D_denoised (NDArray): Denoised tensor array with the same shape as ``D``.
     """
 
     # Make the tensor H & W [128, 128]

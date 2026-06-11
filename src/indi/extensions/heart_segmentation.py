@@ -40,8 +40,8 @@ def get_average_images(
         logger (logging.Logger): Logger for informational messages.
 
     Returns:
-        NDArray: Array of shape ``(n_slices, rows, cols)`` containing the
-        mean image for each slice, normalised to ``[0, 1]``.
+        average_images (NDArray): Array of shape ``(n_slices, rows, cols)`` containing
+            the mean image for each slice, normalised to ``[0, 1]``.
     """
 
     average_images = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
@@ -78,7 +78,7 @@ def heart_segmentation(
     settings: dict,
     info: dict,
     logger: logging.Logger,
-) -> tuple[dict, NDArray]:
+) -> tuple[dict, NDArray, dict]:
     """
     Perform heart segmentation using U-Net and/or manual segmentation.
 
@@ -97,10 +97,9 @@ def heart_segmentation(
         logger (logging.Logger): Logger for status and debug messages.
 
     Returns:
-        tuple:
-            segmentation (dict): Dictionary with segmentation contours and information for each slice.
-            mask_3c (NDArray): 3-class segmentation mask array (background, LV myocardium, and other tissues).
-            prelim_residuals (dict): Dictionary with preliminary residuals for each slice, indicating the quality of the tensor fit.
+        segmentation (dict): Dictionary with segmentation contours and information for each slice.
+        mask_3c (NDArray): 3-class segmentation mask array (background, LV myocardium, and other tissues).
+        prelim_residuals (dict): Dictionary with preliminary residuals for each slice, indicating the quality of the tensor fit.
 
     """
 

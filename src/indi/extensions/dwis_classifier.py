@@ -7,10 +7,8 @@ def dwis_classifier(dwis: NDArray, threshold: float) -> NDArray:
     """Classify DWIs as either good (0) or bad (1)
 
     Args:
-      dwis(numpy array): array with dwis to be classified
-      threshold(float, optional): threshold value. If lower than threshold, the image is labeled as bad.
-      dwis: NDArray:
-      threshold: float:
+      dwis: array with dwis to be classified
+      threshold: threshold value. If lower than threshold, the image is labeled as bad.
 
     Returns:
       predicted_label: numpy array with predicted labels for each dwi

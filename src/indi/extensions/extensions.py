@@ -37,8 +37,10 @@ def clean_image(
         blur (bool): Whether to apply Gaussian blur before thresholding.
 
     Returns:
-        tuple[NDArray, NDArray, NDArray]: Cleaned image, threshold mask, and per
-        slice thresholds (Otsu value multiplied by ``factor``).
+        tuple[NDArray, NDArray, NDArray]:
+        clean_img: Cleaned image
+        mask: Threshold mask
+        thresh: Slice thresholds (Otsu value multiplied by ``factor``).
     """
 
     n_slices = img.shape[0]
@@ -70,7 +72,7 @@ def close_small_holes(mask: NDArray) -> NDArray:
             ``2`` (rest of heart).
 
     Returns:
-        NDArray: Mask with small holes closed and added to the heart label.
+        mask: Mask with small holes closed and added to the heart label.
     """
     # convert mask to binary
     binary_mask = mask.astype(bool)
@@ -94,7 +96,7 @@ def get_cylindrical_coordinates_short_axis(mask: NDArray) -> dict:
             longitudinal vectors.
 
     Returns:
-        dict: Dictionary with keys ``long``, ``circ``, and ``radi`` storing the
+        local_cylindrical_coordinates: Dictionary with keys ``long``, ``circ``, and ``radi`` storing the
         corresponding vector fields.
     """
 
@@ -194,8 +196,9 @@ def get_cardiac_coordinates_short_axis(
         info (dict): Metadata for the current dataset.
 
     Returns:
-        tuple[dict, dict, dict]: Local cardiac coordinates (``long``, ``circ``,
-        ``radi``), LV centres per slice, and the per-slice ``phi`` matrices.
+        local_cardiac_coordinates: Local cardiac coordinates (``long``, ``circ``, ``radi``)
+        lv_centres: LV centres per slice
+        phi_matrix: per-slice ``phi`` matrices
     """
     lv_centres = np.zeros([n_slices, 2], dtype=int)
 
@@ -327,7 +330,7 @@ def create_2d_montage(img_stack: NDArray) -> NDArray:
         img_stack (NDArray): Image stack with shape ``(n_slices, rows, cols)``.
 
     Returns:
-        NDArray: Montage image tiled in a 2D grid.
+        montage (NDArray): Montage image tiled in a 2D grid.
     """
     n_images = img_stack.shape[0]
     n_rows = img_stack.shape[1]
@@ -359,7 +362,7 @@ def get_colourmaps() -> dict:
     """Load custom colour maps for DTI visualisation.
 
     Returns:
-        dict: Mapping of colour map names to ``ListedColormap`` instances.
+        colormaps (dict): Mapping of colour map names to ``ListedColormap`` instances.
     """
     script_path = os.path.dirname(__file__)
     colormaps = {}
@@ -390,7 +393,7 @@ def rad_to_mag(img: NDArray, max_value: int = 4096) -> NDArray:
         max_value (int): Maximum value to scale the magnitude image.
 
     Returns:
-        NDArray: Image converted to magnitude units.
+        img: Image converted to magnitude units.
     """
 
     img = max_value * img / np.pi
@@ -405,7 +408,7 @@ def mag_to_rad(img: NDArray, max_value: int = 4096) -> NDArray:
         max_value (int): Maximum magnitude value used for scaling.
 
     Returns:
-        NDArray: Image converted to radians.
+        img (NDArray): Image converted to radians.
     """
     img = np.pi * img / max_value
     return img
@@ -418,7 +421,7 @@ def clean_mask(mask: NDArray) -> NDArray:
         mask (NDArray): Input mask.
 
     Returns:
-        NDArray: Mask containing only the largest blob per slice.
+        clean_mask (NDArray): Mask containing only the largest blob per slice.
     """
     img_size = np.shape(mask)
     clean_mask = np.zeros([img_size[0], img_size[1], img_size[2]])
@@ -462,8 +465,10 @@ def get_snr_maps(
         info: dictionary with useful info
 
     Returns:
-        tuple[dict, dict, dict, dict]: Per-slice SNR maps, per-slice noise maps,
-        per-slice b0 SNR summary, and updated ``info``.
+        snr (dict): Per-slice SNR maps
+        noise (dict): Per-slice noise maps
+        snr_b0_lv (dict): Per-slice b0 SNR summary
+        info (dict): Updated info dictionary
     """
 
     img_size = data.loc[0, "image"].shape
@@ -583,7 +588,8 @@ def get_window(img: NDArray, mask: NDArray) -> tuple[float, float]:
             are used.
 
     Returns:
-        tuple[float, float]: ``(vmin, vmax)`` bounds for display.
+        vmin (float): Minimum value for display.
+        vmax (float): Maximum value for display.
     """
 
     # check if mask is not empty
@@ -614,7 +620,7 @@ def crop_pad_rotate_array(img: NDArray, correct_size: list, allow_rotation: bool
             dimensions.
 
     Returns:
-        NDArray: Cropped or padded image.
+        img (NDArray): Cropped or padded image.
     """
 
     def crop_and_pad_along_axis(array: np.ndarray, target_length: int, axis: int = 0) -> np.ndarray:
@@ -686,7 +692,7 @@ def reshape_tensor_from_6_to_3x3(D6: NDArray) -> NDArray:
             Dyz, Dzz)``.
 
     Returns:
-        NDArray: Tensor with shape ``(..., 3, 3)``.
+        D33 (NDArray): Tensor with shape ``(..., 3, 3)``.
     """
 
     D33 = np.zeros((D6.shape[0], D6.shape[1], D6.shape[2], 3, 3))
@@ -1380,7 +1386,7 @@ def get_lv_segments(
         logger (logging.Logger): Logger for progress reporting.
 
     Returns:
-        NDArray: Array with sector labels ``1``–``12`` for the left ventricle.
+        segments_mask (NDArray): Array with sector labels ``1``-``12`` for the left ventricle.
     """
 
     LV_free_wall_n_segs = 8
@@ -1531,7 +1537,7 @@ def image_histogram_equalization(image: NDArray, number_bins: int = 256):
         number_bins (int): Number of histogram bins. Defaults to 256.
 
     Returns:
-        NDArray: Histogram-equalized image.
+        image_equalized (NDArray): Histogram-equalized image.
     """
 
     # get image histogram
@@ -1557,8 +1563,9 @@ def remove_slices(
         logger (logging): Logger for reporting removals.
 
     Returns:
-        tuple[pd.DataFrame, NDArray, dict]: Filtered dataframe, updated slice
-        indices, and pruned segmentation dictionary.
+        data (pd.DataFrame): Filtered dataframe.
+        slices (NDArray): Updated slice indices.
+        segmentation (dict): Pruned segmentation dictionary.
     """
 
     for slice_idx in slices:
@@ -1595,8 +1602,8 @@ def remove_outliers(data: pd.DataFrame, info: dict, settings: dict) -> tuple[pd.
         settings (dict): Configuration and debug options.
 
     Returns:
-        tuple[pd.DataFrame, dict]: Filtered dataframe and updated ``info`` with
-        the remaining image count.
+        data (pd.DataFrame): Filtered dataframe.
+        info (dict): Updated info dictionary with the remaining image count.
     """
 
     # this code can be used to double check if the images that are

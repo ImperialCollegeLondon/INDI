@@ -129,7 +129,7 @@ def make_eigenvectors_z_positive(eigenvectors: NDArray) -> NDArray:
             ``[slices, rows, cols, xyz, order]``.
 
     Returns:
-        NDArray: Eigenvector array with z-components flipped to be positive.
+        eigenvectors (NDArray): Eigenvector array with z-components flipped to be positive.
     """
     temp = eigenvectors.swapaxes(3, 4)
     temp = np.reshape(
@@ -176,7 +176,7 @@ def get_negative_eigenvalues_map(
         mask_3c (NDArray): Three-class heart segmentation mask.
 
     Returns:
-        NDArray: Negative-eigenvalue count map with shape
+        negative_eig_map (NDArray): Negative-eigenvalue count map with shape
         ``[n_slices, rows, cols]``, where each voxel value indicates how many
         of the three eigenvalues are negative.
     """
@@ -253,8 +253,8 @@ def get_eigensystem(
         logger (logging.Logger): Logger for progress and diagnostic messages.
 
     Returns:
-        tuple[dict, dict]: Updated ``dti`` dictionary and updated ``info``
-        dictionary.
+        dti (dict): Updated ``dti`` dictionary
+        info (dict): Updated ``info`` dictionary
     """
     # we need to mask the nans from the tensor array
     dti["eigenvalues"], dti["eigenvectors"] = np.linalg.eigh(

@@ -27,10 +27,9 @@ def folder_loop_initial_setup(
             handler.
 
     Returns:
-        tuple[dict, dict, logging.Logger]:
-            info (dict): Freshly initialised empty metadata dictionary.
-            settings (dict): Updated settings with all folder-specific paths.
-            logger (logging.Logger): Logger with the updated file handler.
+        info (dict): Freshly initialised empty metadata dictionary.
+        settings (dict): Updated settings with all folder-specific paths.
+        logger (logging.Logger): Logger with the updated file handler.
     """
     # initialise dictionaries
     info = {}

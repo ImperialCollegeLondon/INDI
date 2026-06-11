@@ -23,7 +23,7 @@ def denoise_images(img: NDArray, settings: dict, slices: NDArray) -> NDArray:
             debug images for.
 
     Returns:
-        NDArray: Denoised image stack (same reference as input).
+        img (NDArray): Denoised image stack (same reference as input).
     """
     from skimage.restoration import denoise_nl_means, estimate_sigma
 
@@ -83,8 +83,8 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
         logger (logging.Logger): Logger for size-change messages.
 
     Returns:
-        NDArray: Segmentation mask with shape ``[n_slices, rows, cols]``
-        containing class labels ``0``, ``1``, or ``2``.
+        mask_3c (NDArray): Segmentation mask with shape ``[n_slices, rows, cols]``
+            containing class labels ``0``, ``1``, or ``2``.
     """
 
     # we need to make sure the input array has the exact size
@@ -103,11 +103,14 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
         and number of spatial dimensions.
         Assumes the `channels_last` format.
 
-        # Arguments
+        Args:
             y_true: b x X x Y( x Z...) x c One hot encoding of ground truth
             y_pred: b x X x Y( x Z...) x c Network output,
             must sum to 1 over c channel (such as after softmax)
             epsilon: Used for numerical stability to avoid divide by zero errors
+
+        Returns:
+            soft_dice_loss: Average Dice loss over classes and batch
 
         # References
             V-Net: Fully Convolutional Neural Networks for
@@ -118,10 +121,6 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
 
             Adapted from
             https://github.com/Lasagne/Recipes/issues/99#issuecomment-347775022
-
-        Returns
-        -------
-        Average Dice loss over classes and batch
         """
 
         # skip the batch and class axis for calculating Dice score
@@ -146,7 +145,7 @@ def u_net_segmentation_3ch(img: NDArray, n_slices: int, settings: dict, logger: 
                 the last axis.
 
         Returns:
-            object: Scalar Dice coefficient for the myocardium class.
+            score: Scalar Dice coefficient for the myocardium class.
         """
         y_true = y_true[:, :, :, 1]
         y_true = tf.reshape(y_true, [-1])
@@ -296,8 +295,7 @@ def u_net_segment_heart(
         logger (logging.Logger): Logger for status messages.
 
     Returns:
-        NDArray: Three-class segmentation mask with shape
-        ``[n_slices, rows, cols]``.
+        mask_3c (NDArray): Three-class segmentation mask with shape ``[n_slices, rows, cols]``.
     """
     mask_3c = u_net_segmentation_3ch(average_images, n_slices, settings, logger)
 

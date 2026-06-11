@@ -275,8 +275,8 @@ def build_bmatrix(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
             consistency).
 
     Returns:
-        pd.DataFrame: DataFrame with an added ``"bmatrix"`` column whose
-        entries are ``(3, 3)`` NumPy arrays.
+        data (pd.DataFrame): DataFrame with an added ``"bmatrix"`` column whose
+            entries are ``(3, 3)`` NumPy arrays.
     """
 
     bmatrix_columns = [
@@ -319,7 +319,7 @@ def build_gradient_directions(data: pd.DataFrame, logger: logging) -> pd.DataFra
             consistency).
 
     Returns:
-        pd.DataFrame: DataFrame with an added or updated
+        data (pd.DataFrame): DataFrame with an added or updated
         ``"diffusion_direction"`` column.
     """
 
@@ -532,7 +532,7 @@ def tweak_directions_and_b_values(data: pd.DataFrame) -> pd.DataFrame:
     If the b-value is NaN, set it to 0.
 
     Args:
-      data: DataFrame with image data
+        data: DataFrame with image data
 
     Returns:
         data: DataFrame with tweaked directions and b-values
@@ -562,7 +562,7 @@ def add_missing_columns(data: pd.DataFrame) -> pd.DataFrame:
     More columns can be added here if needed.
 
     Args:
-      data: DataFrame with image data
+        data: DataFrame with image data
 
     Returns:
         data: DataFrame with added columns
@@ -700,7 +700,7 @@ def reorder_columns(table_frame: pd.DataFrame) -> pd.DataFrame:
     """Move some columns to the start of the table for easier access to the most important columns.
 
     Args:
-      table_frame: dataframe with image data
+        table_frame: dataframe with image data
 
     Returns:
         table_frame: dataframe with reordered columns

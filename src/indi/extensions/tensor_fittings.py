@@ -53,8 +53,6 @@ def plot_average_signals(average_signals: NDArray, slice_idx: int, settings: dic
         settings (dict): Dictionary with configuration and output paths.
         prefix (str, optional): Prefix for the output file name. Defaults to "".
 
-    Returns:
-        None
     """
     plt.figure(figsize=(5, 5))
     plt.subplot(1, 1, 1)
@@ -124,10 +122,9 @@ def get_residual_z_scores(residuals: NDArray) -> tuple[ndarray, ndarray, ndarray
         residuals (NDArray): Array with residual values.
 
     Returns:
-        tuple:
-            z_scores (NDArray): Z-scores of the residuals for each image.
-            outliers (NDArray): Boolean array indicating outliers (z-score > 3).
-            outliers_pos (NDArray): Indices of outlier positions, sorted by descending z-score.
+        z_scores (NDArray): Z-scores of the residuals for each image.
+        outliers (NDArray): Boolean array indicating outliers (z-score > 3).
+        outliers_pos (NDArray): Indices of outlier positions, sorted by descending z-score.
     """
     z_scores = stats.zscore(residuals)
     # Select data points with z-scores above or below 3
@@ -231,12 +228,13 @@ def dipy_tensor_fit(
     logger: logging.Logger,
     method: str = "NLLS",
     quick_mode=False,
-) -> tuple[NDArray, NDArray, dict[int, NDArray], dict[int, NDArray], dict[int, NDArray], dict]:
+) -> tuple[NDArray, NDArray, dict[int, NDArray], dict[int, NDArray], dict[int, NDArray], dict[int, NDArray], dict]:
     """
     Fit a diffusion tensor model to the data using DiPy.
 
     Supports multiple fitting methods: 'LS' (Linear Least Squares), 'WLS' (Weighted Linear Least Squares),
     'NLLS' (Non-Linear Least Squares), and 'RESTORE'. Optionally computes and plots residuals and tensor components.
+
 
     Args:
         slices (NDArray): Array of slice indices or positions.
@@ -250,14 +248,13 @@ def dipy_tensor_fit(
         quick_mode (bool, optional): If True, skips plotting and some calculations. Defaults to False.
 
     Returns:
-        tuple:
-            tensor (NDArray): Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
-            s0 (NDArray): Estimated S0 images, shape [n_slices, rows, cols].
-            residuals_img (dict): Residuals per image for each slice.
-            residuals_map (dict): Residuals per voxel for each slice.
-            residuals_img_all (dict): All residuals for each slice.
-            average_signals (dict): Average signal per image for each slice.
-            info (dict): Updated info dictionary with fitting statistics.
+        tensor: Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
+        s0: Estimated S0 images, shape [n_slices, rows, cols].
+        residuals_img: Residuals per image for each slice.
+        residuals_map: Residuals per voxel for each slice.
+        residuals_img_all: All residuals for each slice.
+        average_signals: Average signal per image for each slice.
+        info: Updated info dictionary with fitting statistics.
     """
     import dipy.denoise.noise_estimate as ne
     import dipy.reconst.dti as dti
