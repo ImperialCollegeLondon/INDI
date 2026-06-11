@@ -14,15 +14,12 @@ A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 - [Introduction](#introduction)
 - [Installation](#installation)
 	- [Quick start](#quick-start-any-os)
-	- [Clone the repository](#clone-the-repository)
-	- [macOS](#installation-on-macos-intel-and-apple-silicon)
-	- [Ubuntu](#installation-on-ubuntu-2404)
-	- [Windows (Conda)](#installation-on-windows-10-with-conda)
-	- [Optional AI modules](#installing-optional-ai-modules-under-development-)
-- [For Development](#for-development)
-	- [Documentation](#documentation)
-	- [pre-commit](#install-pre-commit)
 - [Basic Usage](#basic-usage-example)
+- [Developer installation](#developer-installation)
+	- [Install pre-commit](#install-pre-commit)
+- [Optional AI modules](#installing-optional-ai-modules-under-development-)
+- [Documentation](#documentation)
+- [Troubleshooting](#troubleshooting)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 
@@ -57,165 +54,22 @@ INDI has been tested on:
 
 ### Quick start (any OS)
 
+Install [uv](https://pypi.org/project/uv/) and then run
+
 ```bash
-git clone https://github.com/ImperialCollegeLondon/INDI.git
-cd INDI
-python3 -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-pip install .
+uv tool install git+https://github.com/ImperialCollegeLondon/INDI
 ```
 
-### Clone the Repository
-
-First, [install git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) for your operating system, then clone the repository:
+Finally, you also need [ImageMagick](https://imagemagick.org/):
 
 ```bash
-git clone https://github.com/ImperialCollegeLondon/INDI.git
-cd INDI
-```
-
----
-
-### Installation on macOS (Intel and Apple Silicon)
-
-You may need to install Xcode and its Command Line Tools:
-
-```bash
-xcode-select --install
-```
-
-Install [Homebrew](https://brew.sh/) and then Python 3.12:
-
-```bash
-brew install python@3.12
-```
-
-Install ImageMagick:
-
-```bash
+# mac os (from homebrew https://brew.sh/)
 brew install imagemagick
-```
-
-Set up the Python environment in the INDI root directory:
-
->[!NOTE]
-> For development replace the `pip install .` command below with `pip install -e ".[dev,doc]"` to install INDI in editable mode with optional dependencies.
-
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install .
-```
-
----
-
-### Installation on Ubuntu 24.04
-
-Install ImageMagick:
-
-```bash
+# Ubuntu
 sudo apt install imagemagick
+# windows with winget
+winget install ImageMagick.Q16-HDRI # Or download the installer from https://imagemagick.org/download/
 ```
-
-Install development tools:
-
-```bash
-sudo apt install git-all build-essential python3.12-venv
-sudo apt-get install python3-tk python3-dev
-```
-
-Create the Python environment in the INDI root directory:
-
->[!NOTE]
-> For development replace the `pip install .` command below with `pip install -e ".[dev,doc]"` to install INDI in editable mode with optional dependencies.
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install .
-```
-
-If you encounter issues displaying matplotlib windows, run:
-
-```bash
-xhost +
-```
-
----
-
-### Installation on Windows 10 with Conda
-
-Install [Miniforge](https://github.com/conda-forge/miniforge).
-
-Create a new environment with conda:
-
-```bash
-conda create --name indi python=3.12
-conda activate indi
-```
-
-Install the required packages:
-
->[!NOTE]
-> For development replace the `pip install .` command below with `pip install -e ".[dev,doc]"` to install INDI in editable mode with optional dependencies.
-
-```bash
-pip install .
-```
-
-To allow the ImageMagick scripts to run enter command:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope LocalMachine`
-```
-
-Install [ImageMagick](https://imagemagick.org/).
-
----
-
-### Installing Optional AI Modules (under development 🚧)
-
-We provide an ensemble of U-Net models trained to segment cardiac borders in STEAM data. For details, see `docs/documentation.md` (under development 🚧).
-To use these models, install the AI dependencies:
-
-```bash
-pip install ".[ai]"
-```
-
----
-
-## For Development
-
-Install INDI in editable mode with optional dependencies:
-
-```bash
-pip install -e ".[dev,doc]"
-```
-
-### Documentation
-
->[!NOTE]
-> Documentation is very much work in progress
-
-To serve the documentation locally:
-
-```bash
-mkdocs serve
-```
-
-#### Install pre-commit
-
-```bash
-pre-commit install
-```
-
-Pre-commit will now run automatically on each commit. You can also run it manually:
-
-```bash
-pre-commit run --all-files
-```
-
-This helps ensure code quality and style before committing changes.
 
 ---
 
@@ -234,7 +88,7 @@ In your `settings.yaml` file, set the `start_folder` option to the path containi
 start_folder: /path/to/test_phantom_cdti_dicoms
 ```
 
-Then, in your INDI Python environment, run:
+Then, run:
 
 ```bash
 indi /path/to/settings.yaml
@@ -249,6 +103,99 @@ indi path/to/settings.yaml --start_folder /path/to/start/folder
 A video tutorial demonstrating how to run INDI with the phantom data is available below (note: the command shown in the video may be slightly outdated, but the rest of the content is still relevant):
 
 [![Watch the video tutorial](docs/assets/images/indi_tutorial_movie_screenshot.png)](https://1drv.ms/v/s!Ah-7Qw9tn52siW8SQZYX0RjRPdKG?e=Pwq85B)
+
+---
+
+## Developer installation
+
+Make sure you have [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) installed in your platform. Then
+clone the repository
+
+```bash
+git clone https://github.com/ImperialCollegeLondon/INDI
+cd INDI
+```
+
+Set up the Python environment in the INDI root directory:
+
+```bash
+uv sync --group dev --group doc
+```
+
+#### Install pre-commit
+
+```bash
+uv run pre-commit install
+```
+
+Pre-commit will now run automatically on each commit. You can also run it manually:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+This helps ensure code quality and style before committing changes.
+
+Finally install [ImageMagick](https://imagemagick.org/):
+
+```bash
+# mac os (from homebrew https://brew.sh/)
+brew install imagemagick
+# Ubuntu
+sudo apt install imagemagick
+# windows with winget
+winget install ImageMagick.Q16-HDRI # Or download the installer from https://imagemagick.org/download/
+```
+
+>[!NOTE]
+> You can run INDI without activating the environment by doing `uv run indi`
+
+---
+
+## Installing Optional AI Modules (under development 🚧)
+
+We provide an ensemble of U-Net models trained to segment cardiac borders in STEAM data. For details, see `docs/documentation.md` (under development 🚧).
+To use these models, install the AI dependencies with
+
+```bash
+# Developers
+uv sync --group dev --group doc --extra ai
+# Users
+uv tool install "git+https://github.com/ImperialCollegeLondon/INDI[ai]"
+```
+
+---
+
+## Documentation
+
+>[!NOTE]
+> Documentation is very much work in progress
+
+From a development installation serve the documentation locally:
+
+```bash
+uv run mkdocs serve
+```
+
+---
+
+## Troubleshooting
+
+### Ubuntu
+
+If you encounter issues displaying matplotlib windows, run:
+
+```bash
+xhost +
+```
+
+### Windows
+
+To allow the ImageMagick scripts to run enter command:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope LocalMachine`
+```
 
 ## License
 
