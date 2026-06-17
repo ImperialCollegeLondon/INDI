@@ -368,14 +368,14 @@ def registration_loop(
                     )
                     img_reg_real = ants.apply_transforms(
                         fixed=ref,
-                        moving=img_reg_real,
+                        moving=c_real,
                         transformlist=mytx["fwdtransforms"],
                         whichtoinvert=[False, False],
                     )
                     img_reg_real = img_reg_real.numpy()
                     img_reg_imag = ants.apply_transforms(
                         fixed=ref,
-                        moving=img_reg_imag,
+                        moving=c_imag,
                         transformlist=mytx["fwdtransforms"],
                         whichtoinvert=[False, False],
                     )
