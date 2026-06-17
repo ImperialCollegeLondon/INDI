@@ -66,7 +66,7 @@ def save_vtk_file(
     # save surface mesh as png
     if save_mesh:
         vol = mesh.threshold(value=1, scalars="mask", invert=False)
-        surf = vol.extract_geometry()
+        surf = vol.extract_surface(algorithm=None)
         surf_smooth = surf.smooth_taubin(n_iter=50, pass_band=0.05)
 
         surf_smooth.save(os.path.join(folder_path, "surface_mesh" + ".ply"))
@@ -75,7 +75,7 @@ def save_vtk_file(
         # save primary eigenvector field
         # it will only save the vectors in the surface, so if multislice we won't see all the vectors
         vol = mesh.threshold(value=1, scalars="mask", invert=False)
-        surf = vol.extract_geometry()
+        surf = vol.extract_surface(algorithm=None)
         surf.set_active_vectors("primary_evs")
         surf.arrows.save(os.path.join(folder_path, "primary_eigenvectors" + ".ply"))
 
