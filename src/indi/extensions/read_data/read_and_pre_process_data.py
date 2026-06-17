@@ -527,7 +527,7 @@ def estimate_rr_interval(data: pd.DataFrame, settings: dict) -> pd.DataFrame:
     # if not then just copy the assumed values
     if not (data["acquisition_date_time"] == "None").all():
         # convert time to miliseconds
-        time_stamps = data["acquisition_date_time"].astype(np.int64) / int(1e6)
+        time_stamps = data["acquisition_date_time"].dt.as_unit("ms").astype(np.int64)
 
         if settings["sequence_type"] == "steam":
             # get half the time delta between images
