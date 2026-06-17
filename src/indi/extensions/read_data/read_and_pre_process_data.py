@@ -536,6 +536,7 @@ def estimate_rr_interval(data: pd.DataFrame, settings: dict) -> pd.DataFrame:
         elif settings["sequence_type"] == "se":
             # get the time delta between images
             time_delta = np.diff(time_stamps)
+            time_delta = time_delta.astype(np.float32)
         # prepend nan to the time delta
         time_delta = np.insert(time_delta, 0, np.nan)
 
