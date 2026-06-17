@@ -26,13 +26,12 @@ def get_fa_md(
         logger: Logger for debug output.
 
     Returns:
-        tuple[NDArray, NDArray, NDArray, NDArray, NDArray, dict]:
-            md (NDArray): Mean diffusivity map.
-            fa (NDArray): Fractional anisotropy map.
-            mode (NDArray): Tensor mode map.
-            frob_norm (NDArray): Frobenius norm map.
-            mag_anisotropy (NDArray): Magnitude of anisotropy map.
-            info (dict): Unchanged metadata dictionary.
+        md (NDArray): Mean diffusivity map.
+        fa (NDArray): Fractional anisotropy map.
+        mode (NDArray): Tensor mode map.
+        frob_norm (NDArray): Frobenius norm map.
+        mag_anisotropy (NDArray): Magnitude of anisotropy map.
+        info (dict): Unchanged metadata dictionary.
     """
     # get MD and FA
     md = np.expand_dims(np.mean(eigv, axis=-1), axis=-1)

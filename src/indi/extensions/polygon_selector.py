@@ -1,3 +1,4 @@
+import matplotlib
 import numpy as np
 from matplotlib import transforms
 from matplotlib.lines import Line2D
@@ -103,30 +104,26 @@ class PolygonSelectorSpline(_SelectorWidget):
         box_props (dict, optional): Properties for the bounding box; see
             `RectangleSelector`.
 
-    Examples:
-        :doc:`/gallery/widgets/polygon_selector_simple`
-        :doc:`/gallery/widgets/polygon_selector_demo`
-
-    Note:
-        If only one point remains after removing points, the selector reverts
-        to an incomplete state and you can start drawing a new polygon from
-        the existing point.
+    Notes
+        If only one point remains after removing points, the selector reverts to an
+        incomplete state and you can start drawing a new polygon from the existing
+        point.
     """
 
     def __init__(
         self,
-        ax,
-        onselect,
+        ax: matplotlib.axes.Axes,
+        onselect: callable,
         *,
-        num_points=100,
-        useblit=False,
-        curve_props=None,
-        props=None,
-        handle_props=None,
-        grab_range=10,
-        draw_bounding_box=False,
-        box_handle_props=None,
-        box_props=None,
+        num_points: int = 100,
+        useblit: bool = False,
+        curve_props: dict | None = None,
+        props: dict | None = None,
+        handle_props: dict | None = None,
+        grab_range: float = 10,
+        draw_bounding_box: bool = False,
+        box_handle_props: dict | None = None,
+        box_props: dict | None = None,
     ):
         # The state modifiers 'move', 'square', and 'center' are expected by
         # _SelectorWidget but are not supported by PolygonSelector

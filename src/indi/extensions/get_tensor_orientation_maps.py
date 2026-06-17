@@ -24,10 +24,9 @@ def get_ha_e2a_maps(
             ``[slices, rows, cols, xyz, order]``.
 
     Returns:
-        tuple[NDArray, NDArray, NDArray]:
-            ha_map (NDArray): Helix angle map in degrees (range ``[-90, 90]``).
-            ta_map (NDArray): Transverse angle map in degrees.
-            e2a_map (NDArray): E2A (sheetlet angle) map in degrees.
+        ha_map (NDArray): Helix angle map in degrees (range ``[-90, 90]``).
+        ta_map (NDArray): Transverse angle map in degrees.
+        e2a_map (NDArray): E2A (sheetlet angle) map in degrees.
     """
 
     ev1 = eigenvectors[:, :, :, :, 2]
@@ -180,11 +179,10 @@ def get_tensor_orientation_maps(
         logger (logging.Logger): Logger for per-slice debug messages.
 
     Returns:
-        tuple[NDArray, NDArray, NDArray, dict]:
-            ha (NDArray): Helix angle map.
-            ta (NDArray): Transverse angle map.
-            e2a (NDArray): E2A (sheetlet angle) map.
-            info (dict): Unchanged metadata dictionary.
+        ha (NDArray): Helix angle map.
+        ta (NDArray): Transverse angle map.
+        e2a (NDArray): E2A (sheetlet angle) map.
+        info (dict): Unchanged metadata dictionary.
     """
 
     ha, ta, e2a = get_ha_e2a_maps(mask_3c, local_cardiac_coordinates, dti["eigenvectors"])

@@ -91,7 +91,7 @@ def dictify(ds: pydicom.dataset.Dataset, manufacturer: str, dicom_type: str) -> 
     return output
 
 
-def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = ""):
+def flatten_dict(input_dict: dict, separator: str = "_", prefix: str = "") -> dict:
     """Flatten a multilevel dictionary.
 
     Args:
@@ -264,7 +264,7 @@ def build_bmatrix(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
     """Build the b-matrix column from individual DICOM header components.
 
     Reads the six independent b-matrix elements from separate columns
-    (XX, XY, XZ, YY, YZ, ZZ) and assembles them into symmetric 3×3 NumPy
+    (XX, XY, XZ, YY, YZ, ZZ) and assembles them into symmetric 3x3 NumPy
     arrays stored in a new ``"bmatrix"`` column.
 
     Args:
@@ -275,8 +275,8 @@ def build_bmatrix(data: pd.DataFrame, logger: logging) -> pd.DataFrame:
             consistency).
 
     Returns:
-        pd.DataFrame: DataFrame with an added ``"bmatrix"`` column whose
-        entries are ``(3, 3)`` NumPy arrays.
+        data (pd.DataFrame): DataFrame with an added ``"bmatrix"`` column whose
+            entries are ``(3, 3)`` NumPy arrays.
     """
 
     bmatrix_columns = [
@@ -319,7 +319,7 @@ def build_gradient_directions(data: pd.DataFrame, logger: logging) -> pd.DataFra
             consistency).
 
     Returns:
-        pd.DataFrame: DataFrame with an added or updated
+        data (pd.DataFrame): DataFrame with an added or updated
         ``"diffusion_direction"`` column.
     """
 
@@ -532,7 +532,7 @@ def tweak_directions_and_b_values(data: pd.DataFrame) -> pd.DataFrame:
     If the b-value is NaN, set it to 0.
 
     Args:
-      data: DataFrame with image data
+        data: DataFrame with image data
 
     Returns:
         data: DataFrame with tweaked directions and b-values
@@ -562,7 +562,7 @@ def add_missing_columns(data: pd.DataFrame) -> pd.DataFrame:
     More columns can be added here if needed.
 
     Args:
-      data: DataFrame with image data
+        data: DataFrame with image data
 
     Returns:
         data: DataFrame with added columns
@@ -607,7 +607,7 @@ def get_dicom_version(global_dicom_header: pydicom.dataset.Dataset, logger: logg
     return dicom_type, n_images_per_file
 
 
-def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging):
+def get_manufacturer(header: pydicom.dataset.Dataset, logger: logging) -> str:
     """Get manufacturer from the DICOM header.
     This function will set the manufacturer variable to one of the following:
     - "siemens"
@@ -700,7 +700,7 @@ def reorder_columns(table_frame: pd.DataFrame) -> pd.DataFrame:
     """Move some columns to the start of the table for easier access to the most important columns.
 
     Args:
-      table_frame: dataframe with image data
+        table_frame: dataframe with image data
 
     Returns:
         table_frame: dataframe with reordered columns

@@ -21,11 +21,13 @@ def manual_image_removal(
     stage: str,
     info: dict,
     prelim_residuals: dict = {},
-) -> tuple[pd.DataFrame, pd.DataFrame, dict, NDArray]:
+) -> list:
     """
     Manually remove images by selecting them in a matplotlib window.
 
-    This function displays all diffusion-weighted images (DWIs) for each slice in a grid. The user can interactively select images to be removed by clicking on them. Selected images are highlighted, and their indices are recorded for removal. Optionally, segmentation contours and outlier information (from residuals) are displayed.
+    This function displays all diffusion-weighted images (DWIs) for each slice in a grid. The user can interactively
+    select images to be removed by clicking on them. Selected images are highlighted, and their indices are recorded for
+    removal. Optionally, segmentation contours and outlier information (from residuals) are displayed.
 
     Args:
         data (pd.DataFrame): DataFrame containing all DWI data.
@@ -38,11 +40,7 @@ def manual_image_removal(
         prelim_residuals (dict, optional): Preliminary residuals for each image, used to highlight outliers. Defaults to {}.
 
     Returns:
-        tuple:
-            pd.DataFrame: Original DataFrame with all data.
-            pd.DataFrame: DataFrame with rejected images removed.
-            dict: Updated info dictionary.
-            NDArray: Array with indices of rejected images in the original DataFrame.
+        rejected_indices (list): rejected frames indices
     """
     # # max relative signal in the images
     # if settings["sequence_type"] == "steam":
@@ -272,7 +270,10 @@ def select_outliers(
     """
     Remove outlier images from the dataset, optionally with manual selection.
 
-    This function removes outlier images from the DWI dataset, either by manual selection (via an interactive matplotlib window) or by automated methods (AI-based, if enabled). It updates the data and info dictionaries, tracks rejected images, and updates registration image data if needed.
+    This function removes outlier images from the DWI dataset, either by manual selection
+    (via an interactive matplotlib window) or by automated methods (AI-based, if enabled).
+    It updates the data and info dictionaries, tracks rejected images, and updates registration
+    image data if needed.
 
     Args:
         data (pd.DataFrame): DataFrame containing DWI images and diffusion information.
@@ -287,10 +288,9 @@ def select_outliers(
         prelim_residuals (dict, optional): Preliminary residuals for each image, used to highlight outliers. Defaults to {}.
 
     Returns:
-        tuple:
-            pd.DataFrame: Updated DataFrame with outliers marked or removed.
-            dict: Updated info dictionary.
-            NDArray: Array of rejected image indices.
+        data (pd.DataFrame): Updated DataFrame with outliers marked or removed.
+        info (dict): Updated info dictionary.
+        slices: Array of slices
     """
     # check if the info dictionary has the rejected_indices and n_images_rejected keys
     if "rejected_indices" not in info:

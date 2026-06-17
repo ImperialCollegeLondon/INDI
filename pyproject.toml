@@ -74,6 +74,8 @@ ai = [
 "einops",
 "timm",
 ]
+
+[dependency-groups]
 dev = ["black", "pre-commit", "pytest", "pytest-cov"]
 doc = ["mkdocs", "mkdocs-material", "mkdocstrings[python]", "markdown-callouts"]
 
@@ -92,3 +94,7 @@ exclude = '''
   |Jenkinfile
 )/
 '''
+
+[tool.uv]
+package = true
+

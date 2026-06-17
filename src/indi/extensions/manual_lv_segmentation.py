@@ -23,8 +23,8 @@ def get_sa_contours(lv_mask: NDArray) -> tuple[NDArray, NDArray]:
         lv_mask (NDArray): Binary mask of the LV myocardium (uint8 compatible).
 
     Returns:
-        tuple[NDArray, NDArray]: ``(epi_contour, endo_contour)`` where each
-        array has shape ``[N, 2]`` with ``(x, y)`` pixel coordinates.
+        epi_contour (NDArray): Epicardial contour with shape ``[N, 2]`` in ``(x, y)`` pixel coordinates.
+        endo_contour (NDArray): Endocardial contour with shape ``[N, 2]`` in ``(x, y)`` pixel coordinates.
 
     Raises:
         AssertionError: If more than one epicardial or endocardial contour is
@@ -71,8 +71,7 @@ def get_epi_contour(lv_mask: NDArray) -> NDArray:
         lv_mask (NDArray): Binary mask of the LV region (uint8 compatible).
 
     Returns:
-        NDArray: Epicardial contour with shape ``[N, 2]`` in ``(x, y)``
-        pixel coordinates.
+        epi_contour (NDArray): Epicardial contour with shape ``[N, 2]`` in ``(x, y)`` pixel coordinates.
 
     Raises:
         AssertionError: If more than one outermost contour is detected.
@@ -109,9 +108,8 @@ def clean_image(img: NDArray, factor: float) -> tuple[NDArray, NDArray]:
         factor (float): Pixels with value below ``factor`` are zeroed.
 
     Returns:
-        tuple[NDArray, NDArray]:
-            clean_img (NDArray): Image with sub-threshold pixels set to zero.
-            mask (NDArray): Binary mask where ``1`` indicates pixels that
+        clean_img (NDArray): Image with sub-threshold pixels set to zero.
+        mask (NDArray): Binary mask where ``1`` indicates pixels that
             survived thresholding.
     """
     clean_img = np.copy(img)
@@ -130,7 +128,7 @@ def get_mask_from_poly(poly: NDArray, dims: tuple) -> NDArray:
         dims (tuple): Desired mask dimensions ``(rows, cols)``.
 
     Returns:
-        NDArray: Binary mask with the polygon interior filled with ``1``.
+        mask (NDArray): Binary mask with the polygon interior filled with ``1``.
     """
     # create a mask with zeros
     mask = np.zeros(dims)
@@ -159,7 +157,7 @@ def reduce_polygon(polygon_coords: NDArray, angle_th: float = 0, distance_th: fl
             0 (no distance-based removal).
 
     Returns:
-        list: Simplified polygon as a list of ``[x, y]`` vertices.
+        reduced_polygon (list): Simplified polygon as a list of ``[x, y]`` vertices.
     """
     angle_th_rad = np.deg2rad(angle_th)
     points_removed = [0]
@@ -617,7 +615,7 @@ def manual_lv_segmentation(
     colormaps: dict,
     slice_idx: int,
     slices: NDArray,
-) -> dict:
+) -> tuple[dict, NDArray]:
     """Interactively define LV epicardial/endocardial contours and insertion points.
 
     Displays the average image and DTI maps for one slice and lets the user
@@ -638,8 +636,9 @@ def manual_lv_segmentation(
         slices (NDArray): All slice indices (used in the window title).
 
     Returns:
-        dict: Segmentation result with keys ``"epicardium"``,
-        ``"endocardium"``, ``"anterior_ip"``, and ``"inferior_ip"``.
+        segmentation (dict): Segmentation result with keys ``"epicardium"``,
+            ``"endocardium"``, ``"anterior_ip"``, and ``"inferior_ip"``.
+        mask (NDArray): Binary mask with the polygon interior filled with ``1``.
     """
     lv_masks = mask_3c.copy()
     lv_masks[lv_masks == 2] = 0
