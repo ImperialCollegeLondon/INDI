@@ -325,7 +325,18 @@ def dipy_tensor_fit(
 
         # calculate tensor residuals
         # Predict a signal given tensor parameters.
-        s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
+        # RWLS uses an M-estimator that can collapse to zero weights when
+        # log-residuals are numerically zero (e.g. with noiseless data on
+        # certain BLAS implementations). This leaves S0_hat=1 and the
+        # tensor at zero, producing spurious residuals. Fall back to WLS,
+        # which is the stable first-iteration fit used by RWLS, so that
+        # residuals remain meaningful regardless of numerical precision.
+        if method == "RWLS":
+            wls_tenmodel = dti.TensorModel(gtab, fit_method="WLS", return_S0_hat=True)
+            wls_tenfit = wls_tenmodel.fit(image_data)
+            s_est = dti.tensor_prediction(wls_tenfit.model_params, gtab, S0=wls_tenfit.S0_hat)
+        else:
+            s_est = dti.tensor_prediction(tenfit.model_params, gtab, S0=tenfit.S0_hat)
         res = np.abs(image_data - s_est)
 
         # estimate res in the myocardium per diffusion image
