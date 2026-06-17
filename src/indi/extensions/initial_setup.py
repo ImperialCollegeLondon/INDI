@@ -12,8 +12,8 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the diffusion image pipeline.
 
     Returns:
-        argparse.Namespace: Parsed arguments with at least ``settings`` (path
-        to the YAML file) and an optional ``start_folder`` override.
+        parser: Parsed arguments with at least ``settings`` (path
+            to the YAML file) and an optional ``start_folder`` override.
     """
 
     parser = argparse.ArgumentParser(description="Pipeline for processing diffusion images")
@@ -43,7 +43,7 @@ def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Lo
             resolved conflicts.
 
     Returns:
-        dict: Updated settings dictionary with all conflicts resolved.
+        settings: Updated settings dictionary with all conflicts resolved.
 
     Raises:
         ValueError: If no start folder is specified or the specified folder
@@ -97,7 +97,7 @@ def solve_conflicts(settings: dict, args: argparse.Namespace, logger: logging.Lo
     return settings
 
 
-def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, logging.Formatter, list]:
+def initial_setup(script_path: str) -> tuple[dict, dict, logging.Logger, logging.Formatter, list]:
     """Perform initial pipeline setup: parse arguments, load settings, and configure logging.
 
     Args:
@@ -105,14 +105,12 @@ def initial_setup(script_path: str) -> tuple[dict, dict, dict, logging.Logger, l
             pipeline script; used to resolve relative paths in the YAML file.
 
     Returns:
-        tuple[dict, dict, dict, logging.Logger, logging.Formatter, list]:
-            dti (dict): Empty DTI data dictionary ready to be populated.
-            settings (dict): Resolved settings from the YAML file.
-            info (dict): Empty ``info`` dictionary reserved for metadata.
-            logger (logging.Logger): Configured root logger.
-            log_format (logging.Formatter): Formatter used by log handlers.
-            all_to_be_analysed_folders (list): Sorted list of data folders
-                discovered under ``settings["start_folder"]``.
+        dti (dict): Empty DTI data dictionary ready to be populated.
+        settings (dict): Resolved settings from the YAML file.
+        logger (logging.Logger): Configured root logger.
+        log_format (logging.Formatter): Formatter used by log handlers.
+        all_to_be_analysed_folders (list): Sorted list of data folders
+            discovered under ``settings["start_folder"]``.
     """
     # logger setup
     log_format = logging.Formatter("%(levelname)s : %(asctime)s :: %(message)s")

@@ -4,18 +4,15 @@ from tensorflow.keras import models
 
 
 def dwis_classifier(dwis: NDArray, threshold: float) -> NDArray:
-    """Classify DWIs as good or bad using a pre-trained CNN.
+    """Classify DWIs as either good (0) or bad (1)
 
     Args:
-        dwis (NDArray): Image stack to classify with shape
-            ``(n_images, rows, cols)``.
-        threshold (float): Probability threshold. Predictions below this value
-            are labelled bad (``0``); predictions at or above are labelled
-            good (``1``).
+      dwis: array with dwis to be classified
+      threshold: threshold value. If lower than threshold, the image is labeled as bad.
 
     Returns:
-        NDArray: Label vector of shape ``(n_images, 1)`` where ``0`` means bad
-        and ``1`` means good.
+      predicted_label: numpy array with predicted labels for each dwi
+
     """
 
     cnn_name = "/usr/local/dtcmr/dwi_classifier/classifier_dwis.hdf5"

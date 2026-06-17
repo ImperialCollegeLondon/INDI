@@ -30,9 +30,8 @@ def remove_outliers_ai(
             below which a frame is considered bad. Defaults to ``0.3``.
 
     Returns:
-        tuple[pd.DataFrame, NDArray]: A tuple of:
-            - DataFrame with bad frames removed.
-            - 1-D integer array of the dropped row indices.
+        data_new: DataFrame with bad frames removed.
+        rows_to_drop: 1-D integer array of the dropped row indices.
     """
 
     # gather images from dataframe

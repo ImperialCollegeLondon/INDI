@@ -153,8 +153,8 @@ def get_diffusion_summary_for_slice(
             log. Defaults to ``0``.
 
     Returns:
-        pd.DataFrame: Sub-table containing only the rows for the requested
-        slice.
+        configs_table_this_slice (pd.DataFrame): Sub-table containing only the rows for the requested
+            slice.
     """
     configs_table_this_slice = configs_table.loc[configs_table["slice_integer"] == slices[slice_idx]]
     # different b-values
@@ -192,8 +192,8 @@ def sort_by_date_time(df: pd.DataFrame) -> pd.DataFrame:
             columns.
 
     Returns:
-        pd.DataFrame: DataFrame sorted by acquisition date-time with a clean
-        integer index.
+        df (pd.DataFrame): DataFrame sorted by acquisition date-time with a clean
+            integer index.
     """
     # create a new column with date and time, drop the previous two columns
     # if this column doesn't exist already
@@ -238,7 +238,7 @@ def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: in
             cubic-spline upsampling when greater than ``1``.
 
     Returns:
-        NDArray: 2-D image array, rotated 90° and optionally interpolated.
+        img (NDArray): 2-D image array, rotated 90° and optionally interpolated.
     """
 
     img = np.rot90(nii_px_array[:, :, c_slice_idx, c_frame_idx], k=1, axes=(0, 1))
@@ -264,7 +264,7 @@ def get_nii_diffusion_direction(dir: NDArray, settings: dict) -> list:
             the fallback direction for zero vectors.
 
     Returns:
-        list: Diffusion direction as a 3-element float list.
+        dir (list): Diffusion direction as a 3-element float list.
     """
     if not np.any(dir):
         if settings["sequence_type"] == "steam":
@@ -282,8 +282,8 @@ def get_nii_series_description(json_header: dict) -> str:
         json_header (dict): JSON sidecar dictionary from the NIfTI file.
 
     Returns:
-        str: Series description with spaces replaced by underscores, or
-        ``"None"`` if the field is absent.
+        result (str): Series description with spaces replaced by underscores, or
+            ``"None"`` if the field is absent.
     """
     if "SeriesDescription" in json_header.keys():
         result = (json_header["SeriesDescription"].replace(" ", "_"),)
@@ -310,8 +310,8 @@ def read_and_process_niis(
         logger (logging.Logger): Logger for debug and informational messages.
 
     Returns:
-        Tuple[pd.DataFrame, dict]: The imaging DataFrame and the updated
-        ``info`` dictionary.
+        df (pd.DataFrame): The imaging DataFrame
+        info (dict): Updated ``info`` dictionary.
     """
     # opening first nii file
     first_nii = nib.load(os.path.join(settings["dicom_folder"], list_nii[0]))
@@ -517,9 +517,9 @@ def estimate_rr_interval(data: pd.DataFrame, settings: dict) -> pd.DataFrame:
             between ``"steam"`` and ``"se"`` estimation strategies.
 
     Returns:
-        pd.DataFrame: DataFrame with an added ``"estimated_rr_interval"``
-        column (and ``"nominal_interval"`` set to ``"None"`` when no
-        timestamps are present).
+        data (pd.DataFrame): DataFrame with an added ``"estimated_rr_interval"``
+            column (and ``"nominal_interval"`` set to ``"None"`` when no
+            timestamps are present).
     """
 
     # check if we have acquisition date and time values
@@ -653,9 +653,9 @@ def adjust_b_val_and_dir(
             or ``"nii"``.
 
     Returns:
-        pd.DataFrame: DataFrame with updated ``"b_value"``,
-        ``"b_value_original"``, ``"diffusion_direction"``, and
-        ``"diffusion_direction_original"`` columns.
+        data (pd.DataFrame): DataFrame with updated ``"b_value"``,
+            ``"b_value_original"``, ``"diffusion_direction"``, and
+            ``"diffusion_direction_original"`` columns.
     """
 
     n_entries, _ = data.shape
@@ -1057,7 +1057,7 @@ def create_2d_montage_from_database(
 
 def reorder_by_slice(
     data: pd.DataFrame, settings: dict, info: dict, logger: logging
-) -> [pd.DataFrame, dict, list, int]:
+) -> tuple[pd.DataFrame, dict, list, int]:
     """Reorder the DataFrame by slice position and optionally remove slices.
 
     Determines the dominant spatial axis, assigns a monotonic integer index
@@ -1074,12 +1074,11 @@ def reorder_by_slice(
         logger (logging.Logger): Logger for debug messages.
 
     Returns:
-        list: A 4-element list of:
-            - ``pd.DataFrame`` – reordered DataFrame with ``"slice_integer"``
+        data (pd.DataFrame): reordered DataFrame with ``"slice_integer"``
               column.
-            - ``dict`` – updated ``info`` dict.
-            - ``list`` – remaining slice integers after removal.
-            - ``int`` – total number of slices before removal.
+        info (dict): updated ``info`` dict.
+        slices (list): remaining slice integers after removal.
+        n_slices (int): total number of slices before removal.
     """
     # round the image position values (sometimes there are small differences)
     # round image position to the first significant digit decimal place in the slice thickness
@@ -1178,10 +1177,9 @@ def read_data(settings: dict, info: dict, logger: logging) -> tuple[pd.DataFrame
         logger (logging.Logger): Logger for console and file output.
 
     Returns:
-        tuple[pd.DataFrame, dict, NDArray]: A 3-tuple of:
-            - The imaging DataFrame with all DWI metadata and pixel data.
-            - The updated ``info`` metadata dictionary.
-            - 1-D array of integer slice indices.
+        data: The imaging DataFrame with all DWI metadata and pixel data.
+        info: The updated ``info`` metadata dictionary.
+        slices: 1-D array of integer slice indices.
     """
 
     # initiate variables
@@ -1318,10 +1316,11 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
             toggled on when both magnitude and phase data are present.
 
     Returns:
-        tuple[pd.DataFrame, pd.DataFrame, dict]: The magnitude dataframe with
-        images in ``image`` column, the phase dataframe (empty if not present),
-        and the metadata ``info`` dictionary with manufacturer inferred if
-        missing.
+    data, data_phase, info
+        data (pd.DataFrame): The magnitude dataframe with images in ``image`` column
+        data_phase (pd.DataFrame): The phase dataframe (empty if not present)
+        info (dict): The metadata ``info`` dictionary with manufacturer inferred if
+            missing.
 
     Raises:
         FileNotFoundError: If required magnitude or phase database files are
@@ -1430,9 +1429,9 @@ def read_and_process_dicoms(
             ``"img_interp_factor"`` keys.
 
     Returns:
-        tuple[pd.DataFrame, pd.DataFrame, dict]: A 3-tuple of the magnitude
-        DataFrame, the phase DataFrame (empty if not complex), and the
-        updated ``info`` dict.
+        data (pd.DataFrame): The magnitude DataFrame with images in the ``image`` column.
+        data_phase (pd.DataFrame): The phase DataFrame (empty if not complex) with images in the ``image`` column.
+        info (dict): The updated metadata dictionary with manufacturer
 
     Raises:
         ValueError: If magnitude and phase DICOM tables do not match.
@@ -1622,7 +1621,7 @@ def read_and_process_dicoms(
     return data, data_phase, info
 
 
-def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, list, list]:
+def list_files(data_type: str, logger: logging, settings: dict) -> tuple[str, list, list, list]:
     """Discover available data files and classify the data source type.
 
     Searches ``settings["dicom_folder"]`` (and its ``mag``/``phase``
@@ -1637,12 +1636,10 @@ def list_files(data_type: str, logger: logging, settings: dict) -> [str, list, l
             to the data root.
 
     Returns:
-        list: A 4-element list of:
-            - ``str`` – resolved data type (``"dicom"``, ``"nii"``, or
-              ``None`` for pre-saved database).
-            - ``list`` – magnitude DICOM filenames.
-            - ``list`` – phase DICOM filenames (empty if not complex).
-            - ``list`` – NIfTI filenames.
+        data_type: resolved data type (``"dicom"``, ``"nii"``, or ``None`` for pre-saved database)
+        list_dicoms: magnitude DICOM filenames
+        list_dicoms_phase: phase DICOM filenames (empty if not complex)
+        list_nii: NIfTI filenames
 
     Raises:
         FileNotFoundError: If the data folder does not exist or no supported

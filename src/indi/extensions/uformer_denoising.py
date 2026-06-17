@@ -8,7 +8,7 @@ from indi.extensions.uformer_tensor_denoising.uformer_tensor_denoising import ma
 def denoise_tensor(D: NDArray, settings: dict) -> NDArray:
     """Denoise a diffusion tensor field using the Uformer ensemble model.
 
-    Pads or crops the spatial dimensions to 128×128, runs the Uformer inference
+    Pads or crops the spatial dimensions to 128x128, runs the Uformer inference
     pipeline, and restores the original shape.
 
     Args:
@@ -19,7 +19,7 @@ def denoise_tensor(D: NDArray, settings: dict) -> NDArray:
             acquiring the data: ``1``, ``3``, or ``5``).
 
     Returns:
-        NDArray: Denoised tensor array with the same shape as ``D``.
+        D_denoised (NDArray): Denoised tensor array with the same shape as ``D``.
     """
 
     # Make the tensor H & W [128, 128]
