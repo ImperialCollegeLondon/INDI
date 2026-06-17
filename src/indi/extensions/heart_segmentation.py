@@ -218,8 +218,22 @@ def heart_segmentation(
                 allow_pickle=True,
             )
             mask_3c[slice_idx] = npzfile["mask_3c"]
-            segmentation[slice_idx] = npzfile["segmentation"]
-            segmentation[slice_idx] = segmentation[slice_idx].item()
+            segmentation[slice_idx] = npzfile["segmentation"].item()
+
+            # Backwards-compatibility: ensure *_true_border keys exist for downstream plotting/cropping.
+            if segmentation[slice_idx].get("epicardium", np.array([])).size != 0 and (
+                "epicardium_true_border" not in segmentation[slice_idx]
+                or segmentation[slice_idx]["epicardium_true_border"].size == 0
+            ):
+                mask_lv = mask_3c[slice_idx].copy()
+                mask_lv[mask_lv != 1] = 0
+                epi_contour, endo_contour = get_sa_contours(mask_lv)
+                segmentation[slice_idx]["epicardium_true_border"] = epi_contour
+                if segmentation[slice_idx].get("endocardium", np.array([])).size != 0:
+                    segmentation[slice_idx]["endocardium_true_border"] = endo_contour
+
+            segmentation[slice_idx].setdefault("epicardium_true_border", np.empty((0, 2)))
+            segmentation[slice_idx].setdefault("endocardium_true_border", np.empty((0, 2)))
 
             # if there is no epicardial border defined, mark this slice to be removed in the dataframe
             if segmentation[slice_idx]["epicardium"].size == 0:
@@ -277,13 +291,16 @@ def heart_segmentation(
                     epi_contour = get_epi_contour(mask_lv)
                     endo_contour = np.array([])
 
+                segmentation[slice_idx]["epicardium_true_border"] = epi_contour
+                segmentation[slice_idx]["endocardium_true_border"] = endo_contour
+
                 epi_len = len(epi_contour)
                 endo_len = len(endo_contour)
-                epi_contour = spline_interpolate_contour(epi_contour, 20, join_ends=False)
+                epi_contour = spline_interpolate_contour(epi_contour, 10, join_ends=False)
                 epi_contour = spline_interpolate_contour(epi_contour, epi_len, join_ends=False)
 
                 if segmentation[slice_idx]["endocardium"].size != 0:
-                    endo_contour = spline_interpolate_contour(endo_contour, 20, join_ends=False)
+                    endo_contour = spline_interpolate_contour(endo_contour, 10, join_ends=False)
                     endo_contour = spline_interpolate_contour(endo_contour, endo_len, join_ends=False)
 
                 segmentation[slice_idx]["epicardium"] = epi_contour

@@ -683,7 +683,7 @@ def adjust_b_val_and_dir(
         and (data_type == "dicom" or data_type == "pandas")
         and info["manufacturer"] == "siemens"
     ):
-        if info["image_comments"]:
+        if "image_comments" in info.keys():
             logger.debug("Dicom header comment found: " + info["image_comments"])
             # get all numbers from comment field
             m = re.findall(r"[-+]?(?:\d*\.*\d+)", info["image_comments"])
@@ -981,10 +981,10 @@ def create_2d_montage_from_database(
         if segmentation:
             # create montage with segmentation
             seg_img = np.zeros((info["img_size"][0], info["img_size"][1], 3))
-            pts = np.array(segmentation[slice_int]["epicardium"], dtype=int)
+            pts = np.array(segmentation[slice_int]["epicardium_true_border"], dtype=int)
             seg_img[pts[:, 1], pts[:, 0]] = [1.0, 1.0, 0.33]
             if segmentation[slice_int]["endocardium"].size != 0:
-                pts = np.array(segmentation[slice_int]["endocardium"], dtype=int)
+                pts = np.array(segmentation[slice_int]["endocardium_true_border"], dtype=int)
                 seg_img[pts[:, 1], pts[:, 0]] = [1.0, 1.0, 0.33]
             # repeat image for the entire stack
             seg_img = np.tile(seg_img, (len(c_img_stack), max_number_of_images, 1))

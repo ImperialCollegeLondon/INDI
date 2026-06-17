@@ -229,6 +229,65 @@ def plot_manual_lv_segmentation(
         plt.axis("off")
         if segmentation[slice_idx]["epicardium"].size != 0:
             plt.scatter(
+                segmentation[slice_idx]["epicardium_true_border"][:, 0],
+                segmentation[slice_idx]["epicardium_true_border"][:, 1],
+                marker=".",
+                s=2,
+                color="tab:blue",
+                alpha=0.5,
+            )
+        if segmentation[slice_idx]["endocardium"].size != 0:
+            plt.scatter(
+                segmentation[slice_idx]["endocardium_true_border"][:, 0],
+                segmentation[slice_idx]["endocardium_true_border"][:, 1],
+                marker=".",
+                s=2,
+                color="tab:red",
+                alpha=0.5,
+            )
+        if segmentation[slice_idx]["anterior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["anterior_ip"][0],
+                segmentation[slice_idx]["anterior_ip"][1],
+                "2",
+                color="tab:orange",
+                markersize=10,
+                alpha=0.5,
+            )
+        if segmentation[slice_idx]["inferior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["inferior_ip"][0],
+                segmentation[slice_idx]["inferior_ip"][1],
+                "1",
+                color="tab:orange",
+                markersize=10,
+                alpha=0.5,
+            )
+        plt.savefig(
+            os.path.join(
+                save_path,
+                filename + "_true_border_slice_" + str(slice_idx).zfill(2) + ".png",
+            ),
+            dpi=100,
+            bbox_inches="tight",
+            pad_inches=0,
+            transparent=False,
+        )
+        plt.close()
+
+    for slice_idx in slices:
+        # alpha mask
+        alphas_myocardium = np.copy(mask_3c[slice_idx])
+        alphas_myocardium[alphas_myocardium == 2] = 0
+        alphas_myocardium[alphas_myocardium > 0.1] = 0.3
+
+        # plot average images and respective masks
+        plt.figure(figsize=(5, 5))
+        plt.imshow(average_maps[slice_idx], cmap="Greys_r")
+        plt.imshow(alphas_myocardium, alpha=alphas_myocardium, vmin=0, vmax=1, cmap="hot")
+        plt.axis("off")
+        if segmentation[slice_idx]["epicardium"].size != 0:
+            plt.scatter(
                 segmentation[slice_idx]["epicardium"][:, 0],
                 segmentation[slice_idx]["epicardium"][:, 1],
                 marker=".",
@@ -260,7 +319,7 @@ def plot_manual_lv_segmentation(
                 segmentation[slice_idx]["inferior_ip"][1],
                 "1",
                 color="tab:orange",
-                markersize=5,
+                markersize=10,
                 alpha=0.5,
             )
         plt.savefig(
@@ -630,7 +689,7 @@ def manual_lv_segmentation(
             2,
             dpi=my_dpi,
             figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
-            num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
+            num="Slice " + str(slice_idx + 1) + " of " + str(len(slices)),
         )
     else:
         fig, ax = plt.subplots(
@@ -638,7 +697,7 @@ def manual_lv_segmentation(
             1,
             dpi=my_dpi,
             figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
-            num="Slice " + str(slice_idx) + " of " + str(len(slices) - 1),
+            num="Slice " + str(slice_idx + 1) + " of " + str(len(slices)),
         )
 
     # leave some space for the buttons

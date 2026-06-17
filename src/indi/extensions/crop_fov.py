@@ -88,10 +88,18 @@ def crop_images(
             segmentation[slice_name]["epicardium"] = np.array(segmentation[slice_name]["epicardium"]) - np.flip(
                 first_corner
             )
+        if segmentation[slice_name]["epicardium_true_border"].size != 0:
+            segmentation[slice_name]["epicardium_true_border"] = np.array(
+                segmentation[slice_name]["epicardium_true_border"]
+            ) - np.flip(first_corner)
         if segmentation[slice_name]["endocardium"].size != 0:
             segmentation[slice_name]["endocardium"] = np.array(segmentation[slice_name]["endocardium"]) - np.flip(
                 first_corner
             )
+        if segmentation[slice_name]["endocardium_true_border"].size != 0:
+            segmentation[slice_name]["endocardium_true_border"] = np.array(
+                segmentation[slice_name]["endocardium_true_border"]
+            ) - np.flip(first_corner)
 
     # add crop info to info dictionary
     temp_val = list(first_corner)
@@ -185,7 +193,7 @@ def record_image_registration(
         ]
         store_v_lp_post = np.mean(store_v_lp_post, axis=2)
 
-        plt.figure(figsize=(5, 5))
+        plt.figure(figsize=(10, 10))
         plt.subplot(2, 2, 1)
         plt.imshow(store_h_lp_pre, cmap="inferno")
         plt.axis("off")
@@ -246,6 +254,14 @@ def record_image_registration(
         # step of the vector field for the displacement transform
         step = 3
 
+        def fake_color_reg(a, b):
+            factor = 2.0
+            fake_colour_pre = np.zeros((b.shape[0], b.shape[1], 3), dtype=np.uint8)
+            fake_colour_pre[..., 0] = np.clip(a / np.max(a) * factor * 255, 0, 255)
+            fake_colour_pre[..., 2] = np.clip(b / np.max(b) * factor * 255, 0, 255)
+            fake_colour_pre[..., 1] = 0
+            return fake_colour_pre
+
         for slice_idx in slices:
             X, Y = np.meshgrid(
                 np.arange(0, registration_image_data[slice_idx]["deformation_field"]["grid"][1].shape[1], step),
@@ -271,8 +287,8 @@ def record_image_registration(
                     np.max(registration_image_data[slice_idx]["img_post_reg"][img_idx]),
                 )
                 comp_1 = compare_images(c_ref, c_img_post, method="checkerboard")
-                comp_2 = compare_images(c_ref, c_img_post, method="diff")
-                comp_3 = compare_images(c_ref, c_img_post, method="blend")
+                comp_2 = fake_color_reg(c_ref, c_img_post)
+                comp_3 = fake_color_reg(c_ref, c_img_pre)
 
                 plt.figure(figsize=(5, 5))
 
@@ -299,12 +315,12 @@ def record_image_registration(
                 plt.subplot(3, 3, 5)
                 plt.imshow(comp_2)
                 plt.axis("off")
-                plt.title("diff", fontsize=7)
+                plt.title("fake colour blend", fontsize=7)
 
                 plt.subplot(3, 3, 6)
                 plt.imshow(comp_3)
                 plt.axis("off")
-                plt.title("blend", fontsize=7)
+                plt.title("fake colour blend", fontsize=7)
 
                 plt.subplot(3, 3, 7)
                 plt.imshow(

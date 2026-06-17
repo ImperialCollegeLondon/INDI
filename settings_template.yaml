@@ -23,8 +23,8 @@ registration_extra_debug: False
 # ========================================================================================
 # IMAGE REGISTRATION
 # ========================================================================================
-# none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid
-# elastix_groupwise (not working well at the moment)
+# none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid, elastix_non_rigid_fb
+# elastix_groupwise (not working well at the moment), ants_non_rigid
 registration: elastix_non_rigid
 # fast, slow
 registration_speed: fast

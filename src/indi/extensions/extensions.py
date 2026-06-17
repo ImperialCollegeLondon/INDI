@@ -1007,25 +1007,43 @@ def plot_results_maps(
         # plt.imshow(average_images[slice_idx], cmap="Blues_r", vmin=0, vmax=1)
         vmin, vmax = get_window(dti["s0"][slice_idx], mask_3c[slice_idx])
         plt.imshow(dti["s0"][slice_idx], cmap="Greys_r", vmin=vmin, vmax=vmax)
-        if segmentation[slice_idx]["epicardium"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["epicardium"][:, 0],
-                segmentation[slice_idx]["epicardium"][:, 1],
-                ".",
-                color="tab:blue",
-                markersize=0.5,
-                alpha=1.0,
-            )
-        if segmentation[slice_idx]["endocardium"].size != 0:
-            plt.plot(
-                segmentation[slice_idx]["endocardium"][:, 0],
-                segmentation[slice_idx]["endocardium"][:, 1],
-                ".",
-                color="tab:red",
-                markersize=0.5,
-                alpha=1.0,
-            )
         plt.colorbar(fraction=0.046, pad=0.04)
+        if segmentation[slice_idx]["epicardium_true_border"].size != 0:
+            plt.scatter(
+                segmentation[slice_idx]["epicardium_true_border"][:, 0],
+                segmentation[slice_idx]["epicardium_true_border"][:, 1],
+                marker=".",
+                s=10,
+                color="tab:blue",
+                alpha=0.8,
+            )
+        if segmentation[slice_idx]["endocardium_true_border"].size != 0:
+            plt.scatter(
+                segmentation[slice_idx]["endocardium_true_border"][:, 0],
+                segmentation[slice_idx]["endocardium_true_border"][:, 1],
+                marker=".",
+                s=10,
+                color="tab:red",
+                alpha=0.8,
+            )
+        if segmentation[slice_idx]["anterior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["anterior_ip"][0],
+                segmentation[slice_idx]["anterior_ip"][1],
+                "2",
+                color="tab:orange",
+                markersize=20,
+                alpha=0.8,
+            )
+        if segmentation[slice_idx]["inferior_ip"].size != 0:
+            plt.plot(
+                segmentation[slice_idx]["inferior_ip"][0],
+                segmentation[slice_idx]["inferior_ip"][1],
+                "1",
+                color="tab:orange",
+                markersize=20,
+                alpha=0.8,
+            )
         plt.tight_layout(pad=1.0)
         plt.axis("off")
         plt.title("S0")

@@ -76,12 +76,6 @@ def main() -> None:
     # tf_keras package.
     os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
-    # ITK
-    # import itk
-
-    # limit the amount of parallel threads during registration
-    # itk.MultiThreaderBase.SetGlobalMaximumNumberOfThreads(1)
-
     # DTCMR tailored colormaps
     colormaps = get_colourmaps()
 
