@@ -143,7 +143,7 @@ def manual_image_removal(
                     cols,
                     figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                     dpi=my_dpi,
-                    num=f"Slice {slice_idx}",
+                    num=f"Slice {slice_idx}, page {page + 1}.",
                     squeeze=False,
                 )
             elif stage == "post":
