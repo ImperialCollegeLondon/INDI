@@ -118,61 +118,99 @@ def manual_image_removal(
         my_dpi = 192
         rows = len(c_img_stack)
         cols = max_number_of_images
+
+        # get the maximum number of rows to display in each page based on the monitor height. A 900 pixel height is used as a reference to accomodate 7 rows, and the maximum number of rows is scaled accordingly.
+        monitor_height = settings["screen_size"][1]
+        n_max_rows = int(monitor_height * 7 / 900)
+
+        if rows > n_max_rows:
+            rows_per_page = n_max_rows
+            pages = int(np.ceil(rows / rows_per_page))
+        else:
+            rows_per_page = rows
+            pages = 1
+
         # check if FOV is vertical, if so rotate text
         if info["img_size"][0] < info["img_size"][1]:
             text_rotation = 0
         else:
             text_rotation = 90
-        if stage == "pre":
-            fig, axs = plt.subplots(
-                rows,
-                cols,
-                figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
-                dpi=my_dpi,
-                num=f"Slice {slice_idx}",
-                squeeze=False,
-            )
-        elif stage == "post":
-            fig, axs = plt.subplots(
-                rows,
-                cols,
-                figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
-                dpi=my_dpi,
-                num=f"Slice {slice_idx}. Borders colour-coded by z-scores. Red = z-score > 3 and may be an outlier!",
-                squeeze=False,
-            )
-        for idx, key in enumerate(c_img_stack):
-            cc_img_stack = c_img_stack[key]
-            for idx2, img in enumerate(cc_img_stack):
-                vmin, vmax = get_window(img, mask)
-                axs[idx, idx2].imshow(img, cmap="gray", vmin=vmin, vmax=vmax)
-                if segmentation:
 
-                    # the colour of the segmentation lines will be defined by the z-scores of the residuals
-                    # anything with a absolute z-score larger than 3 will be red
-                    cmap = mpl.colormaps["autumn_r"]
-                    cmap_idx = np.abs(zscores[c_img_indices_this_slice[key][idx2]]) / 3
-                    cmap_idx = np.clip(cmap_idx, 0, 1)  # ensure values are between 0 and 1
-                    c_colour = cmap(cmap_idx)  # default colour for ROIs
-                    line_colour = c_colour
+        for page in range(pages):
+            if stage == "pre":
+                fig, axs = plt.subplots(
+                    rows_per_page,
+                    cols,
+                    figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
+                    dpi=my_dpi,
+                    num=f"Slice {slice_idx + 1}/{len(slices)}, page {page + 1}/{pages}.",
+                    squeeze=False,
+                )
+            elif stage == "post":
+                fig, axs = plt.subplots(
+                    rows_per_page,
+                    cols,
+                    figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
+                    dpi=my_dpi,
+                    num=f"Slice {slice_idx + 1}/{len(slices)}, page {page + 1}/{pages}. Borders colour-coded by z-scores. Red = z-score > 3 and may be an outlier!",
+                    squeeze=False,
+                )
+            c_img_stack_page = dict(list(c_img_stack.items())[page * rows_per_page : (page + 1) * rows_per_page])
+            for idx, key in enumerate(c_img_stack_page):
+                cc_img_stack = c_img_stack_page[key]
+                for idx2, img in enumerate(cc_img_stack):
+                    vmin, vmax = get_window(img, mask)
+                    axs[idx, idx2].imshow(img, cmap="gray", vmin=vmin, vmax=vmax)
+                    if segmentation:
 
-                    axs[idx, idx2].plot(
-                        segmentation[slice_idx]["epicardium_true_border"][:, 0],
-                        segmentation[slice_idx]["epicardium_true_border"][:, 1],
-                        lw=0.5,
-                        color=line_colour,
-                        alpha=1.0,
-                    )
-                    if segmentation[slice_idx]["endocardium"].size != 0:
+                        # the colour of the segmentation lines will be defined by the z-scores of the residuals
+                        # anything with a absolute z-score larger than 3 will be red
+                        cmap = mpl.colormaps["autumn_r"]
+                        cmap_idx = np.abs(zscores[c_img_indices_this_slice[key][idx2]]) / 3
+                        cmap_idx = np.clip(cmap_idx, 0, 1)  # ensure values are between 0 and 1
+                        c_colour = cmap(cmap_idx)  # default colour for ROIs
+                        line_colour = c_colour
+
                         axs[idx, idx2].plot(
-                            segmentation[slice_idx]["endocardium_true_border"][:, 0],
-                            segmentation[slice_idx]["endocardium_true_border"][:, 1],
+                            segmentation[slice_idx]["epicardium_true_border"][:, 0],
+                            segmentation[slice_idx]["epicardium_true_border"][:, 1],
                             lw=0.5,
                             color=line_colour,
                             alpha=1.0,
                         )
-                if stage == "pre":
-                    if not settings["print_series_description"]:
+                        if segmentation[slice_idx]["endocardium"].size != 0:
+                            axs[idx, idx2].plot(
+                                segmentation[slice_idx]["endocardium_true_border"][:, 0],
+                                segmentation[slice_idx]["endocardium_true_border"][:, 1],
+                                lw=0.5,
+                                color=line_colour,
+                                alpha=1.0,
+                            )
+                    if stage == "pre":
+                        if not settings["print_series_description"]:
+                            axs[idx, idx2].text(
+                                2,
+                                2,
+                                str(int(key[0])),
+                                fontsize=3,
+                                color="tab:orange",
+                                horizontalalignment="left",
+                                verticalalignment="top",
+                                bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                            )
+                        elif settings["print_series_description"]:
+                            axs[idx, idx2].text(
+                                2,
+                                2,
+                                c_img_stack_series_description[key][idx2],
+                                fontsize=3,
+                                color="tab:orange",
+                                horizontalalignment="left",
+                                verticalalignment="top",
+                                bbox=dict(facecolor="black", pad=0, edgecolor="none"),
+                                rotation=text_rotation,
+                            )
+                    elif stage == "post":
                         axs[idx, idx2].text(
                             2,
                             2,
@@ -183,62 +221,39 @@ def manual_image_removal(
                             verticalalignment="top",
                             bbox=dict(facecolor="black", pad=0, edgecolor="none"),
                         )
-                    elif settings["print_series_description"]:
-                        axs[idx, idx2].text(
-                            2,
-                            2,
-                            c_img_stack_series_description[key][idx2],
-                            fontsize=3,
-                            color="tab:orange",
-                            horizontalalignment="left",
-                            verticalalignment="top",
-                            bbox=dict(facecolor="black", pad=0, edgecolor="none"),
-                            rotation=text_rotation,
-                        )
-                elif stage == "post":
-                    axs[idx, idx2].text(
-                        2,
-                        2,
-                        str(int(key[0])),
-                        fontsize=3,
-                        color="tab:orange",
-                        horizontalalignment="left",
-                        verticalalignment="top",
-                        bbox=dict(facecolor="black", pad=0, edgecolor="none"),
-                    )
 
-                axs[idx, idx2].set_xticks([])
-                axs[idx, idx2].set_yticks([])
-                axs[idx, idx2].values = *key, c_img_indices_all_slices[key][idx2]
+                    axs[idx, idx2].set_xticks([])
+                    axs[idx, idx2].set_yticks([])
+                    axs[idx, idx2].values = *key, c_img_indices_all_slices[key][idx2]
 
-        # Setting the values for all axes.
-        plt.setp(axs, xticks=[], yticks=[])
-        plt.tight_layout(pad=0.1)
-        # remove axes with no image
-        [p.set_axis_off() for p in [i for i in axs.flatten() if len(i.images) < 1]]
+            # Setting the values for all axes.
+            plt.setp(axs, xticks=[], yticks=[])
+            plt.tight_layout(pad=0.1)
+            # remove axes with no image
+            [p.set_axis_off() for p in [i for i in axs.flatten() if len(i.images) < 1]]
 
-        # set the background colour of the figure
-        fig.patch.set_facecolor("0.05")
+            # set the background colour of the figure
+            fig.patch.set_facecolor("0.05")
 
-        def onclick_select(event):
-            """function to record the axes of the selected images in subplots"""
-            if event.inaxes is not None:
-                if event.inaxes in store_selected_images:
-                    store_selected_images.remove(event.inaxes)
-                    for spine in event.inaxes.spines.values():
-                        spine.set_edgecolor("black")
-                        spine.set_linewidth(1)
-                else:
-                    event.inaxes.set_alpha(0.1)
-                    for spine in event.inaxes.spines.values():
-                        spine.set_edgecolor("red")
-                        spine.set_linewidth(1)
-                    store_selected_images.append(event.inaxes)
+            def onclick_select(event):
+                """function to record the axes of the selected images in subplots"""
+                if event.inaxes is not None:
+                    if event.inaxes in store_selected_images:
+                        store_selected_images.remove(event.inaxes)
+                        for spine in event.inaxes.spines.values():
+                            spine.set_edgecolor("black")
+                            spine.set_linewidth(1)
+                    else:
+                        event.inaxes.set_alpha(0.1)
+                        for spine in event.inaxes.spines.values():
+                            spine.set_edgecolor("red")
+                            spine.set_linewidth(1)
+                        store_selected_images.append(event.inaxes)
+                fig.canvas.draw_idle()
+
+            fig.canvas.mpl_connect("button_press_event", onclick_select)
             fig.canvas.draw_idle()
-
-        fig.canvas.mpl_connect("button_press_event", onclick_select)
-        fig.canvas.draw_idle()
-        plt.show(block=True)
+            plt.show(block=True)
 
         # store the indices of the rejected images:
         for ax in store_selected_images:

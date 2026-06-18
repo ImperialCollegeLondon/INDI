@@ -76,6 +76,8 @@ def phase_correction_for_complex_averaging(data: pd.DataFrame, logger: logging.L
     # get the magnitude and phase arrays from the dataframe
     mag = data["image"].values
     phase = data["image_phase"].values
+    mag_corrected = np.zeros_like(mag)
+    phase_corrected = np.zeros_like(phase)
 
     # loop over each image and correct the phase
     for i in range(len(mag)):
@@ -146,11 +148,11 @@ def phase_correction_for_complex_averaging(data: pd.DataFrame, logger: logging.L
                 plt.close()
 
         # update the magnitude and phase arrays
-        mag[i] = np.ascontiguousarray(np.abs(complex_image_with_phase_corrected))
-        phase[i] = np.ascontiguousarray(np.angle(complex_image_with_phase_corrected))
+        mag_corrected[i] = np.ascontiguousarray(np.abs(complex_image_with_phase_corrected))
+        phase_corrected[i] = np.ascontiguousarray(np.angle(complex_image_with_phase_corrected))
 
     # update the dataframe with the new complex data
-    data["image"] = mag
-    data["image_phase"] = phase
+    data["image"] = mag_corrected
+    data["image_phase"] = phase_corrected
 
     return data
