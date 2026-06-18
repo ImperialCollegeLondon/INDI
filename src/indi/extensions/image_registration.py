@@ -241,9 +241,16 @@ def registration_loop(
         or settings["registration"] == "elastix_affine"
         or settings["registration"] == "elastix_non_rigid"
         or settings["registration"] == "elastix_non_rigid_fb"
+        or settings["registration"] == "elastix_groupwise"
     ):
-        # mask only regions of interest in the middle of the FOV.
-        mask = itk.GetImageFromArray(mask)
+        # Elastix expects an unsigned-char ITK mask; groupwise uses a 3D stack mask.
+        if settings["registration"] == "elastix_groupwise":
+            mask_arr = np.asarray(mask, dtype=np.ubyte)
+            mask_arr = np.repeat(mask_arr[np.newaxis, :, :], ref_images["n_images"], axis=0)
+            mask = itk.GetImageFromArray(mask_arr)
+        else:
+            mask_arr = np.asarray(mask, dtype=np.ubyte)
+            mask = itk.GetImageFromArray(mask_arr)
 
         # masking makes things worse for ANTs registration
 
@@ -254,15 +261,15 @@ def registration_loop(
             raise ValueError("Elastix groupwise registration not tested for complex data.")
 
         # get all images
-        mov_all = np.ascontiguousarray(np.array(mov_all, dtype=np.float32))
+        mov_all = np.asarray(mov_all, dtype=np.float32)
 
         # store images before registration
         registration_image_data["img_pre_reg"] = np.copy(mov_all)
 
         # register all images groupwise
         img_reg, result_transform_parameters = itk.elastix_registration_method(
-            mov_all,
-            mov_all,
+            itk.GetImageFromArray(mov_all),
+            itk.GetImageFromArray(mov_all),
             parameter_object=parameter_object,
             fixed_mask=mask,
             log_to_console=False,
@@ -599,8 +606,8 @@ def get_ref_image(current_entries: pd.DataFrame, slice_idx: int, settings: dict,
             # register all images groupwise
             t0 = time.time()
             img_reg, result_transform_parameters = itk.elastix_registration_method(
-                image_stack,
-                image_stack,
+                itk.GetImageFromArray(image_stack),
+                itk.GetImageFromArray(image_stack),
                 parameter_object=parameter_object,
                 fixed_mask=mask,
                 log_to_console=False,
