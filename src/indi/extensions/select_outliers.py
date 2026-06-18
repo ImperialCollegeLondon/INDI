@@ -119,7 +119,9 @@ def manual_image_removal(
         rows = len(c_img_stack)
         cols = max_number_of_images
 
-        # get the maximum number of rows to display in each page based on the monitor height. A 900 pixel height is used as a reference to accomodate 7 rows, and the maximum number of rows is scaled accordingly.
+        # get the maximum number of rows to display in each page based on the monitor height.
+        # A 900 pixel height is used as a reference to accomodate 7 rows,
+        # and the maximum number of rows is scaled accordingly.
         monitor_height = settings["screen_size"][1]
         n_max_rows = int(monitor_height * 7 / 900)
 
