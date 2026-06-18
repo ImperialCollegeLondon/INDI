@@ -68,7 +68,7 @@
 //(AutomaticTransformInitialization "true")
 
 //pf_rbh
-(FinalGridSpacingInVoxels  16)
+(FinalGridSpacingInVoxels  12)
 
 // Whether transforms are combined by composition or by addition.
 // In generally, Compose is the best option in most cases.
