@@ -143,7 +143,7 @@ def manual_image_removal(
                     cols,
                     figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                     dpi=my_dpi,
-                    num=f"Slice {slice_idx}, page {page + 1}.",
+                    num=f"Slice {slice_idx + 1}/{len(slices)}, page {page + 1}/{pages}.",
                     squeeze=False,
                 )
             elif stage == "post":
@@ -152,7 +152,7 @@ def manual_image_removal(
                     cols,
                     figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                     dpi=my_dpi,
-                    num=f"Slice {slice_idx}, page {page + 1}. Borders colour-coded by z-scores. Red = z-score > 3 and may be an outlier!",
+                    num=f"Slice {slice_idx + 1}/{len(slices)}, page {page + 1}/{pages}. Borders colour-coded by z-scores. Red = z-score > 3 and may be an outlier!",
                     squeeze=False,
                 )
             c_img_stack_page = dict(list(c_img_stack.items())[page * rows_per_page : (page + 1) * rows_per_page])
