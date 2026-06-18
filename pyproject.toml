@@ -30,7 +30,7 @@ dependencies = [
   "itk-elastix",
   "joblib",
   "keras",
-  "matplotlib",
+  "matplotlib==3.10.9",
   "pyvista",
   "numpy",
   "opencv-python",
