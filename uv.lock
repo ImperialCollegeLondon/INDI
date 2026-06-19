@@ -1186,7 +1186,8 @@ dependencies = [
     { name = "dipy" },
     { name = "h5py" },
     { name = "imageio" },
-    { name = "itk-elastix" },
+    { name = "itk-elastix", version = "0.21.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "itk-elastix", version = "0.25.3", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
     { name = "joblib" },
     { name = "keras" },
     { name = "matplotlib" },
@@ -1251,7 +1252,8 @@ requires-dist = [
     { name = "h5py" },
     { name = "hydra-core", marker = "extra == 'ai'" },
     { name = "imageio" },
-    { name = "itk-elastix" },
+    { name = "itk-elastix", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "itk-elastix", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", specifier = "==0.21.0" },
     { name = "joblib" },
     { name = "keras" },
     { name = "matplotlib", specifier = "==3.10.9" },
@@ -1398,10 +1400,43 @@ wheels = [
 
 [[package]]
 name = "itk-elastix"
+version = "0.21.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.14' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version == '3.13.*' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+]
+dependencies = [
+    { name = "itk", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/f7/dc3420e4402d60e0e63790a2bbd74a660a56677bff3854bbba2640d3fb97/itk_elastix-0.21.0-cp311-abi3-macosx_10_9_x86_64.whl", hash = "sha256:4d49df502af3f2234ca4ee2fa449f1b45ae8c15bfd34318ca956f9e612037163", size = 15661000, upload-time = "2024-08-12T13:02:16.436Z" },
+]
+
+[[package]]
+name = "itk-elastix"
 version = "0.25.3"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version == '3.13.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version < '3.13' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.14' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version == '3.13.*' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version < '3.13' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'darwin'",
+]
 dependencies = [
-    { name = "itk" },
+    { name = "itk", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5f/fb/8be6a13e22402d6fe34f3b11418e577ce642b1eec991b9ce555edb12679d/itk_elastix-0.25.3-cp311-abi3-macosx_15_0_arm64.whl", hash = "sha256:590dbcd9017cb3db6d0bc36ebde14acc03798168ba426dd2ecd3105be6c6c4f7", size = 11951663, upload-time = "2026-04-27T19:43:35.875Z" },
