@@ -1137,15 +1137,15 @@ def export_to_hdf5(dti: dict, mask_3c: NDArray, settings: dict):
     """
     with h5py.File(os.path.join(settings["results"], "data", "DTI_maps" + ".h5"), "w") as hf:
         for name, key in dti.items():
-            if isinstance(key, np.ndarray):
+            if isinstance(key, np.ndarray) or isinstance(key, float):
                 hf.create_dataset(name, data=key)
             elif isinstance(key, dict):
                 for subname, subkey in key.items():
-                    if isinstance(subkey, np.ndarray):
+                    if isinstance(subkey, np.ndarray) or isinstance(subkey, float):
                         hf.create_dataset(name + "_" + str(subname), data=subkey)
                     elif isinstance(key, dict):
                         for subsubname, subsubkey in subkey.items():
-                            if isinstance(subsubkey, np.ndarray):
+                            if isinstance(subsubkey, np.ndarray) or isinstance(subsubkey, float):
                                 hf.create_dataset(name + "_" + str(subname) + "_" + subsubname, data=subsubkey)
         hf.create_dataset("mask", data=mask_3c)
 
