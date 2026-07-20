@@ -1348,6 +1348,32 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
                         np.nanmax(dti[var][slice_idx]),
                     ]
                 )
+        for slice_idx in slices:
+            table_per_slice.append(
+                [
+                    "HAT",
+                    dti["ha_line_profiles"][slice_idx]["slope"],
+                    dti["ha_line_profiles"][slice_idx]["r_sq"],
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                ]
+            )
+        for slice_idx in slices:
+            table_per_slice.append(
+                [
+                    "HAT_2",
+                    dti["ha_line_profiles_2"][slice_idx]["slope"],
+                    dti["ha_line_profiles_2"][slice_idx]["r_sq"],
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                ]
+            )
         # do the same for SNR
         table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
         for slice_idx in slices:
