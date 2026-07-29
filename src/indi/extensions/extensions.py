@@ -1137,15 +1137,15 @@ def export_to_hdf5(dti: dict, mask_3c: NDArray, settings: dict):
     """
     with h5py.File(os.path.join(settings["results"], "data", "DTI_maps" + ".h5"), "w") as hf:
         for name, key in dti.items():
-            if isinstance(key, np.ndarray):
+            if isinstance(key, np.ndarray) or isinstance(key, float):
                 hf.create_dataset(name, data=key)
             elif isinstance(key, dict):
                 for subname, subkey in key.items():
-                    if isinstance(subkey, np.ndarray):
+                    if isinstance(subkey, np.ndarray) or isinstance(subkey, float):
                         hf.create_dataset(name + "_" + str(subname), data=subkey)
                     elif isinstance(key, dict):
                         for subsubname, subsubkey in subkey.items():
-                            if isinstance(subsubkey, np.ndarray):
+                            if isinstance(subsubkey, np.ndarray) or isinstance(subsubkey, float):
                                 hf.create_dataset(name + "_" + str(subname) + "_" + subsubname, data=subsubkey)
         hf.create_dataset("mask", data=mask_3c)
 
@@ -1298,6 +1298,65 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
             ]
         )
 
+    # also add HA line profile slopes and R^2 values
+    ha_line_profiles_slope_vals = []
+    ha_line_profiles_r_sq_vals = []
+    ha_line_profiles_2_slope_vals = []
+    ha_line_profiles_2_r_sq_vals = []
+    for slice_idx in slices:
+        ha_line_profiles_slope_vals.append(dti["ha_line_profiles"][slice_idx]["slope"])
+        ha_line_profiles_r_sq_vals.append(dti["ha_line_profiles"][slice_idx]["r_sq"])
+        ha_line_profiles_2_slope_vals.append(dti["ha_line_profiles_2"][slice_idx]["slope"])
+        ha_line_profiles_2_r_sq_vals.append(dti["ha_line_profiles_2"][slice_idx]["r_sq"])
+    table_global.append(
+        [
+            "HAT_1 slope",
+            np.nanmean(ha_line_profiles_slope_vals),
+            np.nanstd(ha_line_profiles_slope_vals),
+            np.nanmedian(ha_line_profiles_slope_vals),
+            np.nanquantile(ha_line_profiles_slope_vals, 0.25),
+            np.nanquantile(ha_line_profiles_slope_vals, 0.75),
+            np.nanmin(ha_line_profiles_slope_vals),
+            np.nanmax(ha_line_profiles_slope_vals),
+        ]
+    )
+    table_global.append(
+        [
+            "HAT_1 r-sq",
+            np.nanmean(ha_line_profiles_r_sq_vals),
+            np.nanstd(ha_line_profiles_r_sq_vals),
+            np.nanmedian(ha_line_profiles_r_sq_vals),
+            np.nanquantile(ha_line_profiles_r_sq_vals, 0.25),
+            np.nanquantile(ha_line_profiles_r_sq_vals, 0.75),
+            np.nanmin(ha_line_profiles_r_sq_vals),
+            np.nanmax(ha_line_profiles_r_sq_vals),
+        ]
+    )
+    table_global.append(
+        [
+            "HAT_2 slope",
+            np.nanmean(ha_line_profiles_2_slope_vals),
+            np.nanstd(ha_line_profiles_2_slope_vals),
+            np.nanmedian(ha_line_profiles_2_slope_vals),
+            np.nanquantile(ha_line_profiles_2_slope_vals, 0.25),
+            np.nanquantile(ha_line_profiles_2_slope_vals, 0.75),
+            np.nanmin(ha_line_profiles_2_slope_vals),
+            np.nanmax(ha_line_profiles_2_slope_vals),
+        ]
+    )
+    table_global.append(
+        [
+            "HAT_2 r-sq",
+            np.nanmean(ha_line_profiles_2_r_sq_vals),
+            np.nanstd(ha_line_profiles_2_r_sq_vals),
+            np.nanmedian(ha_line_profiles_2_r_sq_vals),
+            np.nanquantile(ha_line_profiles_2_r_sq_vals, 0.25),
+            np.nanquantile(ha_line_profiles_2_r_sq_vals, 0.75),
+            np.nanmin(ha_line_profiles_2_r_sq_vals),
+            np.nanmax(ha_line_profiles_2_r_sq_vals),
+        ]
+    )
+
     # also calculate global values for SNR
     # gather all keys found in all slices
     keys = []
@@ -1348,6 +1407,57 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
                         np.nanmax(dti[var][slice_idx]),
                     ]
                 )
+        table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        for slice_idx in slices:
+            table_per_slice.append(
+                [
+                    "HAT_1 slope",
+                    dti["ha_line_profiles"][slice_idx]["slope"],
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                ]
+            )
+            table_per_slice.append(
+                [
+                    "HAT_1 r-sq",
+                    dti["ha_line_profiles"][slice_idx]["r_sq"],
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                ]
+            )
+        for slice_idx in slices:
+            table_per_slice.append(
+                [
+                    "HAT_2 slope",
+                    dti["ha_line_profiles_2"][slice_idx]["slope"],
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                ]
+            )
+            table_per_slice.append(
+                [
+                    "HAT_2 r-sq",
+                    dti["ha_line_profiles_2"][slice_idx]["r_sq"],
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                ]
+            )
         # do the same for SNR
         table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
         for slice_idx in slices:
