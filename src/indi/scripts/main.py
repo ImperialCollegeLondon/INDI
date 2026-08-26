@@ -122,7 +122,7 @@ def main() -> None:
             # =========================================================
             # NLM image denoising of all DWIs
             # =========================================================
-            if settings["image_denoising"]:
+            if settings["image_denoising"] == "nlm" or settings["image_denoising"] == "mppca":
                 data = image_denoising(data, logger, settings)
 
             # =========================================================
