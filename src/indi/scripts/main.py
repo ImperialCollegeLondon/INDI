@@ -120,17 +120,17 @@ def main() -> None:
                 data = phase_correction_for_complex_averaging(data, logger, settings)
 
             # =========================================================
-            # NLM image denoising of all DWIs
-            # =========================================================
-            if settings["image_denoising"] == "nlm" or settings["image_denoising"] == "mppca":
-                data = image_denoising(data, logger, settings)
-
-            # =========================================================
             # DWIs registration
             # =========================================================
             data, registration_image_data, ref_images, reg_mask = image_registration(
                 data, slices, info, settings, logger
             )
+
+            # =========================================================
+            # Image denoising of all DWIs
+            # =========================================================
+            if settings["image_denoising"]:
+                data = image_denoising(data, logger, settings)
 
             # =========================================================
             # Option to perform only registration

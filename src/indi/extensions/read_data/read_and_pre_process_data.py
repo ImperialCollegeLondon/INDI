@@ -124,7 +124,7 @@ def data_summary_plots_and_logs(data: pd.DataFrame, settings: dict, info: dict, 
     configs_table_first_slice = configs_table_first_slice.drop(columns=["slice_integer"])
 
     # loop through all slices and check if directions and b-values are the same
-    for slice_idx in unique_slices:
+    for idx, slice_idx in enumerate(unique_slices):
         c_table = configs_table.loc[configs_table["slice_integer"] == slice_idx]
         # check if b-values and directions are the same, if not print summary for this slice
         if not np.array_equal(
@@ -134,11 +134,11 @@ def data_summary_plots_and_logs(data: pd.DataFrame, settings: dict, info: dict, 
             np.sort(configs_table_first_slice["diffusion_direction_original"].values),
         ):
             logger.debug("Different diffusion protocol for slice " + str(slice_idx))
-            _ = get_diffusion_summary_for_slice(logger, unique_slices, configs_table, slice_idx)
+            _ = get_diffusion_summary_for_slice(logger, unique_slices, configs_table, slice_idx, idx)
 
 
 def get_diffusion_summary_for_slice(
-    logger: logging.Logger, slices: np.ndarray, configs_table: pd.DataFrame, slice_idx: int = 0
+    logger: logging.Logger, slices: np.ndarray, configs_table: pd.DataFrame, slice_idx: int = 0, idx: int = 0
 ) -> pd.DataFrame:
     """Log the diffusion protocol for a given slice and return its sub-table.
 
@@ -156,12 +156,12 @@ def get_diffusion_summary_for_slice(
         configs_table_this_slice (pd.DataFrame): Sub-table containing only the rows for the requested
             slice.
     """
-    configs_table_this_slice = configs_table.loc[configs_table["slice_integer"] == slices[slice_idx]]
+    configs_table_this_slice = configs_table.loc[configs_table["slice_integer"] == slices[idx]]
     # different b-values
     b_values = configs_table_this_slice["b_value_original"].unique()
 
     if len(b_values) < 10:
-        logger.debug("Diffusion protocol for slice: " + str(slice_idx))
+        logger.debug("Diffusion protocol for slice: " + str(slices[idx]))
         for bval in b_values:
             logger.debug(f"b-value = {bval}")
             c_table = configs_table_this_slice.loc[configs_table_this_slice["b_value_original"] == bval]
