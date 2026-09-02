@@ -15,7 +15,7 @@ from indi.extensions.cnlm_denoise_faster import collaborative_nlm
 def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) -> pd.DataFrame:
     """Denoise all DWIs in the DataFrame using either:
         - a Non-Local Means (NLM) filter.
-        - a custom collaborative NLM (CNLN) filter.
+        - a custom collaborative NLM (CNLM) filter.
         - a custom adaptive soft coefficient matching (ASCM) filter.
 
     The denoised images replace the original images in the input DataFrame.
@@ -38,15 +38,14 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) 
 
         logger.debug("Denoised images found, loading....")
 
-        denoised_images = np.load(denoised_images_path)["image_stack_after"]
-        original_images = np.load(denoised_images_path)["image_stack_before"]
+        image_set = np.load(denoised_images_path)
+        denoised_images = image_set["image_stack_after"]
+        original_images = image_set["image_stack_before"]
         df_temp = pd.DataFrame.from_records(denoised_images[:, None])
         data["image"] = df_temp
         df_temp = pd.DataFrame.from_records(original_images[:, None])
         data_temp_old = pd.DataFrame.from_records(original_images[:, None])
         data_temp_old["image"] = df_temp
-
-        return data
 
     else:
 
@@ -122,17 +121,18 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) 
                 config_images = np.stack(config_images, axis=0)
 
                 sigma = estimate_sigma_dipy(config_images, N=32)
+                sigma = np.median(sigma)
                 if settings["image_denoising"] == "cnlm":
                     denoised_images = collaborative_nlm(
-                        config_images, h=sigma, patch_radius=2, search_radius=10, rician=True
+                        config_images, h=sigma, patch_radius=2, search_radius=10, rician=True, sigma=sigma
                     )
                 elif settings["image_denoising"] == "ascm":
                     denoised_images_low = collaborative_nlm(
-                        config_images, h=sigma, patch_radius=1, search_radius=10, rician=True
+                        config_images, h=sigma, patch_radius=1, search_radius=10, rician=True, sigma=sigma
                     )
 
                     denoised_images_high = collaborative_nlm(
-                        config_images, h=sigma, patch_radius=2, search_radius=10, rician=True
+                        config_images, h=sigma, patch_radius=2, search_radius=10, rician=True, sigma=sigma
                     )
 
                     denoised_images = adaptive_soft_matching(
@@ -198,4 +198,4 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) 
             )
             plt.close()
 
-        return data
+    return data
