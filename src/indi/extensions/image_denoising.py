@@ -100,20 +100,20 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) 
             data[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(data["diffusion_direction"].tolist(), index=data.index)
 
             # how many different configurations of diffusion directions and bvalues do we have
-            unique_configs = data[["b_value", "dir_x", "dir_y", "dir_z"]].drop_duplicates()
+            unique_configs = data[["b_value_original", "dir_x", "dir_y", "dir_z"]].drop_duplicates()
 
             # for each configuration, gather all images
             for idx, config in tqdm(
                 unique_configs.iterrows(), total=unique_configs.shape[0], desc="Denoising diffusion configurations"
             ):
-                b_value = config["b_value"]
+                b_value = config["b_value_original"]
                 dir_x = config["dir_x"]
                 dir_y = config["dir_y"]
                 dir_z = config["dir_z"]
 
                 # gather all images for this configuration in a 3d numpy array
                 config_images = data[
-                    (data["b_value"] == b_value)
+                    (data["b_value_original"] == b_value)
                     & (data["dir_x"] == dir_x)
                     & (data["dir_y"] == dir_y)
                     & (data["dir_z"] == dir_z)
@@ -124,7 +124,7 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) 
                 sigma = np.median(sigma)
                 if settings["image_denoising"] == "cnlm":
                     denoised_images = collaborative_nlm(
-                        config_images, h=sigma, patch_radius=2, search_radius=10, rician=True, sigma=sigma
+                        config_images, h=sigma, patch_radius=2, search_radius=20, rician=True, sigma=sigma
                     )
                 elif settings["image_denoising"] == "ascm":
                     denoised_images_low = collaborative_nlm(
@@ -142,7 +142,7 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) 
                 # save the denoised images in the original dataframe
                 df_temp = pd.DataFrame.from_records(denoised_images[:, None])
                 df_temp.index = data[
-                    (data["b_value"] == b_value)
+                    (data["b_value_original"] == b_value)
                     & (data["dir_x"] == dir_x)
                     & (data["dir_y"] == dir_y)
                     & (data["dir_z"] == dir_z)

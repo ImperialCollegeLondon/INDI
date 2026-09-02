@@ -127,12 +127,6 @@ def main() -> None:
             )
 
             # =========================================================
-            # Image denoising of all DWIs
-            # =========================================================
-            if settings["image_denoising"]:
-                data = image_denoising(data, logger, settings)
-
-            # =========================================================
             # Option to perform only registration
             # =========================================================
             if settings["workflow_mode"] == "reg":
@@ -226,6 +220,12 @@ def main() -> None:
             # Remove outliers and other data from table
             # =========================================================
             data, info = remove_outliers(data, info, settings)
+
+            # =========================================================
+            # Image denoising of all DWIs
+            # =========================================================
+            if settings["image_denoising"] != "None":
+                data = image_denoising(data, logger, settings)
 
             # =========================================================
             # Get line profile off all remaining images to
