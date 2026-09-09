@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from dipy.denoise.adaptive_soft_matching import adaptive_soft_matching
 from dipy.denoise.noise_estimate import estimate_sigma as estimate_sigma_dipy
+from dipy.denoise.noise_estimate import piesno
 from skimage.restoration import denoise_nl_means, estimate_sigma
 from tqdm import tqdm
 
@@ -120,11 +121,21 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) 
                 ]["image"].values
                 config_images = np.stack(config_images, axis=0)
 
-                sigma = estimate_sigma_dipy(config_images, N=32)
+                sigma = estimate_sigma_dipy(config_images, N=0)
                 sigma = np.median(sigma)
+                logger.debug("Estimated sigma: %f", sigma)
+
+                sigma_piesno = piesno(np.transpose(config_images, (1, 2, 0)), N=1)
+                logger.debug("Estimated sigma (piesno): %f", sigma_piesno)
+
                 if settings["image_denoising"] == "cnlm":
                     denoised_images = collaborative_nlm(
-                        config_images, h=sigma, patch_radius=2, search_radius=20, rician=True, sigma=sigma
+                        config_images,
+                        h=sigma_piesno,
+                        patch_radius=10,
+                        search_radius=10,
+                        rician=True,
+                        sigma=sigma_piesno,
                     )
                 elif settings["image_denoising"] == "ascm":
                     denoised_images_low = collaborative_nlm(
@@ -161,6 +172,8 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict) 
         # make a plot for each slice
         # unique slices
         slices = data.slice_integer.unique()
+
+        data_temp_old["slice_integer"] = data["slice_integer"]
 
         for slice_idx in slices:
             images_before_slice = data_temp_old[data_temp_old["slice_integer"] == slice_idx]["image"].values

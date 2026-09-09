@@ -576,6 +576,22 @@ def get_snr_maps(
                 )
                 plt.close()
 
+        # also plot the median noise for each config for each slice
+        for slice_idx in slices:
+            plt.figure(figsize=(5, 5))
+            for idx, key in enumerate(noise[slice_idx]):
+                plt.scatter(idx, np.nanmedian(noise[slice_idx][key].flatten()), c="tab:blue")
+            plt.xticks(ticks=range(len(noise[slice_idx])), labels=list(noise[slice_idx].keys()), rotation=45)
+            plt.title("Median noise in myocardial pixels for slice " + str(slice_idx).zfill(2))
+            plt.tight_layout(pad=1.0)
+            plt.savefig(
+                os.path.join(settings["debug_folder"], "noise_slice_" + str(slice_idx).zfill(2) + ".png"),
+                dpi=100,
+                pad_inches=0,
+                transparent=False,
+            )
+            plt.close()
+
     return snr, noise, snr_b0_lv, info
 
 
