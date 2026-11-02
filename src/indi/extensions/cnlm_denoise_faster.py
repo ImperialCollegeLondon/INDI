@@ -23,8 +23,9 @@ def _validate_inputs(images, patch_radius, search_radius, h, center_weight, eps)
     images = np.asarray(images, dtype=np.float64)
     if images.ndim not in (3, 4):
         raise ValueError("images must have shape (n_images, H, W) or (n_images, H, W, D)")
-    if patch_radius < 0 or search_radius < 0:
-        raise ValueError("patch_radius and search_radius must be >= 0")
+    if patch_radius < 0:
+        raise ValueError("patch_radius must be >= 0")
+    # search_radius validation is deferred to _normalize_search_radius
     if h <= 0:
         raise ValueError("h must be > 0")
     if center_weight <= 0:
@@ -42,8 +43,53 @@ def _to_scalar_float(value, name):
     return float(array.reshape(-1)[0])
 
 
+def _normalize_search_radius(search_radius, ndim):
+    """Convert search_radius to a tuple of per-dimension radii.
+
+    Parameters
+    ----------
+    search_radius : int or sequence of ints
+        If int, applied to all spatial dimensions.
+        If sequence, must have length equal to number of spatial dimensions.
+    ndim : int
+        Number of spatial dimensions (2 or 3).
+
+    Returns
+    -------
+    tuple of ints
+        Per-dimension search radii.
+    """
+    if isinstance(search_radius, (int, np.integer)):
+        return tuple([int(search_radius)] * ndim)
+    else:
+        search_radius = tuple(int(r) for r in search_radius)
+        if len(search_radius) != ndim:
+            raise ValueError(
+                f"search_radius must be int or sequence of length {ndim} "
+                f"(got sequence of length {len(search_radius)})"
+            )
+        return search_radius
+
+
 def _pad_spatial(images, pad):
-    pad_width = [(0, 0)] + [(pad, pad)] * (images.ndim - 1)
+    """Pad image array.
+
+    Parameters
+    ----------
+    images : ndarray
+        Input images.
+    pad : int or sequence of ints
+        Padding per spatial dimension. If int, applied to all.
+
+    Returns
+    -------
+    padded : ndarray
+        Padded images.
+    """
+    if isinstance(pad, (int, np.integer)):
+        pad_width = [(0, 0)] + [(pad, pad)] * (images.ndim - 1)
+    else:
+        pad_width = [(0, 0)] + [(p, p) for p in pad]
     return np.pad(images, pad_width, mode="reflect")
 
 
@@ -85,7 +131,8 @@ def _collaborative_nlm_2d_numba(
     width,
     pad,
     patch_radius,
-    search_radius,
+    search_radius_y,
+    search_radius_x,
     h,
     center_weight,
     eps,
@@ -99,16 +146,16 @@ def _collaborative_nlm_2d_numba(
         y = rem // width
         x = rem % width
 
-        py = y + pad
-        px = x + pad
+        py = y + pad[0]
+        px = x + pad[1]
 
         weighted_sum = 0.0
         weight_total = 0.0
 
         for cand_img in range(n_images):
-            for oy in range(-search_radius, search_radius + 1):
+            for oy in range(-search_radius_y, search_radius_y + 1):
                 cy = py + oy
-                for ox in range(-search_radius, search_radius + 1):
+                for ox in range(-search_radius_x, search_radius_x + 1):
                     cx = px + ox
                     dist2 = _patch_dist2_2d(padded, ref_img, cand_img, py, px, cy, cx, patch_radius)
                     w = math.exp(-dist2 / h2)
@@ -132,7 +179,9 @@ def _collaborative_nlm_3d_numba(
     width,
     pad,
     patch_radius,
-    search_radius,
+    search_radius_z,
+    search_radius_y,
+    search_radius_x,
     h,
     center_weight,
     eps,
@@ -148,19 +197,19 @@ def _collaborative_nlm_3d_numba(
         y = rem2 // width
         x = rem2 % width
 
-        pz = z + pad
-        py = y + pad
-        px = x + pad
+        pz = z + pad[0]
+        py = y + pad[1]
+        px = x + pad[2]
 
         weighted_sum = 0.0
         weight_total = 0.0
 
         for cand_img in range(n_images):
-            for oz in range(-search_radius, search_radius + 1):
+            for oz in range(-search_radius_z, search_radius_z + 1):
                 cz = pz + oz
-                for oy in range(-search_radius, search_radius + 1):
+                for oy in range(-search_radius_y, search_radius_y + 1):
                     cy = py + oy
-                    for ox in range(-search_radius, search_radius + 1):
+                    for ox in range(-search_radius_x, search_radius_x + 1):
                         cx = px + ox
                         dist2 = _patch_dist2_3d(
                             padded,
@@ -193,17 +242,19 @@ def _collaborative_nlm_2d_numpy(
     width,
     pad,
     patch_radius,
-    search_radius,
+    search_radius_y,
+    search_radius_x,
     h,
     center_weight,
     eps,
 ):
     h2 = h * h
+    pad_y, pad_x = pad
     for ref_img in range(n_images):
         for y in range(height):
-            py = y + pad
+            py = y + pad_y
             for x in range(width):
-                px = x + pad
+                px = x + pad_x
                 ref_patch = padded[
                     ref_img,
                     py - patch_radius : py + patch_radius + 1,
@@ -213,9 +264,9 @@ def _collaborative_nlm_2d_numpy(
                 weight_total = 0.0
 
                 for cand_img in range(n_images):
-                    for oy in range(-search_radius, search_radius + 1):
+                    for oy in range(-search_radius_y, search_radius_y + 1):
                         cy = py + oy
-                        for ox in range(-search_radius, search_radius + 1):
+                        for ox in range(-search_radius_x, search_radius_x + 1):
                             cx = px + ox
                             cand_patch = padded[
                                 cand_img,
@@ -243,19 +294,22 @@ def _collaborative_nlm_3d_numpy(
     width,
     pad,
     patch_radius,
-    search_radius,
+    search_radius_z,
+    search_radius_y,
+    search_radius_x,
     h,
     center_weight,
     eps,
 ):
     h2 = h * h
+    pad_z, pad_y, pad_x = pad
     for ref_img in range(n_images):
         for z in range(depth):
-            pz = z + pad
+            pz = z + pad_z
             for y in range(height):
-                py = y + pad
+                py = y + pad_y
                 for x in range(width):
-                    px = x + pad
+                    px = x + pad_x
                     ref_patch = padded[
                         ref_img,
                         pz - patch_radius : pz + patch_radius + 1,
@@ -266,11 +320,11 @@ def _collaborative_nlm_3d_numpy(
                     weight_total = 0.0
 
                     for cand_img in range(n_images):
-                        for oz in range(-search_radius, search_radius + 1):
+                        for oz in range(-search_radius_z, search_radius_z + 1):
                             cz = pz + oz
-                            for oy in range(-search_radius, search_radius + 1):
+                            for oy in range(-search_radius_y, search_radius_y + 1):
                                 cy = py + oy
-                                for ox in range(-search_radius, search_radius + 1):
+                                for ox in range(-search_radius_x, search_radius_x + 1):
                                     cx = px + ox
                                     cand_patch = padded[
                                         cand_img,
@@ -311,8 +365,10 @@ def collaborative_nlm(
         All images must be spatially aligned.
     patch_radius : int
         Radius of comparison patch. Patch size per dimension is (2r + 1).
-    search_radius : int
-        Spatial search radius in each dimension.
+    search_radius : int or sequence of ints
+        Spatial search radius. If int, applied to all spatial dimensions.
+        If sequence, must have length equal to number of spatial dimensions
+        (2 for 3D images, 3 for 4D images).
     h : float
         Filtering parameter controlling weight decay.
     center_weight : float
@@ -334,12 +390,19 @@ def collaborative_nlm(
     h = _to_scalar_float(h, "h")
     sigma = _to_scalar_float(sigma, "sigma")
     images = _validate_inputs(images, patch_radius, search_radius, h, center_weight, eps)
-    pad = patch_radius + search_radius
+
+    # Normalize search_radius to per-dimension values
+    n_spatial_dims = images.ndim - 1
+    search_radius_tuple = _normalize_search_radius(search_radius, n_spatial_dims)
+
+    # Compute per-dimension padding
+    pad = tuple(patch_radius + r for r in search_radius_tuple)
     padded = _pad_spatial(images, pad)
     out = np.zeros_like(images, dtype=np.float64)
 
     if images.ndim == 3:
         n_images, height, width = images.shape
+        search_radius_y, search_radius_x = search_radius_tuple
         if use_numba and NUMBA_AVAILABLE:
             _collaborative_nlm_2d_numba(
                 padded,
@@ -349,7 +412,8 @@ def collaborative_nlm(
                 width,
                 pad,
                 patch_radius,
-                search_radius,
+                search_radius_y,
+                search_radius_x,
                 h,
                 center_weight,
                 eps,
@@ -363,13 +427,15 @@ def collaborative_nlm(
                 width,
                 pad,
                 patch_radius,
-                search_radius,
+                search_radius_y,
+                search_radius_x,
                 h,
                 center_weight,
                 eps,
             )
     else:
         n_images, depth, height, width = images.shape
+        search_radius_z, search_radius_y, search_radius_x = search_radius_tuple
         if use_numba and NUMBA_AVAILABLE:
             _collaborative_nlm_3d_numba(
                 padded,
@@ -380,7 +446,9 @@ def collaborative_nlm(
                 width,
                 pad,
                 patch_radius,
-                search_radius,
+                search_radius_z,
+                search_radius_y,
+                search_radius_x,
                 h,
                 center_weight,
                 eps,
@@ -395,7 +463,9 @@ def collaborative_nlm(
                 width,
                 pad,
                 patch_radius,
-                search_radius,
+                search_radius_z,
+                search_radius_y,
+                search_radius_x,
                 h,
                 center_weight,
                 eps,
