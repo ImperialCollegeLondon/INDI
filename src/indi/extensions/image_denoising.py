@@ -183,154 +183,6 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
             )
 
         elif settings["image_denoising"] == "mppca":
-
-            logger.debug("Image denoising with Marcenko-Pastur PCA...")
-
-            # new dataframe for the average data
-            data_averaged = pd.DataFrame()
-
-            # Split the direction column into three columns X, Y, Z
-            data[["dir_x", "dir_y", "dir_z"]] = pd.DataFrame(data["diffusion_direction"].tolist(), index=data.index)
-
-            # how many different configurations of slices, b-vals and directions do we have?
-            unique_configs = data[["b_value_original", "dir_x", "dir_y", "dir_z", "slice_integer"]].drop_duplicates()
-
-            # for each unique configuration of b-value, direction, and slice, we will first average the images
-            for idx, config in unique_configs.iterrows():
-                b_value = config["b_value_original"]
-                dir_x = config["dir_x"]
-                dir_y = config["dir_y"]
-                dir_z = config["dir_z"]
-                slice_integer = config["slice_integer"]
-
-                # gather all images for this configuration in a 3d numpy array
-                config_images = data[
-                    (data["b_value_original"] == b_value)
-                    & (data["dir_x"] == dir_x)
-                    & (data["dir_y"] == dir_y)
-                    & (data["dir_z"] == dir_z)
-                    & (data["slice_integer"] == slice_integer)
-                ]["image"].values
-                config_images = np.stack(config_images, axis=0)
-
-                # average the images for this configuration
-                config_images_mean = np.mean(config_images, axis=0)
-
-                # store the averaged image with all the other info from the first entry in
-                # the data_averaged dataframe
-                df_temp = (
-                    data.loc[
-                        (data["b_value_original"] == b_value)
-                        & (data["dir_x"] == dir_x)
-                        & (data["dir_y"] == dir_y)
-                        & (data["dir_z"] == dir_z)
-                        & (data["slice_integer"] == slice_integer)
-                    ]
-                    .iloc[0]
-                    .copy()
-                )
-                df_temp["image"] = config_images_mean
-                data_averaged = pd.concat([data_averaged, pd.DataFrame([df_temp])], ignore_index=True)
-
-            # how many different configurations of b-vals and directions do we have?
-            unique_configs_2 = (
-                data_averaged[["b_value_original", "dir_x", "dir_y", "dir_z"]].drop_duplicates().reset_index(drop=True)
-            )
-
-            # how many slices do we have?
-            unique_slices = data_averaged["slice_integer"].unique()
-
-            # check if we have the same configs for each slice
-            for slice in unique_slices:
-                data_slice = data_averaged[data_averaged["slice_integer"] == slice]
-                unique_configs_slice = (
-                    data_slice[["b_value_original", "dir_x", "dir_y", "dir_z"]]
-                    .drop_duplicates()
-                    .reset_index(drop=True)
-                )
-                if not unique_configs_slice.equals(unique_configs_2):
-                    raise ValueError(f"Mismatch in configurations for slice {slice}")
-
-            # now get the images in a X,Y,Z,N array for denoising
-            array_4d = np.zeros(
-                (config_images.shape[1], config_images.shape[2], len(unique_slices), unique_configs_2.shape[0])
-            )
-
-            for idx, config in unique_configs_2.iterrows():
-                b_value = config["b_value_original"]
-                dir_x = config["dir_x"]
-                dir_y = config["dir_y"]
-                dir_z = config["dir_z"]
-
-                for slice_idx, slice in enumerate(unique_slices):
-                    data_slice = data_averaged[data_averaged["slice_integer"] == slice]
-                    config_images = data_slice[
-                        (data_slice["b_value_original"] == b_value)
-                        & (data_slice["dir_x"] == dir_x)
-                        & (data_slice["dir_y"] == dir_y)
-                        & (data_slice["dir_z"] == dir_z)
-                    ]["image"].values
-                    config_images = np.stack(config_images, axis=0)
-                    array_4d[:, :, slice_idx, idx] = config_images.mean(axis=0)
-
-            if settings["image_denoising"] == "cnlm2":
-                sigma = estimate_sigma_dipy(array_4d, N=0)
-                sigma = np.median(sigma)
-                logger.debug("Estimated sigma: %f", sigma)
-                array_4d_denoised = collaborative_nlm(
-                    array_4d,
-                    h=10,
-                    patch_radius=3,
-                    search_radius=2,
-                    rician=True,
-                    sigma=sigma,
-                )
-            elif settings["image_denoising"] == "mppca":
-                array_4d_denoised, sigma = mppca(array_4d, patch_radius=[4, 4, 1], return_sigma=True, pca_method="svd")
-
-            plt.figure()
-            img_1 = array_4d[:, :, 0, 2]
-            img_1_denoised = array_4d_denoised[:, :, 0, 2]
-            plt.subplot(1, 3, 1)
-            plt.imshow(img_1, cmap="gray")
-            plt.title("Original")
-            plt.subplot(1, 3, 2)
-            plt.imshow(img_1_denoised, cmap="gray")
-            plt.title("Denoised")
-            plt.subplot(1, 3, 3)
-            plt.imshow(abs(img_1 - img_1_denoised), cmap="gray")
-            plt.title("Difference")
-            plt.show()
-
-            # store data before denoising
-            data_temp_old = data_averaged.copy()
-
-            # save the images back to the data_averaged dataframe
-            for idx, config in unique_configs_2.iterrows():
-                b_value = config["b_value_original"]
-                dir_x = config["dir_x"]
-                dir_y = config["dir_y"]
-                dir_z = config["dir_z"]
-
-                for slice_idx, slice in enumerate(unique_slices):
-                    # Find the index that matches all conditions
-                    mask = (
-                        (data_averaged["b_value_original"] == b_value)
-                        & (data_averaged["dir_x"] == dir_x)
-                        & (data_averaged["dir_y"] == dir_y)
-                        & (data_averaged["dir_z"] == dir_z)
-                        & (data_averaged["slice_integer"] == slice)
-                    )
-                    matching_indices = data_averaged[mask].index
-
-                    # Assign to the single matching row
-                    if len(matching_indices) > 0:
-                        data_averaged.at[matching_indices[0], "image"] = array_4d_denoised[:, :, slice_idx, idx]
-
-            # update the original data with the denoised images from data_averaged
-            data = data_averaged.copy()
-
-        elif settings["image_denoising"] == "mppca2":
             logger.debug("Image denoising with Marcenko-Pastur PCA (method 2 no averaging)...")
 
             data_temp_old = data.copy()
@@ -384,25 +236,12 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
 
                 # denoise images
                 slice_images_denoised, sigma = mppca(
-                    slice_images, patch_radius=[3, 3, 1], return_sigma=True, pca_method="svd"
+                    slice_images, patch_radius=[5, 5, 1], return_sigma=True, pca_method="svd"
                 )
+                # TODO export sigma maps and print mean
+                print("Mean sigma:", np.mean(sigma))
 
                 slice_images_denoised = np.squeeze(slice_images_denoised, axis=2)
-
-                # plt.figure()
-                # index = 2
-                # img_1 = slice_images[:, :, 0, index]
-                # img_1_denoised = slice_images_denoised[:, :, index]
-                # plt.subplot(1, 3, 1)
-                # plt.imshow(img_1, cmap="gray")
-                # plt.title("Original")
-                # plt.subplot(1, 3, 2)
-                # plt.imshow(img_1_denoised, cmap="gray")
-                # plt.title("Denoised")
-                # plt.subplot(1, 3, 3)
-                # plt.imshow(np.log(abs(img_1 - img_1_denoised)), cmap="gray")
-                # plt.title("Difference")
-                # plt.show()
 
                 if settings["image_data_zero_filled"]:
                     # scale the images back to the original size given by old_shape
@@ -454,21 +293,6 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
 
                     slice_images_denoised = np.transpose(interp_slice_images, (1, 2, 0))
 
-                # plt.imshow(store_slice_images[:, :, 0])
-                # plt.imshow(slice_images_denoised[:, :, 0])
-
-                # plt.figure()
-                # index = 2
-                # img_1 = old_slice_image_denoised[:, :, index]
-                # img_1_interp = interp_slice_images[index, :, :]
-                # plt.subplot(1, 2, 1)
-                # plt.imshow(img_1, cmap="gray")
-                # plt.title("Original")
-                # plt.subplot(1, 2, 2)
-                # plt.imshow(img_1_interp, cmap="gray")
-                # plt.title("Interpolated")
-                # plt.show()
-
                 # Find the index that matches all conditions
                 mask = data["slice_integer"] == slice
                 matching_indices = data[mask].index
@@ -476,20 +300,6 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
                 # Assign the denoised images back to the original data
                 for i, idx in enumerate(matching_indices):
                     data.at[idx, "image"] = slice_images_denoised[:, :, i]
-
-            # plt.figure()
-            # img_1 = data_temp_old["image"].values[2]
-            # img_1_denoised = data["image"].values[2]
-            # plt.subplot(1, 3, 1)
-            # plt.imshow(img_1, cmap="gray")
-            # plt.title("Original")
-            # plt.subplot(1, 3, 2)
-            # plt.imshow(img_1_denoised, cmap="gray")
-            # plt.title("Denoised")
-            # plt.subplot(1, 3, 3)
-            # plt.imshow(abs(img_1 - img_1_denoised), cmap="gray")
-            # plt.title("Difference")
-            # plt.show()
 
     if settings["debug"]:
 

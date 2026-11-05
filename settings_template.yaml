@@ -49,10 +49,12 @@ remove_outliers_manually_pre: True
 remove_outliers_with_ai: False
 
 # ========================================================================================
-# DWIs NLM DENOISING
+# DWIs DENOISING
 # ========================================================================================
 # None, nlm, clmn, ascm, mppca
 image_denoising: mppca
+# Are the image data zero-filled? (important for mppca denoising method)
+image_data_zero_filled: True
 
 # ========================================================================================
 # MISC
