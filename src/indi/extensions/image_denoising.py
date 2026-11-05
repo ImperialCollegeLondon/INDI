@@ -343,14 +343,131 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
                 data_slice = data[data["slice_integer"] == slice]
 
                 slice_images = np.stack(data_slice["image"].values, axis=-1)
+                # store_slice_images = slice_images.copy()
+
+                if settings["image_data_zero_filled"]:
+                    # we need to go back to k-space to crop the zero-filled edges,
+                    # as mppca does not work well with interpolated data
+                    slice_images = np.transpose(slice_images, (2, 0, 1))
+                    old_shape = [slice_images.shape[1], slice_images.shape[2]]
+                    # make sure the old_shape is divisible by 4
+                    old_shape_4 = [s if s % 4 == 0 else s + (4 - s % 4) for s in old_shape]
+                    new_shape = (round(old_shape_4[0] * 0.5), round(old_shape_4[1] * 0.5))
+                    deinterp_slice_images = np.zeros((slice_images.shape[0], new_shape[0], new_shape[1]))
+                    for idx, image in enumerate(slice_images):
+                        # add padding if necessary to reach old_shape_even
+                        pad_rows = old_shape_4[0] - image.shape[0]
+                        pad_cols = old_shape_4[1] - image.shape[1]
+                        if pad_rows > 0 or pad_cols > 0:
+                            image = np.pad(image, ((0, pad_rows), (0, pad_cols)), mode="reflect")
+
+                        # go to k-space
+                        ks = np.fft.fftshift(np.fft.fft2(image))
+
+                        # shrink ks to the new_shape by cropping the edges
+                        start_row = round(ks.shape[0] / 2 - new_shape[0] / 2)
+                        end_row = start_row + new_shape[0]
+                        start_col = round(ks.shape[1] / 2 - new_shape[1] / 2)
+                        end_col = start_col + new_shape[1]
+                        ks2 = ks[start_row:end_row, start_col:end_col]
+                        # Ensure ks2 is exactly new_shape (handle edge cases)
+                        if ks2.shape != new_shape:
+                            ks2 = ks2[: new_shape[0], : new_shape[1]]
+                        # go back to image space
+                        img = np.real(np.fft.ifft2(np.fft.ifftshift(ks2)))
+                        deinterp_slice_images[idx] = img
+                    deinterp_slice_images = np.transpose(deinterp_slice_images, (1, 2, 0))
+                    slice_images = deinterp_slice_images
 
                 # add an empty dimension in the third axis to match the expected 4D array shape
                 slice_images = slice_images[:, :, np.newaxis, :]
 
                 # denoise images
                 slice_images_denoised, sigma = mppca(
-                    slice_images, patch_radius=[4, 4, 1], return_sigma=True, pca_method="svd"
+                    slice_images, patch_radius=[3, 3, 1], return_sigma=True, pca_method="svd"
                 )
+
+                slice_images_denoised = np.squeeze(slice_images_denoised, axis=2)
+
+                # plt.figure()
+                # index = 2
+                # img_1 = slice_images[:, :, 0, index]
+                # img_1_denoised = slice_images_denoised[:, :, index]
+                # plt.subplot(1, 3, 1)
+                # plt.imshow(img_1, cmap="gray")
+                # plt.title("Original")
+                # plt.subplot(1, 3, 2)
+                # plt.imshow(img_1_denoised, cmap="gray")
+                # plt.title("Denoised")
+                # plt.subplot(1, 3, 3)
+                # plt.imshow(np.log(abs(img_1 - img_1_denoised)), cmap="gray")
+                # plt.title("Difference")
+                # plt.show()
+
+                if settings["image_data_zero_filled"]:
+                    # scale the images back to the original size given by old_shape
+                    # remove slice dimension and transpose to match the original shape
+
+                    # old_slice_image_denoised = slice_images_denoised.copy()
+                    slice_images_denoised = np.transpose(slice_images_denoised, (2, 0, 1))
+                    interp_slice_images = np.zeros([slice_images_denoised.shape[0], old_shape[0], old_shape[1]])
+                    for idx, image in enumerate(slice_images_denoised):
+
+                        # go back to k-space
+                        ks = np.fft.fftshift(np.fft.fft2(image))
+
+                        # double the k-space by zero-padding
+                        ks = np.pad(
+                            ks,
+                            ((old_shape_4[0] // 4, old_shape_4[0] // 4), (old_shape_4[1] // 4, old_shape_4[1] // 4)),
+                            mode="constant",
+                        )
+
+                        # # 3. Create centered frequency coordinates
+                        # Ny, Nx = ks.shape
+                        # kx = np.arange(-Nx // 2, Nx // 2)
+                        # ky = np.arange(-Ny // 2, Ny // 2)
+                        # KX, KY = np.meshgrid(kx, ky)
+
+                        # # 4. Define the shift (half a pixel along X)
+                        # dx = 0
+                        # dy = 0
+
+                        # # 5. Compute the phase slope matrix
+                        # phase_slope = np.exp(-1j * 2 * np.pi * ((KX * dx / Nx) + (KY * dy / Ny)))
+
+                        # # 6. Apply the phase slope
+                        # shifted_k_space = ks * phase_slope
+
+                        # go back to image space
+                        img = np.real(np.fft.ifft2(np.fft.ifftshift(ks)))
+
+                        # crop pixels at the end in case the image is larger than the original shape
+                        if img.shape[0] > old_shape[0] or img.shape[1] > old_shape[1]:
+                            img = img[: old_shape[0], : old_shape[1]]
+
+                        plt.imshow(data_temp_old["image"].values[0])
+                        plt.imshow(img)
+
+                        # go back to image space
+                        interp_slice_images[idx] = img
+
+                    slice_images_denoised = np.transpose(interp_slice_images, (1, 2, 0))
+
+                # plt.imshow(store_slice_images[:, :, 0])
+                # plt.imshow(slice_images_denoised[:, :, 0])
+
+                # plt.figure()
+                # index = 2
+                # img_1 = old_slice_image_denoised[:, :, index]
+                # img_1_interp = interp_slice_images[index, :, :]
+                # plt.subplot(1, 2, 1)
+                # plt.imshow(img_1, cmap="gray")
+                # plt.title("Original")
+                # plt.subplot(1, 2, 2)
+                # plt.imshow(img_1_interp, cmap="gray")
+                # plt.title("Interpolated")
+                # plt.show()
 
                 # Find the index that matches all conditions
                 mask = data["slice_integer"] == slice
@@ -358,21 +475,21 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
 
                 # Assign the denoised images back to the original data
                 for i, idx in enumerate(matching_indices):
-                    data.at[idx, "image"] = slice_images_denoised[:, :, 0, i]
+                    data.at[idx, "image"] = slice_images_denoised[:, :, i]
 
-            plt.figure()
-            img_1 = data_temp_old["image"].values[2]
-            img_1_denoised = data["image"].values[2]
-            plt.subplot(1, 3, 1)
-            plt.imshow(img_1, cmap="gray")
-            plt.title("Original")
-            plt.subplot(1, 3, 2)
-            plt.imshow(img_1_denoised, cmap="gray")
-            plt.title("Denoised")
-            plt.subplot(1, 3, 3)
-            plt.imshow(abs(img_1 - img_1_denoised), cmap="gray")
-            plt.title("Difference")
-            plt.show()
+            # plt.figure()
+            # img_1 = data_temp_old["image"].values[2]
+            # img_1_denoised = data["image"].values[2]
+            # plt.subplot(1, 3, 1)
+            # plt.imshow(img_1, cmap="gray")
+            # plt.title("Original")
+            # plt.subplot(1, 3, 2)
+            # plt.imshow(img_1_denoised, cmap="gray")
+            # plt.title("Denoised")
+            # plt.subplot(1, 3, 3)
+            # plt.imshow(abs(img_1 - img_1_denoised), cmap="gray")
+            # plt.title("Difference")
+            # plt.show()
 
     if settings["debug"]:
 

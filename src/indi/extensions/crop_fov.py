@@ -115,9 +115,7 @@ def crop_images(
         array_stack = np.stack(c_data["image"].values)
         array_stack = array_stack[np.ix_(np.repeat(True, array_stack.shape[0]), crop_mask.any(1), crop_mask.any(0))]
         # create a new dataframe with the cropped images, matching column name and index
-        df = pd.DataFrame.from_records(array_stack[:, None])
-        df.index = c_data.index
-        df.columns = ["image"]
+        df = pd.DataFrame({"image": list(array_stack)}, index=c_data.index)
         # update the data table with the cropped images for the correct indices
         data.update(df)
 
@@ -127,9 +125,7 @@ def crop_images(
                 np.ix_(np.repeat(True, array_stack.shape[0]), crop_mask.any(1), crop_mask.any(0))
             ]
             # create a new dataframe with the cropped images, matching column name and index
-            df = pd.DataFrame.from_records(array_stack_phase[:, None])
-            df.index = c_data.index
-            df.columns = ["image_phase"]
+            df = pd.DataFrame({"image_phase": list(array_stack_phase)}, index=c_data.index)
             # update the data table with the cropped images for the correct indices
             data.update(df)
 

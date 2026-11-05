@@ -13,9 +13,9 @@ import nibabel as nib
 import numpy as np
 import pandas as pd
 import py7zr
-import scipy.ndimage
 from dotenv import dotenv_values
 from numpy.typing import NDArray
+from scipy.signal import resample
 
 from indi.extensions.find_rr_outliers import (
     check_mostly_identical_mad,
@@ -243,9 +243,11 @@ def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: in
 
     img = np.rot90(nii_px_array[:, :, c_slice_idx, c_frame_idx], k=1, axes=(0, 1))
 
-    if "img_interp_factor" in settings and settings["img_interp_factor"] > 1:
+    if "img_interp_factor" in settings and settings["img_interp_factor"] != 1:
         factor = settings["img_interp_factor"]
-        img = scipy.ndimage.zoom(img, factor, order=3)
+        new_shape = (round(img.shape[0] * factor), round(img.shape[1] * factor))
+        interpolated = resample(img, (new_shape[0], new_shape[1]), axis=(0, 1))
+        img = interpolated
         # zero any negative pixels after interpolation
         img[img < 0] = 0
 
@@ -458,7 +460,7 @@ def read_and_process_niis(
                     )
                 )
 
-    if "img_interp_factor" in settings and settings["img_interp_factor"] > 1:
+    if "img_interp_factor" in settings and settings["img_interp_factor"] != 1:
         factor = settings["img_interp_factor"]
         header_info["pixel_spacing"] = [
             header_info["pixel_spacing"][0] / settings["img_interp_factor"],
@@ -1362,6 +1364,7 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
         data_phase = pd.read_pickle(save_path)
     else:
         data_phase = pd.DataFrame()
+
     # =========================================================
     # read the pixel arrays from the h5 file and add them to the dataframe
     # =========================================================
@@ -1372,6 +1375,13 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
         len(pixel_values) == data.shape[0]
     ), "Number of pixel slices does not match the number of entries in the dataframe."
     data["image"] = pd.Series([x for x in pixel_values])
+
+    # interpolate images if img_interp_factor > 1
+    if "img_interp_factor" in settings and settings["img_interp_factor"] != 1:
+        data, info = interpolate_dicom_pixel_values(
+            data, info, logger, image_type="mag", factor=settings["img_interp_factor"]
+        )
+
     if settings["complex_data"]:
         save_path = os.path.join(settings["dicom_folder_phase"], "images.h5")
         with h5py.File(save_path, "r") as hf:
@@ -1380,6 +1390,12 @@ def read_and_process_pandas(logger: logging, settings: dict) -> tuple[pd.DataFra
             len(pixel_values_phase) == data_phase.shape[0]
         ), "Number of pixel slices does not match the number of entries in the dataframe."
         data_phase["image"] = pd.Series([x for x in pixel_values_phase])
+
+        # interpolate images if img_interp_factor > 1
+        if "img_interp_factor" in settings and settings["img_interp_factor"] != 1:
+            data_phase, info = interpolate_dicom_pixel_values(
+                data, info, logger, image_type="phase", factor=settings["img_interp_factor"]
+            )
 
     # check if manufacturer is in the info dict
     if "manufacturer" not in info:
@@ -1450,7 +1466,7 @@ def read_and_process_dicoms(
     # check rows and columns
     info = check_rows_and_columns(data, info, logger)
     # interpolate images if img_interp_factor > 1
-    if "img_interp_factor" in settings and settings["img_interp_factor"] > 1:
+    if "img_interp_factor" in settings and settings["img_interp_factor"] != 1:
         data, info = interpolate_dicom_pixel_values(
             data, info, logger, image_type="mag", factor=settings["img_interp_factor"]
         )

@@ -13,7 +13,7 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.14",
   "Typing :: Typed",
   "Environment :: Console",
   "Intended Audience :: Developers",
@@ -31,7 +31,7 @@ dependencies = [
   "itk-elastix ; platform_system != 'Darwin' or platform_machine != 'x86_64'",
   "joblib",
   "keras",
-  "matplotlib==3.10.9",
+  "matplotlib",
   "pyvista",
   "numpy",
   "opencv-python",
@@ -43,7 +43,7 @@ dependencies = [
   "PyQt6",
   "pystackreg",
   "PyYAML",
-  "scipy",
+  "scipy>1.6.1",
   "tqdm",
   "vtk",
   "xarray",
@@ -59,17 +59,13 @@ description = "INDI is a command line tool to process in-vivo cardiac diffusion 
 keywords = []
 license = { file = "LICENSE.md" }
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 version = "1.0.0"
 
 [project.optional-dependencies]
 ai = [
-"tensorflow==2.18.0 ; platform_system=='Darwin' and platform_machine=='arm64'",
-"tensorflow==2.16.2 ; platform_system=='Darwin' and platform_machine=='x86_64'",
-"tensorflow==2.18.0 ; platform_system != 'Darwin'",
-"tf_keras==2.18.0 ; platform_system=='Darwin' and platform_machine=='arm64'",
-"tf_keras==2.16.0 ; platform_system=='Darwin' and platform_machine=='x86_64'",
-"tf_keras==2.18.0 ; platform_system != 'Darwin'",
+"tensorflow",
+"tf_keras",
 "torch",
 "hydra_core",
 "einops",
@@ -98,4 +94,6 @@ exclude = '''
 
 [tool.uv]
 package = true
-
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'"
+]

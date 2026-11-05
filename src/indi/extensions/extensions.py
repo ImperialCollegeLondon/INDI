@@ -955,7 +955,7 @@ def plot_results_maps(
             # scale values to interval [0,1]
             col = bin_centers - min(bin_centers)
             col /= max(col)
-            cm = plt.cm.get_cmap(params[param]["cmap"])
+            cm = matplotlib.colormaps.get_cmap(params[param]["cmap"])
             for c, p in zip(col, patches):
                 plt.setp(p, "facecolor", cm(c))
             plt.title(params[param]["title"])
