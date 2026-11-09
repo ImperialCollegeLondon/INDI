@@ -236,7 +236,7 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
 
                 # denoise images
                 slice_images_denoised, sigma = mppca(
-                    slice_images, patch_radius=[5, 5, 1], return_sigma=True, pca_method="svd"
+                    slice_images, patch_radius=[4, 4, 1], return_sigma=True, pca_method="svd"
                 )
                 # TODO export sigma maps and print mean
                 print("Mean sigma:", np.mean(sigma))
