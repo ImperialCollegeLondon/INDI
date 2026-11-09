@@ -174,6 +174,15 @@ class PolygonSelectorSpline(_SelectorWidget):
         self._box_handle_props = self._handle_props.update(box_handle_props)
         self._box_props = box_props
 
+    def _get_data_coords(self, event):
+        """Convert event coordinates to data coordinates.
+
+        Replacement for the deprecated matplotlib _get_data_coords method.
+        """
+        inv = self.ax.transData.inverted()
+        x, y = inv.transform((event.x, event.y))
+        return x, y
+
     def _draw_curve(self):
         if self._selection_completed:
             self.curve_points = spline_interpolate_contour(self._xys[:-1], self.num_points, join_ends=True)
