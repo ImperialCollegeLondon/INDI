@@ -181,7 +181,7 @@ def get_cardiac_coordinates_short_axis(
     dti: dict,
     average_images: NDArray,
     info: dict,
-) -> tuple[dict, dict]:
+) -> tuple[dict, NDArray, dict]:
     """Compute local cardiac coordinates for short-axis data.
 
     Args:
@@ -312,12 +312,23 @@ def get_cardiac_coordinates_short_axis(
             plt.close()
 
         # save local_cardiac_coordinates to a vtk file
-        maps = {"FA": dti["fa"], "MD": dti["md"], "mask": mask, "mean_img": average_images}
-        # dictionaries and lists are mutable, so they will be modified also outside the function
-        # so here, to prevent local_cardiac_coordinates dict to be modified I am creating a
-        # deep copy.
-        lcc = copy.deepcopy(local_cardiac_coordinates)
         if settings["debug"]:
+            if "tensor" in dti:
+                maps = {"FA": dti["fa"], "MD": dti["md"], "mask": mask, "mean_img": average_images}
+            else:
+                maps = {
+                    "mADC": dti["madc"],
+                    "ADCp": dti["adc_p"],
+                    "ADCr": dti["adc_r"],
+                    "ADCs": dti["adc_s"],
+                    "S0": dti["s0"],
+                    "mask": mask,
+                    "mean_img": average_images,
+                }
+            # dictionaries and lists are mutable, so they will be modified also outside the function
+            # so here, to prevent local_cardiac_coordinates dict to be modified I am creating a
+            # deep copy.
+            lcc = copy.deepcopy(local_cardiac_coordinates)
             save_vtk_file(lcc, {}, maps, info, "cardiac_coordinates", settings["debug_folder"], save_mesh=True)
 
     return local_cardiac_coordinates, lv_centres, phi_matrix
@@ -716,6 +727,7 @@ def plot_results_maps(
     dti: dict,
     segmentation: dict,
     colormaps: dict,
+    params: dict,
     settings: dict,
     folder_id: str,
 ):
@@ -732,89 +744,6 @@ def plot_results_maps(
         settings (dict): Processing and output settings.
         folder_id (str): Identifier appended to exported filenames.
     """
-
-    params = {}
-
-    params["MD"] = {}
-    params["MD"]["var_name"] = "md"
-    params["MD"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
-    params["MD"]["cmap"] = colormaps["MD"]
-    params["MD"]["title"] = "Mean diffusivity"
-    params["MD"]["units"] = "10^{-3} mm^2s^{-1}"
-    params["MD"]["scale"] = 1000
-    params["MD"]["abs"] = False
-
-    params["MAG_ANISOTROPY"] = {}
-    params["MAG_ANISOTROPY"]["var_name"] = "mag_anisotropy"
-    params["MAG_ANISOTROPY"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
-    params["MAG_ANISOTROPY"]["cmap"] = "viridis"
-    params["MAG_ANISOTROPY"]["title"] = "Mag anisotropy"
-    params["MAG_ANISOTROPY"]["units"] = "10^{-3} mm^2s^{-1}"
-    params["MAG_ANISOTROPY"]["scale"] = 1000
-    params["MAG_ANISOTROPY"]["abs"] = False
-
-    params["MODE"] = {}
-    params["MODE"]["var_name"] = "mode"
-    params["MODE"]["vmin_max"] = [-1, 1]
-    params["MODE"]["cmap"] = "plasma"
-    params["MODE"]["title"] = "Tensor mode"
-    params["MODE"]["units"] = "10^{-3} mm^2s^{-1}"
-    params["MODE"]["scale"] = 1
-    params["MODE"]["abs"] = False
-
-    params["FA"] = {}
-    params["FA"]["var_name"] = "fa"
-    params["FA"]["vmin_max"] = [0, 1]
-    params["FA"]["cmap"] = colormaps["FA"]
-    params["FA"]["title"] = "Fractional anisotropy"
-    params["FA"]["units"] = "[]"
-    params["FA"]["scale"] = 1
-    params["FA"]["abs"] = False
-
-    params["FROB_NORM"] = {}
-    params["FROB_NORM"]["var_name"] = "frob_norm"
-    params["FROB_NORM"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
-    params["FROB_NORM"]["cmap"] = "inferno"
-    params["FROB_NORM"]["title"] = "Frobenius norm"
-    params["FROB_NORM"]["units"] = "10^{-3} mm^2s^{-1}"
-    params["FROB_NORM"]["scale"] = 1000
-    params["FROB_NORM"]["abs"] = False
-
-    params["HA"] = {}
-    params["HA"]["var_name"] = "ha"
-    params["HA"]["vmin_max"] = [-90, 90]
-    params["HA"]["cmap"] = colormaps["HA"]
-    params["HA"]["title"] = "Helix angle"
-    params["HA"]["units"] = "degrees"
-    params["HA"]["scale"] = 1
-    params["HA"]["abs"] = False
-
-    params["TA"] = {}
-    params["TA"]["var_name"] = "ta"
-    params["TA"]["vmin_max"] = [-90, 90]
-    params["TA"]["cmap"] = "twilight_shifted"
-    params["TA"]["title"] = "Transverse angle"
-    params["TA"]["units"] = "degrees"
-    params["TA"]["scale"] = 1
-    params["TA"]["abs"] = False
-
-    params["E2A"] = {}
-    params["E2A"]["var_name"] = "e2a"
-    params["E2A"]["vmin_max"] = [-90, 90]
-    params["E2A"]["cmap"] = "twilight_shifted"
-    params["E2A"]["title"] = "Sheetlet angle"
-    params["E2A"]["units"] = "degrees"
-    params["E2A"]["scale"] = 1
-    params["E2A"]["abs"] = False
-
-    params["abs_E2A"] = {}
-    params["abs_E2A"]["var_name"] = "e2a"
-    params["abs_E2A"]["vmin_max"] = [0, 90]
-    params["abs_E2A"]["cmap"] = colormaps["abs_E2A"]
-    params["abs_E2A"]["title"] = "Absolute sheetlet angle"
-    params["abs_E2A"]["units"] = "degrees"
-    params["abs_E2A"]["scale"] = 1
-    params["abs_E2A"]["abs"] = True
 
     # # plot montage 1, histograms and maps for all metrics
     # for slice_idx in slices:
@@ -1193,8 +1122,91 @@ def export_results(
     # plot eigenvectors and tensor in VTK format
     export_vectors_tensors_vtk(dti, info, settings, mask_3c, average_images)
 
+    params = {}
+
+    params["MD"] = {}
+    params["MD"]["var_name"] = "md"
+    params["MD"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
+    params["MD"]["cmap"] = colormaps["MD"]
+    params["MD"]["title"] = "Mean diffusivity"
+    params["MD"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["MD"]["scale"] = 1000
+    params["MD"]["abs"] = False
+
+    params["MAG_ANISOTROPY"] = {}
+    params["MAG_ANISOTROPY"]["var_name"] = "mag_anisotropy"
+    params["MAG_ANISOTROPY"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
+    params["MAG_ANISOTROPY"]["cmap"] = "viridis"
+    params["MAG_ANISOTROPY"]["title"] = "Mag anisotropy"
+    params["MAG_ANISOTROPY"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["MAG_ANISOTROPY"]["scale"] = 1000
+    params["MAG_ANISOTROPY"]["abs"] = False
+
+    params["MODE"] = {}
+    params["MODE"]["var_name"] = "mode"
+    params["MODE"]["vmin_max"] = [-1, 1]
+    params["MODE"]["cmap"] = "plasma"
+    params["MODE"]["title"] = "Tensor mode"
+    params["MODE"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["MODE"]["scale"] = 1
+    params["MODE"]["abs"] = False
+
+    params["FA"] = {}
+    params["FA"]["var_name"] = "fa"
+    params["FA"]["vmin_max"] = [0, 1]
+    params["FA"]["cmap"] = colormaps["FA"]
+    params["FA"]["title"] = "Fractional anisotropy"
+    params["FA"]["units"] = "[]"
+    params["FA"]["scale"] = 1
+    params["FA"]["abs"] = False
+
+    params["FROB_NORM"] = {}
+    params["FROB_NORM"]["var_name"] = "frob_norm"
+    params["FROB_NORM"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
+    params["FROB_NORM"]["cmap"] = "inferno"
+    params["FROB_NORM"]["title"] = "Frobenius norm"
+    params["FROB_NORM"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["FROB_NORM"]["scale"] = 1000
+    params["FROB_NORM"]["abs"] = False
+
+    params["HA"] = {}
+    params["HA"]["var_name"] = "ha"
+    params["HA"]["vmin_max"] = [-90, 90]
+    params["HA"]["cmap"] = colormaps["HA"]
+    params["HA"]["title"] = "Helix angle"
+    params["HA"]["units"] = "degrees"
+    params["HA"]["scale"] = 1
+    params["HA"]["abs"] = False
+
+    params["TA"] = {}
+    params["TA"]["var_name"] = "ta"
+    params["TA"]["vmin_max"] = [-90, 90]
+    params["TA"]["cmap"] = "twilight_shifted"
+    params["TA"]["title"] = "Transverse angle"
+    params["TA"]["units"] = "degrees"
+    params["TA"]["scale"] = 1
+    params["TA"]["abs"] = False
+
+    params["E2A"] = {}
+    params["E2A"]["var_name"] = "e2a"
+    params["E2A"]["vmin_max"] = [-90, 90]
+    params["E2A"]["cmap"] = "twilight_shifted"
+    params["E2A"]["title"] = "Sheetlet angle"
+    params["E2A"]["units"] = "degrees"
+    params["E2A"]["scale"] = 1
+    params["E2A"]["abs"] = False
+
+    params["abs_E2A"] = {}
+    params["abs_E2A"]["var_name"] = "e2a"
+    params["abs_E2A"]["vmin_max"] = [0, 90]
+    params["abs_E2A"]["cmap"] = colormaps["abs_E2A"]
+    params["abs_E2A"]["title"] = "Absolute sheetlet angle"
+    params["abs_E2A"]["units"] = "degrees"
+    params["abs_E2A"]["scale"] = 1
+    params["abs_E2A"]["abs"] = True
+
     # plot results maps
-    plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, settings, folder_id)
+    plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, params, settings, folder_id)
 
     # save xarray to NetCDF
     # ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))
@@ -1204,6 +1216,150 @@ def export_results(
 
     # save results summary to a csv table
     export_summary_table(dti, settings, slices)
+
+    # save to disk dti dictionary
+    dti["info"] = info
+    with open(os.path.join(settings["results"], "data", "DTI_data.dat"), "wb") as handle:
+        pickle.dump(dti, handle)
+
+    # save the final diffusion database
+    # save the dataframe and the info dict
+    data.attrs["mask"] = mask_3c
+    save_path = os.path.join(settings["results"], "data", "database.zip")
+    data.to_pickle(save_path, compression={"method": "zip", "compresslevel": 9})
+
+    # get git commit hash
+    def get_git_revision_hash():
+        try:
+            return (
+                subprocess.check_output(
+                    ["git", "describe", "--always"], cwd=os.path.dirname(os.path.abspath(__file__))
+                )
+                .strip()
+                .decode()
+            )
+        except:
+            return "No Git repository found!"
+
+    info["git_hash"] = get_git_revision_hash()
+
+    # save to disk basic info in a csv file
+    with open(os.path.join(settings["results"], "data", "DTI_data.csv"), "w", newline="") as handle1:
+        w = csv.writer(handle1)
+        w.writerows(info.items())
+
+    # do final montage with image magick
+    for slice_idx in slices:
+        if os.name == "nt":
+            os.system('powershell.exe "Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process')
+            run_command = (
+                "powershell.exe "
+                + os.path.join(os.path.dirname(__file__), "montage_script_windows.ps1")
+                + " "
+                + os.path.abspath(settings["results"])
+                + " "
+                + str(slice_idx).zfill(2)
+                + " "
+                + folder_id
+            )
+        else:
+            run_command = (
+                "bash "
+                + os.path.join(os.path.dirname(__file__), "montage_script.sh")
+                + " "
+                + os.path.abspath(settings["results"])
+                + " "
+                + str(slice_idx).zfill(2)
+                + " "
+                + folder_id
+            )
+        os.system(run_command)
+
+
+def export_results_adc(
+    data: pd.DataFrame,
+    dti: dict,
+    info: dict,
+    settings: dict,
+    mask_3c: NDArray,
+    slices: NDArray,
+    average_images: NDArray,
+    segmentation: dict,
+    colormaps: dict,
+    logger: logging.Logger,
+):
+    """Export results to disk (VTK, PNGs, HDF5, pickle, CSV, and ZIP).
+
+    Args:
+        data (pd.DataFrame): Diffusion images and metadata.
+        dti (dict): DTI maps to export.
+        info (dict): Metadata dictionary.
+        settings (dict): Output and debug settings.
+        mask_3c (NDArray): Heart segmentation mask.
+        slices (NDArray): Slice indices.
+        average_images (NDArray): Normalised average images.
+        segmentation (dict): LV segmentation, contours, and insertion points.
+        colormaps (dict): DTI-specific colour maps.
+        logger (logging.Logger): Logger for export progress.
+    """
+
+    logger.info("Exporting results to disk...")
+
+    # create a string with the folder names
+    folder_id = settings["work_folder"]
+    folder_id = os.path.normpath(folder_id)
+    folders = folder_id.split(os.sep)
+    folder_id = folders[-4:-1]
+    folder_id = "_".join(folder_id)
+
+    params = {}
+    params["ADC"] = {}
+    params["ADC"]["var_name"] = "madc"
+    params["ADC"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
+    params["ADC"]["cmap"] = colormaps["MD"]
+    params["ADC"]["title"] = "mADC"
+    params["ADC"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["ADC"]["scale"] = 1000
+    params["ADC"]["abs"] = False
+
+    params["ADC_p"] = {}
+    params["ADC_p"]["var_name"] = "adc_p"
+    params["ADC_p"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
+    params["ADC_p"]["cmap"] = colormaps["MD"]
+    params["ADC_p"]["title"] = "ADC Phase"
+    params["ADC_p"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["ADC_p"]["scale"] = 1000
+    params["ADC_p"]["abs"] = False
+
+    params["ADC_r"] = {}
+    params["ADC_r"]["var_name"] = "adc_r"
+    params["ADC_r"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
+    params["ADC_r"]["cmap"] = colormaps["MD"]
+    params["ADC_r"]["title"] = "ADC Read"
+    params["ADC_r"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["ADC_r"]["scale"] = 1000
+    params["ADC_r"]["abs"] = False
+
+    params["ADC_s"] = {}
+    params["ADC_s"]["var_name"] = "adc_s"
+    params["ADC_s"]["vmin_max"] = [settings["md_scale"][0], settings["md_scale"][1]]
+    params["ADC_s"]["cmap"] = colormaps["MD"]
+    params["ADC_s"]["title"] = "ADC Slice"
+    params["ADC_s"]["units"] = "10^{-3} mm^2s^{-1}"
+    params["ADC_s"]["scale"] = 1000
+    params["ADC_s"]["abs"] = False
+    # plot results maps
+    plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, params, settings, folder_id)
+
+    # save xarray to NetCDF
+    # ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))
+
+    # save results to h5 file
+    dti["average_images"] = average_images
+    export_to_hdf5(dti, mask_3c, settings)
+
+    # save results summary to a csv table
+    export_summary_table_adc(dti, settings, slices)
 
     # save to disk dti dictionary
     dti["info"] = info
@@ -1458,6 +1614,95 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
                     np.nan,
                 ]
             )
+        # do the same for SNR
+        table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        for slice_idx in slices:
+            for key in dti["snr"][slice_idx]:
+                c_vals = dti["snr"][slice_idx][key]
+                c_vals = c_vals[~np.isnan(c_vals)]
+                c_vals = c_vals[np.isfinite(c_vals)]
+                # check if c_vals is not empty
+                if len(c_vals) == 0:
+                    continue
+                table_per_slice.append(
+                    [
+                        "SNR_" + key + "_slice_" + str(slice_idx).zfill(2),
+                        np.nanmean(c_vals),
+                        np.nanstd(c_vals),
+                        np.nanmedian(c_vals),
+                        np.nanquantile(c_vals, 0.25),
+                        np.nanquantile(c_vals, 0.75),
+                        np.nanmin(c_vals),
+                        np.nanmax(c_vals),
+                    ]
+                )
+
+        # add to the global table
+        table_global.extend(table_per_slice)
+
+    # convert table to dataframe
+    table_global = pd.DataFrame(
+        table_global,
+        columns=["Parameter", "Mean", "Std", "Median", "Q25", "Q75", "Min", "Max"],
+    )
+    table_global = table_global.round(decimals=2)
+    # export dataframe csv
+    table_global.to_csv(os.path.join(settings["results"], "results_table.csv"), index=False)
+
+
+def export_summary_table_adc(dti: dict, settings: dict, slices: NDArray):
+    """Export summary statistics of DTI values to CSV.
+
+    Args:
+        dti (dict): DTI maps and derived metrics.
+        settings (dict): Output settings containing the results path.
+        slices (NDArray): Slice indices.
+    """
+
+    dti["madc_1e3"] = dti["madc"] * 1000
+    dti["adc_p_1e3"] = dti["adc_p"] * 1000
+    dti["adc_r_1e3"] = dti["adc_r"] * 1000
+    dti["adc_s_1e3"] = dti["adc_s"] * 1000
+    var_list = ["madc_1e3", "adc_p_1e3", "adc_r_1e3", "adc_s_1e3"]
+    str_list = ["mADC", "ADC_p", "ADC_r", "ADC_s"]
+    # global values
+    table_global = []
+    table_global.append(["Global", np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+    table_global.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+    for idx, var in enumerate(var_list):
+        table_global.append(
+            [
+                str_list[idx],
+                np.nanmean(dti[var]),
+                np.nanstd(dti[var]),
+                np.nanmedian(dti[var]),
+                np.nanquantile(dti[var], 0.25),
+                np.nanquantile(dti[var], 0.75),
+                np.nanmin(dti[var]),
+                np.nanmax(dti[var]),
+            ]
+        )
+
+    if len(slices) > 1:
+        # per slice values
+        table_per_slice = []
+        table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        table_per_slice.append(["Per slice", np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        for idx, var in enumerate(var_list):
+            table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+            for slice_idx in slices:
+                table_per_slice.append(
+                    [
+                        str_list[idx] + "_slice_" + str(slice_idx).zfill(2),
+                        np.nanmean(dti[var][slice_idx]),
+                        np.nanstd(dti[var][slice_idx]),
+                        np.nanmedian(dti[var][slice_idx]),
+                        np.nanquantile(dti[var][slice_idx], 0.25),
+                        np.nanquantile(dti[var][slice_idx], 0.75),
+                        np.nanmin(dti[var][slice_idx]),
+                        np.nanmax(dti[var][slice_idx]),
+                    ]
+                )
         # do the same for SNR
         table_per_slice.append([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
         for slice_idx in slices:

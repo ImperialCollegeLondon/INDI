@@ -7,6 +7,7 @@ import pandas as pd
 from numpy import ndarray
 from numpy.typing import NDArray
 from scipy import stats
+from scipy.linalg import lstsq
 
 # import time
 
@@ -383,3 +384,150 @@ def dipy_tensor_fit(
             plot_tensor_components(tensor, average_images, mask_3c, slices, settings)
 
     return tensor, s0, residuals_img, residuals_map, residuals_img_all, average_signals, info
+
+
+def dipy_adc_fit(
+    slices: NDArray,
+    data: pd.DataFrame,
+    info: dict,
+    settings: dict,
+    mask_3c: NDArray,
+    average_images: NDArray,
+    logger: logging.Logger,
+    method: str = "NLLS",
+) -> tuple[
+    NDArray,
+    NDArray,
+    NDArray,
+    NDArray,
+    NDArray,
+    dict[int, NDArray],
+    dict[int, NDArray],
+    dict[int, NDArray],
+    dict[int, NDArray],
+    dict,
+]:
+    """
+    Fit a diffusion tensor model to the data using DiPy.
+
+    Supports multiple fitting methods: 'LS' (Linear Least Squares), 'WLS' (Weighted Linear Least Squares),
+    'NLLS' (Non-Linear Least Squares), and 'RESTORE'. Optionally computes and plots residuals and tensor components.
+
+
+    Args:
+        slices (NDArray): Array of slice indices or positions.
+        data (pd.DataFrame): DataFrame containing diffusion-weighted image data and metadata.
+        info (dict): Dictionary with general scan and image information.
+        settings (dict): Dictionary with processing and output settings.
+        mask_3c (NDArray): 3D segmentation mask array.
+        average_images (NDArray): Array of average images for each slice.
+        logger (logging.Logger): Logger for status and debug messages.
+        method (str, optional): Tensor fitting method. One of "LS", "WLS", "NLLS", or "RESTORE". Defaults to "NLLS".
+        quick_mode (bool, optional): If True, skips plotting and some calculations. Defaults to False.
+
+    Returns:
+        tensor: Fitted diffusion tensor array, shape [n_slices, rows, cols, 3, 3].
+        s0: Estimated S0 images, shape [n_slices, rows, cols].
+        residuals_img: Residuals per image for each slice.
+        residuals_map: Residuals per voxel for each slice.
+        residuals_img_all: All residuals for each slice.
+        average_signals: Average signal per image for each slice.
+        info: Updated info dictionary with fitting statistics.
+    """
+
+    logger.info("Starting tensor fitting with method: " + method)
+
+    s0 = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
+    mADC = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
+    ADCp = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
+    ADCr = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
+    ADCs = np.zeros([info["n_slices"], info["img_size"][0], info["img_size"][1]])
+    residuals_img = {}
+    residuals_map = {}
+    residuals_img_all = {}
+    average_signals = {}
+
+    myo_mask = np.copy(mask_3c)
+    myo_mask[myo_mask > 1] = 0
+
+    message = "ADC fitted to all be b-values (as single diffusion coeficient)"
+
+    for i, slice_idx in enumerate(slices):
+        current_entries = data.loc[data["slice_integer"] == slice_idx]
+
+        # remove any images that have been marked to be removed
+        current_entries = current_entries.loc[current_entries["to_be_removed"] == False]
+
+        bvals = current_entries["b_value"].values
+        bvecs = np.vstack(current_entries["diffusion_direction"])
+
+        image_data = np.stack(current_entries["image"])
+
+        log_S = np.log(image_data).reshape(image_data.shape[0], -1)
+
+        log_S = np.nan_to_num(log_S, neginf=-(2**16))
+
+        # ADCs per direction only if there are 3 directions (assumed to be PRS)
+        unique_bvecs = np.unique(bvecs, axis=0)
+        if len(unique_bvecs) == 4:
+            message = "ADC fitted in 3 directions (assumed to be PRS) and to all b-values"
+            B = np.ones((len(bvals), 4))
+            for i, (bval, bvec) in enumerate(zip(bvals, bvecs)):
+                # bvec = np.diag(np.outer(bvec, bvec)) = bvec_i * bvec_i
+                B[i, :-1] = np.array(-bval * bvec**2)
+
+            alpha, _, _, _ = lstsq(B, log_S)
+            ADCp[slice_idx] = np.reshape(alpha[0], image_data.shape[1:])
+            ADCr[slice_idx] = np.reshape(alpha[1], image_data.shape[1:])
+            ADCs[slice_idx] = np.reshape(alpha[2], image_data.shape[1:])
+        else:
+            ADCp[slice_idx] = np.full(image_data.shape[1:], np.nan)
+            ADCr[slice_idx] = np.full(image_data.shape[1:], np.nan)
+            ADCs[slice_idx] = np.full(image_data.shape[1:], np.nan)
+
+        B = np.stack([[-b, 1] for b in bvals], axis=0)
+        alpha, _, _, _ = lstsq(B, log_S)
+        S_est = np.exp(B @ alpha).reshape(image_data.shape)
+        res = np.abs(S_est - image_data)
+
+        mADC[slice_idx] = np.reshape(alpha[0], image_data.shape[1:])
+        s0[slice_idx] = np.exp(np.reshape(alpha[1], image_data.shape[1:]))
+        res = np.reshape(res, image_data.shape)
+
+        # estimate res in the myocardium per diffusion image
+        res_img = np.nanmean(res[:, myo_mask[slice_idx] > 0], axis=0)
+        residuals_img[slice_idx] = res_img
+        # estimate res per voxel
+        res_map = np.nanmean(np.squeeze(res), axis=0)
+        residuals_map[slice_idx] = res_map
+        # also save the non-averaged residuals
+        residuals_img_all[slice_idx] = np.squeeze(res)
+
+        # save the average signal per image
+        myo_signals = image_data
+        myo_signals = np.nanmean(myo_signals[:, myo_mask[slice_idx] > 0], axis=0)
+        average_signals[slice_idx] = myo_signals
+
+        # z_scores, outliers, outliers_pos = get_residual_z_scores(res_img)
+
+        if settings["debug"]:
+            plot_residuals_plot(res_img, slice_idx, settings, prefix="")
+            plot_residuals_map(res_map, average_images, mask_3c, slice_idx, settings, prefix="")
+            plot_average_signals(myo_signals, slice_idx, settings, prefix="")
+
+    mADC[mask_3c == 0] = np.nan
+    ADCp[mask_3c == 0] = np.nan
+    ADCr[mask_3c == 0] = np.nan
+    ADCs[mask_3c == 0] = np.nan
+
+    np.testing.assert_allclose(
+        mADC,
+        (ADCp + ADCr + ADCs) / 3,
+        rtol=1e-4,
+        equal_nan=True,
+        err_msg="mADC is not equal to the mean of each directions",
+    )
+
+    logger.info(message)
+
+    return mADC, ADCp, ADCr, ADCs, s0, residuals_img, residuals_map, residuals_img_all, average_signals, info
