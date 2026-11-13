@@ -73,6 +73,8 @@ remove_b_values: []
 md_scale: [0, 3]
 # interpolate dicom images factor
 img_interp_factor: 1
+# SE heart-spacing (integer)
+se_rr_intervals: 1
 
 # ========================================================================================
 # ex-vivo (in development)
