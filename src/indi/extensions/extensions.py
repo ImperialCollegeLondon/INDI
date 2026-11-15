@@ -1239,9 +1239,8 @@ def export_results(
     # do final montage with image magick
     for slice_idx in slices:
         if os.name == "nt":
-            os.system('powershell.exe "Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process')
             run_command = (
-                "powershell.exe "
+                "powershell.exe  -ExecutionPolicy RemoteSigned -file "
                 + os.path.join(os.path.dirname(__file__), "montage_script_windows.ps1")
                 + " "
                 + os.path.abspath(settings["results"])
