@@ -53,7 +53,6 @@ dependencies = [
   "PyWavelets",
   "pynrrd",
   "python-gdcm",
-  "antspyx",
 ]
 description = "INDI is a command line tool to process in-vivo cardiac diffusion tensor imaging."
 keywords = []
