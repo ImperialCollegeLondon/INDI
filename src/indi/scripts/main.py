@@ -64,8 +64,7 @@ def main() -> None:
     # to run efficiently
     matplotlib.rcParams["toolbar"] = "None"
     # Faster interactive matplotlib
-    if sys.platform != "darwin":
-        matplotlib.use("qtagg")
+    matplotlib.use("qtagg")
 
     # script path
     abspath = os.path.abspath(sys.argv[0])
