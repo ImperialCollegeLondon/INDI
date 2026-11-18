@@ -240,8 +240,6 @@ def manual_image_removal(
             # set the background colour of the figure
             fig.patch.set_facecolor("0.05")
 
-            closed = [False]
-
             def onclick_select(event):
                 """function to record the axes of the selected images in subplots"""
                 if event.inaxes is not None:
@@ -259,15 +257,12 @@ def manual_image_removal(
                 fig.canvas.draw_idle()
 
             def onclose_fig(event):
-                """Mark figure as closed when close button is clicked"""
-                closed[0] = True
+                plt.close(fig)
 
             fig.canvas.mpl_connect("button_press_event", onclick_select)
             fig.canvas.mpl_connect("close_event", onclose_fig)
             fig.canvas.draw_idle()
             plt.show(block=True)
-            plt.close(fig)
-            plt.close("all")
             gc.collect()
 
         # store the indices of the rejected images:
