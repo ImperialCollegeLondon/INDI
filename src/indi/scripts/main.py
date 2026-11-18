@@ -64,7 +64,7 @@ def main() -> None:
     # to run efficiently
     matplotlib.rcParams["toolbar"] = "None"
     # Faster interactive matplotlib
-    matplotlib.use("tkagg")
+    matplotlib.use("qtagg")
 
     # script path
     abspath = os.path.abspath(sys.argv[0])
