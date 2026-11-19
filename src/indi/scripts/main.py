@@ -15,7 +15,6 @@ import pyautogui
 from indi.extensions.complex_averaging import complex_averaging
 from indi.extensions.crop_fov import crop_fov, record_image_registration
 from indi.extensions.extensions import (
-    export_results,
     get_cardiac_coordinates_short_axis,
     get_colourmaps,
     get_lv_segments,
@@ -24,6 +23,7 @@ from indi.extensions.extensions import (
     remove_outliers,
     remove_slices,
 )
+from indi.extensions.final_results_export import export_results
 from indi.extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from indi.extensions.get_eigensystem import get_eigensystem
 from indi.extensions.get_fa_md import get_fa_md
