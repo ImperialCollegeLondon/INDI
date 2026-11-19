@@ -33,20 +33,8 @@ def test_get_fa_md(mask_3c: np.ndarray, tensor_true: np.ndarray, logger: Logger)
         _,
     ) = get_fa_md(eigenvalues, info, mask_3c, slices, logger)
 
-    mean_md_calculated = np.mean(md_calculated[mask_3c == 1])
-    std_md_calculated = np.std(md_calculated[mask_3c == 1])
-    mean_fa_calculated = np.mean(fa_calculated[mask_3c == 1])
-    std_fa_calculated = np.std(fa_calculated[mask_3c == 1])
-    mean_mode_calculated = np.mean(mode_calculated[mask_3c == 1])
-    std_mode_calculated = np.std(mode_calculated[mask_3c == 1])
-    mean_frob_norm_calculated = np.mean(frob_norm_calculated[mask_3c == 1])
-    std_frob_norm_calculated = np.std(frob_norm_calculated[mask_3c == 1])
-    mean_mag_anisotropy_calculated = np.mean(mag_anisotropy_calculated[mask_3c == 1])
-    std_mag_anisotropy_calculated = np.std(mag_anisotropy_calculated[mask_3c == 1])
-
-    # correct metrics from simulated phantom data
+    # Correct metrics from simulated phantom data
     e1, e2, e3 = (2 * 1e-3, 1 * 1e-3, 0.5 * 1e-3)
-
     eigv = np.array([[[e1, e2, e3]]])  # shape (1, 1, 3)
 
     second_moment = moment(eigv, moment=2, axis=-1)
@@ -54,32 +42,25 @@ def test_get_fa_md(mask_3c: np.ndarray, tensor_true: np.ndarray, logger: Logger)
 
     mode_true = np.sqrt(2) * third_moment * second_moment ** (-3 / 2)
 
-    # get Frobenius norm of the tensor
     frob_norm_true = np.linalg.norm(eigv, axis=-1)
-
-    # get the magnitude of anisotropy
     mag_anisotropy_true = np.sqrt(3 * second_moment)
-
     md_true = (e1 + e2 + e3) / 3
-
     fa_true = np.sqrt(1 / 2) * (
         np.sqrt((e1 - e2) ** 2 + (e2 - e3) ** 2 + (e3 - e1) ** 2) / np.sqrt(e1**2 + e2**2 + e3**2)
     )
 
-    assert np.allclose(mean_md_calculated, md_true)
-    assert np.allclose(std_md_calculated, 0.0)
-
-    assert np.allclose(mean_fa_calculated, fa_true)
-    assert np.allclose(std_fa_calculated, 0.0)
-
-    assert np.allclose(mean_mode_calculated, mode_true)
-    assert np.allclose(std_mode_calculated, 0.0)
-
-    assert np.allclose(mean_frob_norm_calculated, frob_norm_true)
-    assert np.allclose(std_frob_norm_calculated, 0.0)
-
-    assert np.allclose(mean_mag_anisotropy_calculated, mag_anisotropy_true)
-    assert np.allclose(std_mag_anisotropy_calculated, 0.0)
+    metrics = {
+        "MD": (md_calculated, md_true),
+        "FA": (fa_calculated, fa_true),
+        "mode": (mode_calculated, mode_true),
+        "Frobenius norm": (frob_norm_calculated, frob_norm_true),
+        "magnitude anisotropy": (mag_anisotropy_calculated, mag_anisotropy_true),
+    }
+    mask = mask_3c == 1
+    for metric, (calculated, expected_mean) in metrics.items():
+        values = calculated[mask]
+        assert np.allclose(np.mean(values), expected_mean), f"Unexpected {metric} mean"
+        assert np.allclose(np.std(values), 0.0), f"Unexpected {metric} standard deviation"
 
 
 def test_get_snr_maps(mask_3c: np.ndarray, data_dir: Path, logger: Logger):
