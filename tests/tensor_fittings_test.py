@@ -1,5 +1,5 @@
 import logging
-import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -28,44 +28,40 @@ def test_dipy_tensor_fit(tmp_path, debug, method, logger):
     # Here I am loading data from DTI_numerical_phantom_3D repo
     # load table with pixel values, b_values and directions
     # For this test there is no noise, so SNR is infinite
-    table = pd.read_pickle(os.path.join("tests", "data", "cdti_table.zip"))
-
+    data_dir = Path("tests") / "data"
+    table = pd.read_pickle(data_dir / "cdti_table.zip")
     # Rename some columns to match what is expected in the function
     table = table.rename(columns={"direction": "diffusion_direction"})
+    table["slice_position"] = "0.0"
+    table["slice_integer"] = 0
+    table["to_be_removed"] = False
+    table["bmatrix"] = None
 
-    slice_position_column = np.repeat(["0.0"], len(table))
-    table["slice_position"] = slice_position_column
-    slice_integer_column = np.repeat([0], len(table))
-    table["slice_integer"] = slice_integer_column
-    table["to_be_removed"] = np.repeat([False], len(table))
-    table["bmatrix"] = np.repeat([None], len(table))
     # load mask (0 background, 1 left ventricle, 2 right ventricle)
-    mask_3c = np.load(os.path.join("tests", "data", "mask_3c.npz"))
-    mask_3c = mask_3c["mask_3c"]
+    mask_3c = np.load(data_dir / "mask_3c.npz")["mask_3c"]
     # load tensor that was used to create these pixel values
-    tensor_true = np.load(os.path.join("tests", "data", "DT.npz"))
-    tensor_true = tensor_true["DT"]
+    tensor_true = np.load(data_dir / "DT.npz")["DT"]
     slices = [0]
-
     average_images = {0: table["image"].mean(axis=0)}
 
     # mock settings
-    settings = {}
-    settings["debug"] = debug
+    debug_folder = tmp_path / "debug"
     (tmp_path / "results_b").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "debug").mkdir(parents=True, exist_ok=True)
-    settings["debug_folder"] = str(tmp_path / "debug")
-    settings["results"] = str(tmp_path)
+    debug_folder.mkdir(parents=True, exist_ok=True)
+    settings = {
+        "debug": debug,
+        "debug_folder": str(debug_folder),
+        "results": str(tmp_path),
+        "tensor_fit_method": method,
+    }
     # mock info
     info = {
         "img_size": table["image"][0].shape,
         "n_slices": len(slices),
     }
-    # mock dictionary with settings
-    settings["tensor_fit_method"] = method
 
     # calculate tensors with DiPy functions
-    tensor, _, _, residuals_map, _, _, info = dipy_tensor_fit(
+    tensor, _, _, residuals_map, _, _, _ = dipy_tensor_fit(
         slices=slices,
         data=table,
         info=info,
@@ -76,9 +72,6 @@ def test_dipy_tensor_fit(tmp_path, debug, method, logger):
         method=settings["tensor_fit_method"],
         quick_mode=False,
     )
-
-    # create a mask to ignore nan values
-    mask = ~(np.isnan(tensor_true))
 
     # assert that the tensors are the same
     mask = ~(np.isnan(tensor) | np.isnan(tensor_true))

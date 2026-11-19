@@ -55,11 +55,11 @@ def create_test_images_h5(folder, n=3, shape=(2, 2)):
     Returns:
         np.ndarray: Array of generated images.
     """
-    arr = np.arange(n * shape[0] * shape[1]).reshape(n, *shape)
+    images = np.arange(n * shape[0] * shape[1]).reshape(n, *shape)
     save_path = os.path.join(folder, "images.h5")
     with h5py.File(save_path, "w") as hf:
-        hf.create_dataset("pixel_values", data=arr)
-    return arr
+        hf.create_dataset("pixel_values", data=images)
+    return images
 
 
 def test_read_and_process_pandas_basic(logger, basic_settings):
@@ -80,7 +80,7 @@ def test_read_and_process_pandas_basic(logger, basic_settings):
     assert isinstance(info, dict)
     assert "image" in data.columns
     assert len(data) == 3
-    assert np.all([isinstance(img, np.ndarray) for img in data["image"]])
+    assert all(isinstance(image, np.ndarray) for image in data["image"])
     assert info["Rows"] == 2
     assert info["Columns"] == 2
     assert info["manufacturer"] == "siemens"
@@ -119,14 +119,14 @@ def test_read_and_process_pandas_complex_data(tmp_path, logger):
     create_test_images_h5(phase_folder)
 
     # Run
-    data, data_phase, info = read_and_process_pandas(logger, settings)
+    data, phase_data, info = read_and_process_pandas(logger, settings)
 
     # Assert
     assert settings["complex_data"] is True
     assert isinstance(data, pd.DataFrame)
-    assert isinstance(data_phase, pd.DataFrame)
+    assert isinstance(phase_data, pd.DataFrame)
     assert "image" in data.columns
-    assert "image" in data_phase.columns
+    assert "image" in phase_data.columns
     assert info["manufacturer"] == "siemens"
 
 
