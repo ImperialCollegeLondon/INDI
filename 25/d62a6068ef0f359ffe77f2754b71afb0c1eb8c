@@ -1,0 +1,24 @@
+tests/test_get_fa_md.py
+  s_90f16a6612f59e::t_5d5e606e5d4170 40-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "25d62a6068ef0f359ffe77f2754b71afb0c1eb8c",
+  "prompts": {},
+  "humans": {
+    "h_e76403a1cd4bf1": {
+      "author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  },
+  "sessions": {
+    "s_90f16a6612f59e": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "ffdb2490-83e5-4278-966d-af799e3a30c6",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  }
+}
