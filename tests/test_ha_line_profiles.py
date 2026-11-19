@@ -15,7 +15,7 @@ def _circle_contour(center_x: int, center_y: int, radius: int, n_points: int = 3
     return np.column_stack((xs, ys))
 
 
-def test_get_ha_line_profiles_(
+def test_get_ha_line_profiles(
     monkeypatch: MonkeyPatch,
     logger: Logger,
     results_settings: dict,
