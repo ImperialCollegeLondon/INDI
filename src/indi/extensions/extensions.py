@@ -17,6 +17,7 @@ import skimage.filters
 import skimage.measure
 import xarray as xr
 from numpy.typing import NDArray
+from PIL import Image, ImageDraw, ImageFont
 from scipy import ndimage
 from skimage import morphology
 from skimage.measure import label, regionprops_table
@@ -1196,9 +1197,6 @@ def export_results(
     # plot results maps
     plot_results_maps(slices, mask_3c, average_images, dti, segmentation, colormaps, settings, folder_id)
 
-    # save xarray to NetCDF
-    # ds.to_netcdf(os.path.join(settings["results"], "data", "DTI_maps.nc"))
-
     # save results to h5 file
     export_to_hdf5(dti, mask_3c, settings)
 
@@ -1236,32 +1234,106 @@ def export_results(
         w = csv.writer(handle1)
         w.writerows(info.items())
 
-    # do final montage with image magick
+    # do final results montage
     for slice_idx in slices:
-        if os.name == "nt":
-            os.system('powershell.exe "Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process')
-            run_command = (
-                "powershell.exe "
-                + os.path.join(os.path.dirname(__file__), "montage_script_windows.ps1")
-                + " "
-                + os.path.abspath(settings["results"])
-                + " "
-                + str(slice_idx).zfill(2)
-                + " "
-                + folder_id
-            )
-        else:
-            run_command = (
-                "bash "
-                + os.path.join(os.path.dirname(__file__), "montage_script.sh")
-                + " "
-                + os.path.abspath(settings["results"])
-                + " "
-                + str(slice_idx).zfill(2)
-                + " "
-                + folder_id
-            )
-        os.system(run_command)
+
+        slice_montage = []
+        # list of images to include in the montage
+        folder_a = os.path.join(settings["results"], "results_a")
+        list_all_slice_imgs = [
+            os.path.join(folder_a, f) for f in os.listdir(folder_a) if f.endswith(f"_{str(slice_idx).zfill(2)}.png")
+        ]
+        # select sublist where the filename starts with maps
+        list_slice_maps = [f for f in list_all_slice_imgs if os.path.basename(f).startswith("maps")]
+        list_slice_maps.sort()
+        # same for histograms
+        list_slice_histograms = [f for f in list_all_slice_imgs if os.path.basename(f).startswith("histograms")]
+        list_slice_histograms.sort()
+
+        # read all maps
+        images = {}
+        for map in list_slice_maps:
+            map_name = os.path.basename(map)
+            map_path = map
+            images[map_name] = skimage.io.imread(map_path)
+        montage = skimage.util.montage(
+            list(images.values()),
+            grid_shape=(1, len(images)),
+            padding_width=0,
+            channel_axis=3,
+        )
+
+        slice_montage.append(montage)
+
+        # repeat for histograms
+        images_histograms = {}
+        for hist in list_slice_histograms:
+            hist_name = os.path.basename(hist)
+            hist_path = hist
+            images_histograms[hist_name] = skimage.io.imread(hist_path)
+        montage_histograms = skimage.util.montage(
+            list(images_histograms.values()),
+            grid_shape=(1, len(images_histograms)),
+            padding_width=0,
+            channel_axis=3,
+        )
+
+        slice_montage.append(montage_histograms)
+
+        # now read results from folder b
+        folder_b = os.path.join(settings["results"], "results_b")
+        list_all_slice_imgs = [
+            os.path.join(folder_b, f) for f in os.listdir(folder_b) if f.endswith(f"_{str(slice_idx).zfill(2)}.png")
+        ]
+        list_all_slice_imgs.sort()
+        images = {}
+        for image in list_all_slice_imgs:
+            image_name = os.path.basename(image)
+            image_path = image
+            c_img = skimage.io.imread(image_path)
+            # fit within 500x500 and pad if necessary
+            if c_img.shape[0] != 500 or c_img.shape[1] != 500:
+                scale = min(500 / c_img.shape[0], 500 / c_img.shape[1])
+                resized_height = max(1, round(c_img.shape[0] * scale))
+                resized_width = max(1, round(c_img.shape[1] * scale))
+                resized_img = skimage.transform.resize(
+                    c_img,
+                    (resized_height, resized_width, *c_img.shape[2:]),
+                    anti_aliasing=True,
+                    preserve_range=True,
+                ).astype(np.uint8)
+
+                c_img = np.full((500, 500, *c_img.shape[2:]), 255, dtype=np.uint8)
+                top = (500 - resized_height) // 2
+                left = (500 - resized_width) // 2
+                c_img[top : top + resized_height, left : left + resized_width] = resized_img
+            images[image_name] = c_img
+        montage_b = skimage.util.montage(
+            list(images.values()),
+            grid_shape=(1, len(images)),
+            padding_width=0,
+            channel_axis=3,
+        )
+
+        plt.imshow(montage_b)
+
+        slice_montage.append(montage_b)
+
+        # save the montage
+        slice_montage = np.concatenate(slice_montage, axis=0)
+        caption = np.full((30, *slice_montage.shape[1:]), 255, dtype=np.uint8)
+        caption_image = Image.fromarray(caption)
+        draw = ImageDraw.Draw(caption_image)
+        label = str(folder_id)
+        font = ImageFont.load_default(size=20)
+        text_bounds = draw.textbbox((0, 0), label, font=font)
+        text_x = (caption_image.width - (text_bounds[2] - text_bounds[0])) // 2 - text_bounds[0]
+        text_y = (caption_image.height - (text_bounds[3] - text_bounds[1])) // 2 - text_bounds[1]
+        draw.text((text_x, text_y), label, fill="black", font=font)
+        slice_montage = np.concatenate((slice_montage, np.asarray(caption_image)), axis=0)
+        montage_filename = f"results_montage_{folder_id}_slice_{str(slice_idx).zfill(2)}.png"
+        montage_filename = os.path.join(os.path.abspath(settings["results"]), montage_filename)
+        skimage.io.imsave(montage_filename, slice_montage.astype(np.uint8))
 
 
 def export_summary_table(dti: dict, settings: dict, slices: NDArray):
