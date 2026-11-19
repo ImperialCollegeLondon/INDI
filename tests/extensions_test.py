@@ -13,13 +13,11 @@ def test_get_fa_md():
     """Verify FA and MD calculations against phantom ground truth."""
 
     # load tensor from numerical phantom
-    tensor_true = np.load(os.path.join("tests", "data", "DT.npz"))
-    tensor_true = tensor_true["DT"]
+    tensor_true = np.load(os.path.join("tests", "data", "DT.npz"))["DT"]
     tensor_true = np.nan_to_num(tensor_true)
 
     # load RV and LV mask
-    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))
-    mask = mask["mask_3c"]
+    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))["mask_3c"]
 
     # mock slices
     slices = [0]
@@ -33,30 +31,25 @@ def test_get_fa_md():
     # calculate eigenvalues from tensor
     eigenvalues, _ = np.linalg.eigh(tensor_true)
     # get FA and MD from eigenvalues
-    md_calculated, fa_calculated, mode_calculated, frob_norm_calculated, mag_anisotropy_calculated, _ = get_fa_md(
-        eigenvalues, info, mask, slices, logger
-    )
+    (
+        md_calculated,
+        fa_calculated,
+        mode_calculated,
+        frob_norm_calculated,
+        mag_anisotropy_calculated,
+        _,
+    ) = get_fa_md(eigenvalues, info, mask, slices, logger)
 
-    mean_md_calculated, std_md_calculated = [
-        np.mean(md_calculated[mask == 1]),
-        np.std(md_calculated[mask == 1]),
-    ]
-    mean_fa_calculated, std_fa_calculated = [
-        np.mean(fa_calculated[mask == 1]),
-        np.std(fa_calculated[mask == 1]),
-    ]
-    mean_mode_calculated, std_mode_calculated = [
-        np.mean(mode_calculated[mask == 1]),
-        np.std(mode_calculated[mask == 1]),
-    ]
-    mean_frob_norm_calculated, std_frob_norm_calculated = [
-        np.mean(frob_norm_calculated[mask == 1]),
-        np.std(frob_norm_calculated[mask == 1]),
-    ]
-    mean_mag_anisotropy_calculated, std_mag_anisotropy_calculated = [
-        np.mean(mag_anisotropy_calculated[mask == 1]),
-        np.std(mag_anisotropy_calculated[mask == 1]),
-    ]
+    mean_md_calculated = np.mean(md_calculated[mask == 1])
+    std_md_calculated = np.std(md_calculated[mask == 1])
+    mean_fa_calculated = np.mean(fa_calculated[mask == 1])
+    std_fa_calculated = np.std(fa_calculated[mask == 1])
+    mean_mode_calculated = np.mean(mode_calculated[mask == 1])
+    std_mode_calculated = np.std(mode_calculated[mask == 1])
+    mean_frob_norm_calculated = np.mean(frob_norm_calculated[mask == 1])
+    std_frob_norm_calculated = np.std(frob_norm_calculated[mask == 1])
+    mean_mag_anisotropy_calculated = np.mean(mag_anisotropy_calculated[mask == 1])
+    std_mag_anisotropy_calculated = np.std(mag_anisotropy_calculated[mask == 1])
 
     # correct metrics from simulated phantom data
     e1, e2, e3 = (2 * 1e-3, 1 * 1e-3, 0.5 * 1e-3)
@@ -99,16 +92,14 @@ def test_get_fa_md():
 def test_get_snr_maps():
     """Check SNR maps and noise estimates computed from simulated data."""
     # load RV and LV mask
-    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))
-    mask = mask["mask_3c"]
+    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))["mask_3c"]
 
     """test if this function calculates the correct SNR and noise maps"""
     # Here I am loading data created by create_dwi_dicoms.py in DTI_numerical_phantom_3D repo
     # load table with pixel values, b_values and directions
     # I am going to load data simulated with an SNR of 20 in the myocardial wall
     data = pd.read_pickle(os.path.join("tests", "data", "cdti_table_snr_20.zip"))
-    slice_position_column = np.repeat(["0.0"], len(data))
-    data["slice_position"] = slice_position_column
+    data["slice_position"] = np.repeat(["0.0"], len(data))
     data["b_value_original"] = data["b_value"]
     data["slice_integer"] = 0
     data["diffusion_direction"] = data["direction"]
@@ -118,9 +109,7 @@ def test_get_snr_maps():
     lv_myocardial_noise_true = simulated_gain / snr_true
 
     # mock settings dictionary
-    settings = {}
-
-    settings["debug"] = False
+    settings = {"debug": False}
     # mock logger
     logger = logging.getLogger(__name__)
 
@@ -134,7 +123,7 @@ def test_get_snr_maps():
     img_shape = data["image"][0].shape
     average_images = np.zeros((1, img_shape[0], img_shape[1]))  # shape (num_slices, height, width)
 
-    [_, noise_calculated, snr_b0_lv_calculated, _] = get_snr_maps(
+    _, noise_calculated, snr_b0_lv_calculated, _ = get_snr_maps(
         data, mask, average_images, slices, settings, logger, info
     )
 
@@ -144,17 +133,19 @@ def test_get_snr_maps():
     # check also if the noise in the LV myocardium matches the simulated value
     noise_mat = noise_calculated[0]["0_0.58_0.58_0.58"]
     noise_lv_calculated = np.mean(noise_mat[mask[0] == 1])
-    assert np.allclose(noise_lv_calculated, lv_myocardial_noise_true, atol=lv_myocardial_noise_true * 0.5)
+    assert np.allclose(
+        noise_lv_calculated,
+        lv_myocardial_noise_true,
+        atol=lv_myocardial_noise_true * 0.5,
+    )
 
 
 def test_get_cylindrical_coordinates_short_axis():
     """Confirm cardiac coordinate vectors match phantom references."""
     # load RV and LV mask
-    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))
-    mask = mask["mask_3c"]
+    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))["mask_3c"]
     # repeat mask 3 times for XYZ vector components
-    mask_xyz = np.expand_dims(mask, axis=3)
-    mask_xyz = np.repeat(mask_xyz, 3, axis=3)
+    mask_xyz = np.repeat(mask[..., np.newaxis], 3, axis=3)
     mask_xyz[mask_xyz == 2] = 0
 
     # load phantom cardiac coordinates
