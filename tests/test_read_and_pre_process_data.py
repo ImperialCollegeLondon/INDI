@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 
 import h5py
@@ -7,12 +6,6 @@ import pandas as pd
 import pytest
 
 from indi.extensions.read_data.read_and_pre_process_data import read_and_process_pandas
-
-
-@pytest.fixture
-def logger():
-    """Provide a logger instance for tests."""
-    return logging.getLogger("test_logger")
 
 
 @pytest.fixture
