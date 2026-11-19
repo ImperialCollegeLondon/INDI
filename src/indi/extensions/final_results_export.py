@@ -322,6 +322,9 @@ def export_summary_table(dti: dict, settings: dict, slices: NDArray):
                 c_vals = c_vals[~np.isnan(c_vals)]
                 c_vals = c_vals[np.isfinite(c_vals)]
                 values.extend(c_vals)
+        # check if values is not empty
+        if len(values) == 0:
+            continue
         table_global.append(
             [
                 "SNR_" + key,
