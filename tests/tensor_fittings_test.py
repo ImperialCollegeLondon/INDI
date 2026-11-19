@@ -1,4 +1,7 @@
+from logging import Logger
+
 import numpy as np
+import pandas as pd
 import pytest
 
 from indi.extensions.tensor_fittings import dipy_tensor_fit
@@ -6,7 +9,15 @@ from indi.extensions.tensor_fittings import dipy_tensor_fit
 
 @pytest.mark.parametrize("debug", [True, False])
 @pytest.mark.parametrize("method", ["NLLS", "LS", "WLS", "RESTORE", "RNLLS", "RWLS"])
-def test_dipy_tensor_fit(debug, method, logger, mask_3c, tensor_true, tensor_fit_table, results_settings):
+def test_dipy_tensor_fit(
+    debug: bool,
+    method: str,
+    logger: Logger,
+    mask_3c: np.ndarray,
+    tensor_true: np.ndarray,
+    tensor_fit_table: pd.DataFrame,
+    results_settings: dict,
+):
     """Run tensor fitting pipeline and compare with ground-truth tensors.
 
     Args:

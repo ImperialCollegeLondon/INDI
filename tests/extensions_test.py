@@ -1,3 +1,6 @@
+from logging import Logger
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from scipy.stats import moment
@@ -6,7 +9,7 @@ from indi.extensions.extensions import get_cylindrical_coordinates_short_axis, g
 from indi.extensions.get_fa_md import get_fa_md
 
 
-def test_get_fa_md(mask_3c, tensor_true, logger):
+def test_get_fa_md(mask_3c: np.ndarray, tensor_true: np.ndarray, logger: Logger):
     """Verify FA and MD calculations against phantom ground truth."""
 
     # load tensor from numerical phantom
@@ -79,7 +82,7 @@ def test_get_fa_md(mask_3c, tensor_true, logger):
     assert np.allclose(std_mag_anisotropy_calculated, 0.0)
 
 
-def test_get_snr_maps(mask_3c, data_dir, logger):
+def test_get_snr_maps(mask_3c: np.ndarray, data_dir: Path, logger: Logger):
     """Check SNR maps and noise estimates computed from simulated data."""
     """test if this function calculates the correct SNR and noise maps"""
     # Here I am loading data created by create_dwi_dicoms.py in DTI_numerical_phantom_3D repo
@@ -125,7 +128,7 @@ def test_get_snr_maps(mask_3c, data_dir, logger):
     )
 
 
-def test_get_cylindrical_coordinates_short_axis(mask_3c, data_dir):
+def test_get_cylindrical_coordinates_short_axis(mask_3c: np.ndarray, data_dir: Path):
     """Confirm cardiac coordinate vectors match phantom references."""
     # repeat mask 3 times for XYZ vector components
     mask_xyz = np.repeat(mask_3c[..., np.newaxis], 3, axis=3)

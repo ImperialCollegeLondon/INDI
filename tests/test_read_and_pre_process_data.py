@@ -1,3 +1,4 @@
+from logging import Logger
 from pathlib import Path
 
 import h5py
@@ -9,7 +10,7 @@ from indi.extensions.read_data.read_and_pre_process_data import read_and_process
 
 
 @pytest.fixture
-def basic_settings(tmp_path):
+def basic_settings(tmp_path: Path) -> dict:
     """Set up a temporary diffusion_images folder with minimal settings."""
     dicom_folder = tmp_path / "diffusion_images"
     dicom_folder.mkdir()
@@ -17,7 +18,7 @@ def basic_settings(tmp_path):
 
 
 @pytest.fixture
-def magnitude_data_setup(tmp_path):
+def magnitude_data_setup(tmp_path: Path) -> dict:
     """Create the common magnitude folder and settings for complex-data tests."""
     dicom_folder = tmp_path / "diffusion_images"
     mag_folder = dicom_folder / "mag"
@@ -29,7 +30,13 @@ def magnitude_data_setup(tmp_path):
     }
 
 
-def create_test_data_gz(folder, info=None, manufacturer="siemens", n=3, columns=None):
+def create_test_data_gz(
+    folder: Path | str,
+    info: dict | None = None,
+    manufacturer: str = "siemens",
+    n: int = 3,
+    columns: dict | None = None,
+) -> pd.DataFrame:
     """Create a gzipped dataframe resembling diffusion metadata.
 
     Args:
@@ -53,7 +60,7 @@ def create_test_data_gz(folder, info=None, manufacturer="siemens", n=3, columns=
     return df
 
 
-def create_test_images_h5(folder, n=3, shape=(2, 2)):
+def create_test_images_h5(folder: Path | str, n: int = 3, shape: tuple[int, int] = (2, 2)) -> np.ndarray:
     """Create an HDF5 file with dummy image data.
 
     Args:
@@ -71,7 +78,7 @@ def create_test_images_h5(folder, n=3, shape=(2, 2)):
     return images
 
 
-def test_read_and_process_pandas_basic(logger, basic_settings):
+def test_read_and_process_pandas_basic(logger: Logger, basic_settings: dict):
     """Validate successful load of magnitude-only datasets."""
     # Setup
     dicom_folder = basic_settings["dicom_folder"]
@@ -95,14 +102,14 @@ def test_read_and_process_pandas_basic(logger, basic_settings):
     assert info["manufacturer"] == "siemens"
 
 
-def test_read_and_process_pandas_missing_data_gz(logger, basic_settings):
+def test_read_and_process_pandas_missing_data_gz(logger: Logger, basic_settings: dict):
     """Ensure missing data.gz raises FileNotFoundError."""
     # No data.gz file
     with pytest.raises(FileNotFoundError):
         read_and_process_pandas(logger, basic_settings)
 
 
-def test_read_and_process_pandas_missing_images_h5(logger, basic_settings):
+def test_read_and_process_pandas_missing_images_h5(logger: Logger, basic_settings: dict):
     """Ensure missing images.h5 triggers an OSError."""
     dicom_folder = basic_settings["dicom_folder"]
     create_test_data_gz(dicom_folder)
@@ -111,7 +118,10 @@ def test_read_and_process_pandas_missing_images_h5(logger, basic_settings):
         read_and_process_pandas(logger, basic_settings)
 
 
-def test_read_and_process_pandas_complex_data(logger, magnitude_data_setup):
+def test_read_and_process_pandas_complex_data(
+    logger: Logger,
+    magnitude_data_setup: dict,
+):
     """Handle complex data paths and infer manufacturer."""
     settings = magnitude_data_setup["settings"]
     mag_folder = magnitude_data_setup["mag_folder"]
@@ -137,7 +147,10 @@ def test_read_and_process_pandas_complex_data(logger, magnitude_data_setup):
     assert info["manufacturer"] == "siemens"
 
 
-def test_read_and_process_pandas_missing_phase_folder(logger, magnitude_data_setup):
+def test_read_and_process_pandas_missing_phase_folder(
+    logger: Logger,
+    magnitude_data_setup: dict,
+):
     """Raise when complex data is requested without a phase folder."""
     settings = magnitude_data_setup["settings"]
     mag_folder = magnitude_data_setup["mag_folder"]
@@ -148,7 +161,10 @@ def test_read_and_process_pandas_missing_phase_folder(logger, magnitude_data_set
         read_and_process_pandas(logger, settings)
 
 
-def test_read_and_process_pandas_missing_manufacturer_column(logger, basic_settings):
+def test_read_and_process_pandas_missing_manufacturer_column(
+    logger: Logger,
+    basic_settings: dict,
+):
     """Error when manufacturer column is absent in saved dataframe."""
     dicom_folder = basic_settings["dicom_folder"]
     create_test_data_gz(dicom_folder, info={}, columns={"some_col": [1, 2, 3]})
@@ -157,7 +173,7 @@ def test_read_and_process_pandas_missing_manufacturer_column(logger, basic_setti
         read_and_process_pandas(logger, basic_settings)
 
 
-def test_read_and_process_pandas_empty_dataframe(logger, basic_settings):
+def test_read_and_process_pandas_empty_dataframe(logger: Logger, basic_settings: dict):
     """Error when dataframe contains no rows."""
     dicom_folder = basic_settings["dicom_folder"]
     create_test_data_gz(dicom_folder, info={}, columns={"Manufacturer": []})
@@ -166,7 +182,7 @@ def test_read_and_process_pandas_empty_dataframe(logger, basic_settings):
         read_and_process_pandas(logger, basic_settings)
 
 
-def test_read_and_process_pandas_unsupported_manufacturer(logger, basic_settings):
+def test_read_and_process_pandas_unsupported_manufacturer(logger: Logger, basic_settings: dict):
     """Reject unsupported manufacturer strings."""
     dicom_folder = basic_settings["dicom_folder"]
     create_test_data_gz(dicom_folder, info={}, columns={"Manufacturer": ["unknown"]})

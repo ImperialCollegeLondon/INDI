@@ -1,11 +1,13 @@
 import logging
+from logging import Logger
 
 import numpy as np
+from pytest import MonkeyPatch
 
 from indi.extensions import ha_line_profiles
 
 
-def _circle_contour(center_x, center_y, radius, n_points=360):
+def _circle_contour(center_x: int, center_y: int, radius: int, n_points: int = 360) -> np.ndarray:
     """Create integer contour coordinates for a circle."""
     angles = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
     xs = (center_x + radius * np.cos(angles)).astype(np.int32)
@@ -13,7 +15,11 @@ def _circle_contour(center_x, center_y, radius, n_points=360):
     return np.column_stack((xs, ys))
 
 
-def test_get_ha_line_profiles_(monkeypatch, logger, results_settings):
+def test_get_ha_line_profiles_(
+    monkeypatch: MonkeyPatch,
+    logger: Logger,
+    results_settings: dict,
+):
     """Exercise HA line profiles workflow with deterministic contours."""
 
     logger.setLevel(logging.DEBUG)
@@ -58,14 +64,18 @@ def test_get_ha_line_profiles_(monkeypatch, logger, results_settings):
     epi_contour = _circle_contour(center[1], center[0], radius_epi, n_points=360)
     endo_contour = _circle_contour(center[1], center[0], radius_epi // 3, n_points=180)
 
-    def fake_get_sa_contours(mask_uint8):
+    def fake_get_sa_contours(mask_uint8: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         # return epi, endo contours (x,y pairs)
         return epi_contour, endo_contour
 
-    def fake_get_epi_contour(mask_uint8):
+    def fake_get_epi_contour(mask_uint8: np.ndarray) -> np.ndarray:
         return epi_contour
 
-    def fake_spline_interpolate_contour(contour, n_points, join_ends=False):
+    def fake_spline_interpolate_contour(
+        contour: np.ndarray,
+        n_points: int,
+        join_ends: bool = False,
+    ) -> np.ndarray:
         # return a denser version of the provided contour (float)
         if contour.shape[0] == 0:
             return contour
