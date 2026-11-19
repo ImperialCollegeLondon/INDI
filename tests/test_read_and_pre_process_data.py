@@ -1,5 +1,5 @@
 import logging
-import os
+from pathlib import Path
 
 import h5py
 import numpy as np
@@ -39,7 +39,7 @@ def create_test_data_gz(folder, info=None, manufacturer="siemens", n=3):
     if info is None:
         info = {"Rows": 2, "Columns": 2}
     df.attrs["info"] = info
-    save_path = os.path.join(folder, "data.gz")
+    save_path = Path(folder) / "data.gz"
     df.to_pickle(save_path)
     return df
 
@@ -56,7 +56,7 @@ def create_test_images_h5(folder, n=3, shape=(2, 2)):
         np.ndarray: Array of generated images.
     """
     images = np.arange(n * shape[0] * shape[1]).reshape(n, *shape)
-    save_path = os.path.join(folder, "images.h5")
+    save_path = Path(folder) / "images.h5"
     with h5py.File(save_path, "w") as hf:
         hf.create_dataset("pixel_values", data=images)
     return images
@@ -148,7 +148,7 @@ def test_read_and_process_pandas_missing_manufacturer_column(logger, basic_setti
     dicom_folder = basic_settings["dicom_folder"]
     df = pd.DataFrame({"some_col": [1, 2, 3]})
     df.attrs["info"] = {}
-    df.to_pickle(os.path.join(dicom_folder, "data.gz"))
+    df.to_pickle(Path(dicom_folder) / "data.gz")
     create_test_images_h5(dicom_folder)
     with pytest.raises(ValueError, match="The 'Manufacturer' column is missing"):
         read_and_process_pandas(logger, basic_settings)
@@ -159,7 +159,7 @@ def test_read_and_process_pandas_empty_dataframe(logger, basic_settings):
     dicom_folder = basic_settings["dicom_folder"]
     df = pd.DataFrame({"Manufacturer": []})
     df.attrs["info"] = {}
-    df.to_pickle(os.path.join(dicom_folder, "data.gz"))
+    df.to_pickle(Path(dicom_folder) / "data.gz")
     create_test_images_h5(dicom_folder, n=0)
     with pytest.raises(ValueError, match="The data DataFrame is empty"):
         read_and_process_pandas(logger, basic_settings)
@@ -170,7 +170,7 @@ def test_read_and_process_pandas_unsupported_manufacturer(logger, basic_settings
     dicom_folder = basic_settings["dicom_folder"]
     df = pd.DataFrame({"Manufacturer": ["unknown"]})
     df.attrs["info"] = {}
-    df.to_pickle(os.path.join(dicom_folder, "data.gz"))
+    df.to_pickle(Path(dicom_folder) / "data.gz")
     create_test_images_h5(dicom_folder, n=1)
     with pytest.raises(ValueError, match="Manufacturer not supported"):
         read_and_process_pandas(logger, basic_settings)
