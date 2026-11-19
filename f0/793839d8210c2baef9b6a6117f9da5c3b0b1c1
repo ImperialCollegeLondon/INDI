@@ -1,0 +1,35 @@
+tests/test_ha_line_profiles.py
+  h_e76403a1cd4bf1 18
+tests/test_get_fa_md.py
+  s_8828eb44044511::t_c8fd3c6198e036 1-39
+  s_b302fbb6d89b76::t_067aa30562034a 40-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f0793839d8210c2baef9b6a6117f9da5c3b0b1c1",
+  "prompts": {},
+  "humans": {
+    "h_e76403a1cd4bf1": {
+      "author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  },
+  "sessions": {
+    "s_8828eb44044511": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "e22519e9-5b87-4e51-afeb-250b043b5c6c",
+        "model": "unknown"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    },
+    "s_b302fbb6d89b76": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "dfb60a6b-d663-4156-8dda-a7f791476a7d",
+        "model": "unknown"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  }
+}
