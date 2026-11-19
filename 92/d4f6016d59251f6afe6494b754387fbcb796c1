@@ -1,0 +1,24 @@
+tests/test_tensor_fittings.py
+  s_90f16a6612f59e::t_07faada79f6ca8 26-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "92d4f6016d59251f6afe6494b754387fbcb796c1",
+  "prompts": {},
+  "humans": {
+    "h_e76403a1cd4bf1": {
+      "author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  },
+  "sessions": {
+    "s_90f16a6612f59e": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "ffdb2490-83e5-4278-966d-af799e3a30c6",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  }
+}

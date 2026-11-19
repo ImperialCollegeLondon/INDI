@@ -1,0 +1,19 @@
+tests/test_read_and_pre_process_data.py
+  s_865b4ba5402cde::t_08abf678886971 1,35,52,144,155,166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "acea1eba7ae898f47b411de01c6bd91e51583447",
+  "prompts": {},
+  "sessions": {
+    "s_865b4ba5402cde": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "5c97544a-e5ba-495e-8f16-2599af23f17e",
+        "model": "unknown"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  }
+}
