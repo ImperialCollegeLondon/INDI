@@ -13,20 +13,8 @@ def _circle_contour(center_x, center_y, radius, n_points=360):
     return np.column_stack((xs, ys))
 
 
-def test_get_ha_line_profiles_(monkeypatch, tmp_path, logger):
+def test_get_ha_line_profiles_(monkeypatch, logger, results_settings):
     """Exercise HA line profiles workflow with deterministic contours."""
-    # Create temporary folders expected by the function
-    results_dir = tmp_path / "results"
-    results_b = results_dir / "results_b"
-    debug_folder = tmp_path / "debug"
-    results_b.mkdir(parents=True)
-    debug_folder.mkdir(parents=True)
-
-    settings = {
-        "results": str(results_dir),
-        "debug_folder": str(debug_folder),
-        "debug": False,
-    }
 
     logger.setLevel(logging.DEBUG)
 
@@ -103,7 +91,7 @@ def test_get_ha_line_profiles_(monkeypatch, tmp_path, logger):
         slices=slices,
         mask_3c=mask_3c,
         segmentation=segmentation,
-        settings=settings,
+        settings=results_settings,
         info=info,
         average_images=average_images,
         logger=logger,

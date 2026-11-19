@@ -1,6 +1,3 @@
-import logging
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 from scipy.stats import moment
@@ -8,14 +5,11 @@ from scipy.stats import moment
 from indi.extensions.extensions import get_cylindrical_coordinates_short_axis, get_snr_maps
 from indi.extensions.get_fa_md import get_fa_md
 
-DATA_DIR = Path(__file__).parent / "data"
 
-
-def test_get_fa_md(mask_3c):
+def test_get_fa_md(mask_3c, tensor_true, logger):
     """Verify FA and MD calculations against phantom ground truth."""
 
     # load tensor from numerical phantom
-    tensor_true = np.load(DATA_DIR / "DT.npz")["DT"]
     tensor_true = np.nan_to_num(tensor_true)
 
     # mock slices
@@ -23,9 +17,6 @@ def test_get_fa_md(mask_3c):
 
     # mock info dictionary
     info = {}
-
-    # mock logger
-    logger = logging.getLogger(__name__)
 
     # calculate eigenvalues from tensor
     eigenvalues, _ = np.linalg.eigh(tensor_true)
@@ -88,13 +79,13 @@ def test_get_fa_md(mask_3c):
     assert np.allclose(std_mag_anisotropy_calculated, 0.0)
 
 
-def test_get_snr_maps(mask_3c):
+def test_get_snr_maps(mask_3c, data_dir, logger):
     """Check SNR maps and noise estimates computed from simulated data."""
     """test if this function calculates the correct SNR and noise maps"""
     # Here I am loading data created by create_dwi_dicoms.py in DTI_numerical_phantom_3D repo
     # load table with pixel values, b_values and directions
     # I am going to load data simulated with an SNR of 20 in the myocardial wall
-    data = pd.read_pickle(DATA_DIR / "cdti_table_snr_20.zip")
+    data = pd.read_pickle(data_dir / "cdti_table_snr_20.zip")
     data["slice_position"] = np.repeat(["0.0"], len(data))
     data["b_value_original"] = data["b_value"]
     data["slice_integer"] = 0
@@ -106,8 +97,6 @@ def test_get_snr_maps(mask_3c):
 
     # mock settings dictionary
     settings = {"debug": False}
-    # mock logger
-    logger = logging.getLogger(__name__)
 
     # mock info dictionary
     info = {}
@@ -136,14 +125,15 @@ def test_get_snr_maps(mask_3c):
     )
 
 
-def test_get_cylindrical_coordinates_short_axis(mask_3c):
+def test_get_cylindrical_coordinates_short_axis(mask_3c, data_dir):
     """Confirm cardiac coordinate vectors match phantom references."""
     # repeat mask 3 times for XYZ vector components
     mask_xyz = np.repeat(mask_3c[..., np.newaxis], 3, axis=3)
     mask_xyz[mask_xyz == 2] = 0
 
     # load phantom cardiac coordinates
-    cardiac_coordinates = np.load(DATA_DIR / "cardiac_coordinates.npz")
+    with np.load(data_dir / "cardiac_coordinates.npz") as data:
+        cardiac_coordinates = {key: data[key] for key in data.files}
     long_true = mask_xyz * cardiac_coordinates["longitudinal_component"]
     circ_true = mask_xyz * cardiac_coordinates["circumferential_component"]
     radial_true = mask_xyz * cardiac_coordinates["radial_component"]

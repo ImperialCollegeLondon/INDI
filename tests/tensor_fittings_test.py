@@ -1,51 +1,35 @@
-from pathlib import Path
-
 import numpy as np
-import pandas as pd
 import pytest
 
 from indi.extensions.tensor_fittings import dipy_tensor_fit
 
-DATA_DIR = Path(__file__).parent / "data"
-
 
 @pytest.mark.parametrize("debug", [True, False])
 @pytest.mark.parametrize("method", ["NLLS", "LS", "WLS", "RESTORE", "RNLLS", "RWLS"])
-def test_dipy_tensor_fit(tmp_path, debug, method, logger, mask_3c):
+def test_dipy_tensor_fit(debug, method, logger, mask_3c, tensor_true, tensor_fit_table, results_settings):
     """Run tensor fitting pipeline and compare with ground-truth tensors.
 
     Args:
-        tmp_path (Path): Temporary directory for debug and results outputs.
         debug (bool): Whether to enable debug outputs in settings.
         method (str): Tensor fitting method under test.
         logger (logging.Logger): Logger for diagnostics.
     """
-    # Here I am loading data from DTI_numerical_phantom_3D repo
-    # load table with pixel values, b_values and directions
     # For this test there is no noise, so SNR is infinite
-    table = pd.read_pickle(DATA_DIR / "cdti_table.zip")
     # Rename some columns to match what is expected in the function
-    table = table.rename(columns={"direction": "diffusion_direction"})
+    table = tensor_fit_table.rename(columns={"direction": "diffusion_direction"})
     table["slice_position"] = "0.0"
     table["slice_integer"] = 0
     table["to_be_removed"] = False
     table["bmatrix"] = None
 
-    # load tensor that was used to create these pixel values
-    tensor_true = np.load(DATA_DIR / "DT.npz")["DT"]
     slices = [0]
     average_images = {0: table["image"].mean(axis=0)}
 
-    # mock settings
-    debug_folder = tmp_path / "debug"
-    (tmp_path / "results_b").mkdir(parents=True, exist_ok=True)
-    debug_folder.mkdir(parents=True, exist_ok=True)
-    settings = {
-        "debug": debug,
-        "debug_folder": str(debug_folder),
-        "results": str(tmp_path),
-        "tensor_fit_method": method,
-    }
+    # Load default settings
+    settings = results_settings
+    # Override settings with test options
+    settings["debug"] = debug
+    settings["tensor_fit_method"] = method
     # mock info
     info = {
         "img_size": table["image"][0].shape,
