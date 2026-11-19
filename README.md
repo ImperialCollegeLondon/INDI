@@ -9,6 +9,8 @@ In-vivo diffusion analysis (INDI)<br>
 A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 </p>
 
+[![Codecov](https://codecov.io/gh/ImperialCollegeLondon/INDI/branch/main/graph/badge.svg)](https://codecov.io/gh/ImperialCollegeLondon/INDI)
+
 ## Table of Contents
 
 - [Introduction](#introduction)
@@ -17,6 +19,7 @@ A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 - [Basic Usage](#basic-usage-example)
 - [Developer installation](#developer-installation)
 	- [Install pre-commit](#install-pre-commit)
+	- [Run tests with coverage](#run-tests-with-coverage)
 - [Optional AI modules](#installing-optional-ai-modules-under-development-)
 - [Documentation](#documentation)
 - [Troubleshooting](#troubleshooting)
@@ -135,6 +138,14 @@ uv run pre-commit run --all-files
 ```
 
 This helps ensure code quality and style before committing changes.
+
+#### Run tests with coverage
+
+Run the tests and show which lines of code are not covered:
+
+```bash
+uv run pytest --cov --cov-report=term-missing
+```
 
 Finally install [ImageMagick](https://imagemagick.org/):
 
