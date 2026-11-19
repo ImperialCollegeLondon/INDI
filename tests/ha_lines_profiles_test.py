@@ -46,18 +46,18 @@ def test_get_ha_line_profiles_(
     mask_3c = np.zeros((slice_count, image_height, image_width), dtype=np.uint8)
     radius_epi = 30
     myocardium_mask = (yy - center[0]) ** 2 + (xx - center[1]) ** 2 <= radius_epi**2
-    mask_3c[:, myocardium_mask] = 1  # myocardium labeled as 1
+    mask_3c[:, myocardium_mask] = 1  # Myocardium labeled as 1
 
-    # segmentation: make slice 0 have endocardium (non-empty), slice 1 empty
+    # Segmentation: make slice 0 have endocardium (non-empty), slice 1 empty
     segmentation = {0: {"endocardium": np.array([1])}, 1: {"endocardium": np.array([])}}
 
     # LV centers for each slice (y, x)
     lv_centres = {0: center, 1: center}
 
-    # average images (not used for assertions)
+    # Average images (not used for assertions)
     average_images = np.zeros((slice_count, image_height, image_width), dtype=float)
 
-    # info: pixel spacing
+    # Info: pixel spacing
     info = {"pixel_spacing": (1.0, 1.0)}
 
     # Provide deterministic contours by monkeypatching the contour/spline functions
@@ -65,7 +65,7 @@ def test_get_ha_line_profiles_(
     endo_contour = _circle_contour(center[1], center[0], radius_epi // 3, n_points=180)
 
     def fake_get_sa_contours(mask_uint8: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        # return epi, endo contours (x,y pairs)
+        # Return epi, endo contours (x, y pairs)
         return epi_contour, endo_contour
 
     def fake_get_epi_contour(mask_uint8: np.ndarray) -> np.ndarray:
@@ -76,7 +76,7 @@ def test_get_ha_line_profiles_(
         n_points: int,
         join_ends: bool = False,
     ) -> np.ndarray:
-        # return a denser version of the provided contour (float)
+        # Return a denser version of the provided contour (float)
         if contour.shape[0] == 0:
             return contour
         idxs = np.linspace(0, contour.shape[0] - 1, n_points).astype(int)
@@ -123,32 +123,33 @@ def test_get_ha_line_profiles_(
     # For each slice, lp_matrix should have rows == number of epi contour points used
     for slice_index in slices:
         lp_matrix = ha_profiles[slice_index]["lp_matrix"]
-        # number of rows equals number of points in epi_contour returned earlier
-        assert lp_matrix.shape[1] == 50  # interpolation length fixed in function
+        # Number of rows equals number of points in the epi_contour returned earlier
+        # The function resamples each line profile to 50 points.
+        assert lp_matrix.shape[1] == 50
         assert lp_matrix.shape[0] == epi_contour.shape[0]
 
-        # wall thickness list length should match number of epi points
+        # Wall thickness list length should match number of epi points
         wt_list = wall_thickness[slice_index]["wt"]
         assert len(wt_list) == epi_contour.shape[0]
 
-        # distance maps: inside mask should be finite, outside NaN
+        # Distance maps: inside mask should be finite, outside NaN
         inside_mask = mask_3c[slice_index] != 0
         assert np.all(np.isnan(distance_endo_maps[slice_index][~inside_mask]))
         assert np.all(np.isnan(distance_epi_maps[slice_index][~inside_mask]))
         assert np.all(np.isnan(distance_transmural_maps[slice_index][~inside_mask]))
-        # inside should contain at least some finite values
+        # Inside should contain at least some finite values
         assert np.isfinite(distance_endo_maps[slice_index][inside_mask]).sum() > 0
         assert np.isfinite(distance_epi_maps[slice_index][inside_mask]).sum() > 0
         assert np.isfinite(distance_transmural_maps[slice_index][inside_mask]).sum() > 0
 
-    # ha_lines_profiles_2 entries should contain median/q25/q75 arrays and slope/r_sq keys
+    # Summary entries should contain median/q25/q75 arrays and slope/r_sq keys
     for slice_index in slices:
         summary = ha_line_profiles_summary[slice_index]
         assert all(key in summary for key in ("median", "q25", "q75", "iqr"))
         assert all(key in summary for key in ("r_sq", "slope", "y_pred"))
-        # median should be a 1D numpy array
+        # Median should be a 1D NumPy array
         assert isinstance(summary["median"], np.ndarray)
-        # r_sq should be a float (or convertible)
+        # The r_sq value should be a float (or convertible)
         assert np.isscalar(summary["r_sq"])
 
 
@@ -156,7 +157,7 @@ def test_fix_angle_wrap_no_jump():
     """Ensure angle series without jumps remains unchanged."""
     angles = np.array([0.0, 10.0, 20.0, 25.0, 30.0])
     corrected_angles = ha_line_profiles.fix_angle_wrap(angles, angle_jump=45)
-    # no change expected
+    # No change expected
     assert np.allclose(corrected_angles, angles, equal_nan=True)
 
 
@@ -164,7 +165,7 @@ def test_fix_angle_wrap_with_jump():
     """Ensure large angle jump zeros out subsequent values."""
     angles = np.array([0.0, 10.0, 20.0, 120.0, 130.0])
     corrected_angles = ha_line_profiles.fix_angle_wrap(angles, angle_jump=45)
-    # after detected jump (20 -> 120) all subsequent values should be NaN
+    # After the detected jump (20 -> 120), all subsequent values should be NaN
     assert np.all(np.isnan(corrected_angles[3:]))
-    # earlier values preserved
+    # Earlier values are preserved
     assert np.array_equal(corrected_angles[:3], angles[:3])

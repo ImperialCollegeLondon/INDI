@@ -41,13 +41,13 @@ def test_dipy_tensor_fit(
     # Override settings with test options
     settings["debug"] = debug
     settings["tensor_fit_method"] = method
-    # mock info
+
     info = {
         "img_size": table["image"][0].shape,
         "n_slices": len(slices),
     }
 
-    # calculate tensors with DiPy functions
+    # Calculate tensors with DiPy functions
     tensor, _, _, residuals_map, _, _, _ = dipy_tensor_fit(
         slices=slices,
         data=table,
@@ -60,12 +60,12 @@ def test_dipy_tensor_fit(
         quick_mode=False,
     )
 
-    # assert that the tensors are the same
+    # Assert that the tensors are the same
     mask = ~(np.isnan(tensor) | np.isnan(tensor_true))
     assert np.allclose(tensor[mask], tensor_true[mask], atol=1e-2)
 
-    # check if residuals are close to zero
-    # create a mask to ignore nan values
+    # Check if residuals are close to zero
+    # Create a mask to ignore nan values
     mask = ~(np.isnan(residuals_map[0]))
-    # because there is no noise, I expect the residuals to be very small
+    # Because there is no noise, I expect the residuals to be very small
     assert np.isclose(np.median(residuals_map[0][mask]), 0, atol=1e-1)

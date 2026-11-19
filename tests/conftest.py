@@ -32,7 +32,7 @@ def tensor_true(data_dir: Path) -> np.ndarray:
 def tensor_fit_table(data_dir: Path) -> pd.DataFrame:
     """Load the noiseless DTI_numerical_phantom_3D table used by tensor-fitting tests."""
     # Here I am loading data from DTI_numerical_phantom_3D repo
-    # load table with pixel values, b_values and directions
+    # Load table with pixel values, b_values and directions
     return pd.read_pickle(data_dir / "cdti_table.zip")
 
 

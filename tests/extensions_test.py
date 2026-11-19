@@ -65,9 +65,8 @@ def test_get_fa_md(mask_3c: np.ndarray, tensor_true: np.ndarray, logger: Logger)
 
 def test_get_snr_maps(mask_3c: np.ndarray, data_dir: Path, logger: Logger):
     """Check SNR maps and noise estimates computed from simulated data."""
-    """test if this function calculates the correct SNR and noise maps"""
     # Here I am loading data created by create_dwi_dicoms.py in DTI_numerical_phantom_3D repo
-    # load table with pixel values, b_values and directions
+    # Load table with pixel values, b_values and directions
     # I am going to load data simulated with an SNR of 20 in the myocardial wall
     data = pd.read_pickle(data_dir / "cdti_table_snr_20.zip")
     data["slice_position"] = np.repeat(["0.0"], len(data))
@@ -79,27 +78,25 @@ def test_get_snr_maps(mask_3c: np.ndarray, data_dir: Path, logger: Logger):
     snr_true = 20
     lv_myocardial_noise_true = simulated_gain / snr_true
 
-    # mock settings dictionary
     settings = {"debug": False}
 
-    # mock info dictionary
     info = {}
 
-    # slice index for testing
+    # Slice index for testing
     slices = [0]
 
-    # mock average images dictionary
     img_shape = data["image"][0].shape
-    average_images = np.zeros((1, img_shape[0], img_shape[1]))  # shape (num_slices, height, width)
+    # Keep one average image per slice, with shape (num_slices, height, width).
+    average_images = np.zeros((1, img_shape[0], img_shape[1]))
 
     _, noise_calculated, snr_b0_lv_calculated, _ = get_snr_maps(
         data, mask_3c, average_images, slices, settings, logger, info
     )
 
-    # check if SNR in the LV myo matches the simulated SNR
+    # Check if SNR in the LV myo matches the simulated SNR
     assert np.allclose(snr_b0_lv_calculated[0]["median"], snr_true, atol=0.5 * snr_true)
 
-    # check also if the noise in the LV myocardium matches the simulated value
+    # Check also if the noise in the LV myocardium matches the simulated value
     noise_mat = noise_calculated[0]["0_0.58_0.58_0.58"]
     noise_lv_calculated = np.mean(noise_mat[mask_3c[0] == 1])
     assert np.allclose(
@@ -111,11 +108,11 @@ def test_get_snr_maps(mask_3c: np.ndarray, data_dir: Path, logger: Logger):
 
 def test_get_cylindrical_coordinates_short_axis(mask_3c: np.ndarray, data_dir: Path):
     """Confirm cardiac coordinate vectors match phantom references."""
-    # repeat mask 3 times for XYZ vector components
+    # Repeat mask 3 times for XYZ vector components
     mask_xyz = np.repeat(mask_3c[..., np.newaxis], 3, axis=3)
     mask_xyz[mask_xyz == 2] = 0
 
-    # load phantom cardiac coordinates
+    # Load phantom cardiac coordinates
     with np.load(data_dir / "cardiac_coordinates.npz") as data:
         cardiac_coordinates = {key: data[key] for key in data.files}
     long_true = mask_xyz * cardiac_coordinates["longitudinal_component"]
