@@ -1,0 +1,33 @@
+tests/conftest.py
+  h_e76403a1cd4bf1 19
+  s_fe36bacc731053::t_07bf4f71abdd7c 1-18,20
+tests/tensor_fittings_test.py
+  s_fe36bacc731053::t_03717c9ebed031 14
+tests/extensions_test.py
+  s_fe36bacc731053::t_03717c9ebed031 14,91,139
+  s_fe36bacc731053::t_1deb0a375a3c62 40-51,123,131,142,151
+tests/ha_lines_profiles_test.py
+  h_e76403a1cd4bf1 30,32
+  s_fe36bacc731053::t_03717c9ebed031 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6699726341b8d20659d74b9696fecc5ebfcec9f2",
+  "prompts": {},
+  "humans": {
+    "h_e76403a1cd4bf1": {
+      "author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  },
+  "sessions": {
+    "s_fe36bacc731053": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "1ef3ef6b-275f-4a51-a5a9-b4633db0bf68",
+        "model": "unknown"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  }
+}
