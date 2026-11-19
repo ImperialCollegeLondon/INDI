@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 
 import numpy as np
@@ -10,15 +9,9 @@ from indi.extensions.tensor_fittings import dipy_tensor_fit
 DATA_DIR = Path(__file__).parent / "data"
 
 
-@pytest.fixture
-def logger():
-    """Provide a logger instance for tensor fitting tests."""
-    return logging.getLogger("test_logger")
-
-
 @pytest.mark.parametrize("debug", [True, False])
 @pytest.mark.parametrize("method", ["NLLS", "LS", "WLS", "RESTORE", "RNLLS", "RWLS"])
-def test_dipy_tensor_fit(tmp_path, debug, method, logger):
+def test_dipy_tensor_fit(tmp_path, debug, method, logger, mask_3c):
     """Run tensor fitting pipeline and compare with ground-truth tensors.
 
     Args:
@@ -38,8 +31,6 @@ def test_dipy_tensor_fit(tmp_path, debug, method, logger):
     table["to_be_removed"] = False
     table["bmatrix"] = None
 
-    # load mask (0 background, 1 left ventricle, 2 right ventricle)
-    mask_3c = np.load(DATA_DIR / "mask_3c.npz")["mask_3c"]
     # load tensor that was used to create these pixel values
     tensor_true = np.load(DATA_DIR / "DT.npz")["DT"]
     slices = [0]

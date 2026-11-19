@@ -11,15 +11,12 @@ from indi.extensions.get_fa_md import get_fa_md
 DATA_DIR = Path(__file__).parent / "data"
 
 
-def test_get_fa_md():
+def test_get_fa_md(mask_3c):
     """Verify FA and MD calculations against phantom ground truth."""
 
     # load tensor from numerical phantom
     tensor_true = np.load(DATA_DIR / "DT.npz")["DT"]
     tensor_true = np.nan_to_num(tensor_true)
-
-    # load RV and LV mask
-    mask = np.load(DATA_DIR / "mask_3c.npz")["mask_3c"]
 
     # mock slices
     slices = [0]
@@ -40,18 +37,18 @@ def test_get_fa_md():
         frob_norm_calculated,
         mag_anisotropy_calculated,
         _,
-    ) = get_fa_md(eigenvalues, info, mask, slices, logger)
+    ) = get_fa_md(eigenvalues, info, mask_3c, slices, logger)
 
-    mean_md_calculated = np.mean(md_calculated[mask == 1])
-    std_md_calculated = np.std(md_calculated[mask == 1])
-    mean_fa_calculated = np.mean(fa_calculated[mask == 1])
-    std_fa_calculated = np.std(fa_calculated[mask == 1])
-    mean_mode_calculated = np.mean(mode_calculated[mask == 1])
-    std_mode_calculated = np.std(mode_calculated[mask == 1])
-    mean_frob_norm_calculated = np.mean(frob_norm_calculated[mask == 1])
-    std_frob_norm_calculated = np.std(frob_norm_calculated[mask == 1])
-    mean_mag_anisotropy_calculated = np.mean(mag_anisotropy_calculated[mask == 1])
-    std_mag_anisotropy_calculated = np.std(mag_anisotropy_calculated[mask == 1])
+    mean_md_calculated = np.mean(md_calculated[mask_3c == 1])
+    std_md_calculated = np.std(md_calculated[mask_3c == 1])
+    mean_fa_calculated = np.mean(fa_calculated[mask_3c == 1])
+    std_fa_calculated = np.std(fa_calculated[mask_3c == 1])
+    mean_mode_calculated = np.mean(mode_calculated[mask_3c == 1])
+    std_mode_calculated = np.std(mode_calculated[mask_3c == 1])
+    mean_frob_norm_calculated = np.mean(frob_norm_calculated[mask_3c == 1])
+    std_frob_norm_calculated = np.std(frob_norm_calculated[mask_3c == 1])
+    mean_mag_anisotropy_calculated = np.mean(mag_anisotropy_calculated[mask_3c == 1])
+    std_mag_anisotropy_calculated = np.std(mag_anisotropy_calculated[mask_3c == 1])
 
     # correct metrics from simulated phantom data
     e1, e2, e3 = (2 * 1e-3, 1 * 1e-3, 0.5 * 1e-3)
@@ -91,11 +88,8 @@ def test_get_fa_md():
     assert np.allclose(std_mag_anisotropy_calculated, 0.0)
 
 
-def test_get_snr_maps():
+def test_get_snr_maps(mask_3c):
     """Check SNR maps and noise estimates computed from simulated data."""
-    # load RV and LV mask
-    mask = np.load(DATA_DIR / "mask_3c.npz")["mask_3c"]
-
     """test if this function calculates the correct SNR and noise maps"""
     # Here I am loading data created by create_dwi_dicoms.py in DTI_numerical_phantom_3D repo
     # load table with pixel values, b_values and directions
@@ -126,7 +120,7 @@ def test_get_snr_maps():
     average_images = np.zeros((1, img_shape[0], img_shape[1]))  # shape (num_slices, height, width)
 
     _, noise_calculated, snr_b0_lv_calculated, _ = get_snr_maps(
-        data, mask, average_images, slices, settings, logger, info
+        data, mask_3c, average_images, slices, settings, logger, info
     )
 
     # check if SNR in the LV myo matches the simulated SNR
@@ -134,7 +128,7 @@ def test_get_snr_maps():
 
     # check also if the noise in the LV myocardium matches the simulated value
     noise_mat = noise_calculated[0]["0_0.58_0.58_0.58"]
-    noise_lv_calculated = np.mean(noise_mat[mask[0] == 1])
+    noise_lv_calculated = np.mean(noise_mat[mask_3c[0] == 1])
     assert np.allclose(
         noise_lv_calculated,
         lv_myocardial_noise_true,
@@ -142,12 +136,10 @@ def test_get_snr_maps():
     )
 
 
-def test_get_cylindrical_coordinates_short_axis():
+def test_get_cylindrical_coordinates_short_axis(mask_3c):
     """Confirm cardiac coordinate vectors match phantom references."""
-    # load RV and LV mask
-    mask = np.load(DATA_DIR / "mask_3c.npz")["mask_3c"]
     # repeat mask 3 times for XYZ vector components
-    mask_xyz = np.repeat(mask[..., np.newaxis], 3, axis=3)
+    mask_xyz = np.repeat(mask_3c[..., np.newaxis], 3, axis=3)
     mask_xyz[mask_xyz == 2] = 0
 
     # load phantom cardiac coordinates
@@ -156,7 +148,7 @@ def test_get_cylindrical_coordinates_short_axis():
     circ_true = mask_xyz * cardiac_coordinates["circumferential_component"]
     radial_true = mask_xyz * cardiac_coordinates["radial_component"]
 
-    local_cardiac_coordinates = get_cylindrical_coordinates_short_axis(mask)
+    local_cardiac_coordinates = get_cylindrical_coordinates_short_axis(mask_3c)
     long_calculated = mask_xyz * local_cardiac_coordinates["long"]
     circ_calculated = mask_xyz * local_cardiac_coordinates["circ"]
     radial_calculated = mask_xyz * local_cardiac_coordinates["radi"]
