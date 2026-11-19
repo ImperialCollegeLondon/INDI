@@ -1,0 +1,45 @@
+tests/extensions_test.py
+  s_865b4ba5402cde::t_ee0645b804e8f0 2,11-12,18,97,146
+  s_fe36bacc731053::t_03717c9ebed031 14,91,139
+  s_fe36bacc731053::t_1deb0a375a3c62 40-51,123,131,142,151
+tests/tensor_fittings_test.py
+  s_865b4ba5402cde::t_ee0645b804e8f0 9-10,26,35
+  s_fe36bacc731053::t_03717c9ebed031 14
+tests/conftest.py
+  h_e76403a1cd4bf1 19
+  s_fe36bacc731053::t_07bf4f71abdd7c 1-18,20
+tests/ha_lines_profiles_test.py
+  h_e76403a1cd4bf1 30,32
+  s_fe36bacc731053::t_03717c9ebed031 16
+tests/test_read_and_pre_process_data.py
+  s_865b4ba5402cde::t_08abf678886971 1,35,52,144,155,166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "198420f973e5ca648922c5b73a9f3e357308243c",
+  "prompts": {},
+  "humans": {
+    "h_e76403a1cd4bf1": {
+      "author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  },
+  "sessions": {
+    "s_865b4ba5402cde": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "5c97544a-e5ba-495e-8f16-2599af23f17e",
+        "model": "unknown"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    },
+    "s_fe36bacc731053": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "1ef3ef6b-275f-4a51-a5a9-b4633db0bf68",
+        "model": "unknown"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  }
+}

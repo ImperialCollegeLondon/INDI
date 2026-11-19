@@ -1,0 +1,22 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "efc5f1487ca3ff6d26c10c11dcc863133022c868",
+  "prompts": {},
+  "humans": {
+    "h_e76403a1cd4bf1": {
+      "author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  },
+  "sessions": {
+    "s_90f16a6612f59e": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "ffdb2490-83e5-4278-966d-af799e3a30c6",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    }
+  }
+}
