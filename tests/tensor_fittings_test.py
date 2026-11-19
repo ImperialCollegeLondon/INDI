@@ -23,7 +23,11 @@ def test_dipy_tensor_fit(
     Args:
         debug (bool): Whether to enable debug outputs in settings.
         method (str): Tensor fitting method under test.
-        logger (logging.Logger): Logger for diagnostics.
+        logger (Logger): Logger for diagnostics.
+        mask_3c (np.ndarray): Segmentation mask used to select myocardium voxels.
+        tensor_true (np.ndarray): Ground-truth tensor values for comparison.
+        tensor_fit_table (pd.DataFrame): Diffusion measurements used for fitting.
+        results_settings (dict): Output and fitting settings for the pipeline.
     """
     # For this test there is no noise, so SNR is infinite
     # Rename some columns to match what is expected in the function
