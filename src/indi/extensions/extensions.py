@@ -1235,8 +1235,11 @@ def export_results(
         w.writerows(info.items())
 
     # do final results montage
-    for slice_idx in slices:
+    make_results_montage(settings, slices, folder_id)
 
+
+def make_results_montage(settings, slices, folder_id):
+    for slice_idx in slices:
         slice_montage = []
         # list of images to include in the montage
         folder_a = os.path.join(settings["results"], "results_a")
@@ -1315,9 +1318,19 @@ def export_results(
             channel_axis=3,
         )
 
-        plt.imshow(montage_b)
-
         slice_montage.append(montage_b)
+
+        # make sure all images have the same size, if not pad the smaller ones
+        max_height = max(img.shape[0] for img in slice_montage)
+        max_width = max(img.shape[1] for img in slice_montage)
+        for i in range(len(slice_montage)):
+            img = slice_montage[i]
+            if img.shape[0] != max_height or img.shape[1] != max_width:
+                padded_img = np.full((max_height, max_width, *img.shape[2:]), 255, dtype=np.uint8)
+                top = (max_height - img.shape[0]) // 2
+                left = (max_width - img.shape[1]) // 2
+                padded_img[top : top + img.shape[0], left : left + img.shape[1]] = img
+                slice_montage[i] = padded_img
 
         # save the montage
         slice_montage = np.concatenate(slice_montage, axis=0)
