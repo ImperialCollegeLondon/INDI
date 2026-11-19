@@ -1,5 +1,5 @@
 import logging
-import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -8,16 +8,18 @@ from scipy.stats import moment
 from indi.extensions.extensions import get_cylindrical_coordinates_short_axis, get_snr_maps
 from indi.extensions.get_fa_md import get_fa_md
 
+DATA_DIR = Path(__file__).parent / "data"
+
 
 def test_get_fa_md():
     """Verify FA and MD calculations against phantom ground truth."""
 
     # load tensor from numerical phantom
-    tensor_true = np.load(os.path.join("tests", "data", "DT.npz"))["DT"]
+    tensor_true = np.load(DATA_DIR / "DT.npz")["DT"]
     tensor_true = np.nan_to_num(tensor_true)
 
     # load RV and LV mask
-    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))["mask_3c"]
+    mask = np.load(DATA_DIR / "mask_3c.npz")["mask_3c"]
 
     # mock slices
     slices = [0]
@@ -92,13 +94,13 @@ def test_get_fa_md():
 def test_get_snr_maps():
     """Check SNR maps and noise estimates computed from simulated data."""
     # load RV and LV mask
-    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))["mask_3c"]
+    mask = np.load(DATA_DIR / "mask_3c.npz")["mask_3c"]
 
     """test if this function calculates the correct SNR and noise maps"""
     # Here I am loading data created by create_dwi_dicoms.py in DTI_numerical_phantom_3D repo
     # load table with pixel values, b_values and directions
     # I am going to load data simulated with an SNR of 20 in the myocardial wall
-    data = pd.read_pickle(os.path.join("tests", "data", "cdti_table_snr_20.zip"))
+    data = pd.read_pickle(DATA_DIR / "cdti_table_snr_20.zip")
     data["slice_position"] = np.repeat(["0.0"], len(data))
     data["b_value_original"] = data["b_value"]
     data["slice_integer"] = 0
@@ -143,13 +145,13 @@ def test_get_snr_maps():
 def test_get_cylindrical_coordinates_short_axis():
     """Confirm cardiac coordinate vectors match phantom references."""
     # load RV and LV mask
-    mask = np.load(os.path.join("tests", "data", "mask_3c.npz"))["mask_3c"]
+    mask = np.load(DATA_DIR / "mask_3c.npz")["mask_3c"]
     # repeat mask 3 times for XYZ vector components
     mask_xyz = np.repeat(mask[..., np.newaxis], 3, axis=3)
     mask_xyz[mask_xyz == 2] = 0
 
     # load phantom cardiac coordinates
-    cardiac_coordinates = np.load(os.path.join("tests", "data", "cardiac_coordinates.npz"))
+    cardiac_coordinates = np.load(DATA_DIR / "cardiac_coordinates.npz")
     long_true = mask_xyz * cardiac_coordinates["longitudinal_component"]
     circ_true = mask_xyz * cardiac_coordinates["circumferential_component"]
     radial_true = mask_xyz * cardiac_coordinates["radial_component"]
