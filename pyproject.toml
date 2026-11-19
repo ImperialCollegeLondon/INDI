@@ -99,3 +99,6 @@ exclude = '''
 [tool.uv]
 package = true
 
+[tool.coverage.run]
+source = ["indi"]
+branch = true
