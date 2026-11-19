@@ -1,3 +1,6 @@
+tests/extensions_test.py
+  h_e76403a1cd4bf1 36
+  s_b302fbb6d89b76::t_0e1a5b034f78af 52-63
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -15,6 +18,14 @@
         "tool": "github-copilot-cli",
         "id": "ffdb2490-83e5-4278-966d-af799e3a30c6",
         "model": "gpt-6-luna"
+      },
+      "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
+    },
+    "s_b302fbb6d89b76": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "dfb60a6b-d663-4156-8dda-a7f791476a7d",
+        "model": "unknown"
       },
       "human_author": "Tom Bland <tom_bland@hotmail.co.uk>"
     }
