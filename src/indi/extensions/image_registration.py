@@ -195,9 +195,6 @@ def registration_loop(
         #         ),
         #     )
 
-    if settings["registration"] == "ants_non_rigid":
-        import ants
-
     # dicts to store information about the registration
     registration_image_data = {}
 
@@ -228,8 +225,6 @@ def registration_loop(
         or settings["registration"] == "elastix_non_rigid_fb"
     ):
         ref = itk.GetImageFromArray(ref)
-    if settings["registration"] == "ants_non_rigid":
-        ref = ants.from_numpy(ref)
 
     # images to be registered
     mov_all = np.transpose(np.dstack(data["image"].values), (2, 0, 1))
@@ -251,8 +246,6 @@ def registration_loop(
         else:
             mask_arr = np.asarray(mask, dtype=np.ubyte)
             mask = itk.GetImageFromArray(mask_arr)
-
-        # masking makes things worse for ANTs registration
 
     # Groupwise registration
     if settings["registration"] == "elastix_groupwise":
@@ -356,63 +349,6 @@ def registration_loop(
                     mov = itk.GetImageFromArray(mov)
                     img_reg = itk.transformix_filter(mov, result_transform_parameters)
                     img_reg = itk.GetArrayFromImage(img_reg)
-
-            # ANTs registration
-            elif settings["registration"] == "ants_non_rigid":
-                if settings["complex_data"]:
-                    # complex data registration
-                    c_real = np.multiply(mov, np.cos(mov_phase))
-                    c_real = ants.from_numpy(c_real)
-                    c_imag = np.multiply(mov, np.sin(mov_phase))
-                    c_imag = ants.from_numpy(c_imag)
-                    mov = ants.from_numpy(mov)
-                    mytx = ants.registration(
-                        fixed=ref,
-                        moving=mov,
-                        type_of_transform="antsRegistrationSyN[b]",
-                        mask=ants.from_numpy(mask),
-                        moving_mask=ants.from_numpy(mask),
-                    )
-                    img_reg_real = ants.apply_transforms(
-                        fixed=ref,
-                        moving=c_real,
-                        transformlist=mytx["fwdtransforms"],
-                        whichtoinvert=[False, False],
-                    )
-                    img_reg_real = img_reg_real.numpy()
-                    img_reg_imag = ants.apply_transforms(
-                        fixed=ref,
-                        moving=c_imag,
-                        transformlist=mytx["fwdtransforms"],
-                        whichtoinvert=[False, False],
-                    )
-                    img_reg_imag = img_reg_imag.numpy()
-                    img_reg = np.sqrt(np.square(img_reg_real) + np.square(img_reg_imag))
-                    img_phase_reg = np.arctan2(img_reg_imag, img_reg_real)
-
-                else:
-                    # get moving image and register it to the reference
-                    mov = ants.from_numpy(mov)
-                    mytx = ants.registration(
-                        fixed=ref,
-                        moving=mov,
-                        type_of_transform="antsRegistrationSyN[b]",
-                        mask=ants.from_numpy(mask),
-                        moving_mask=ants.from_numpy(mask),
-                    )
-                    img_reg = mytx["warpedmovout"].numpy()
-
-                # apply the deformation field to the grid image
-                grid_img = get_grid_image(info["img_size"], 6)
-                grid_img = ants.from_numpy(grid_img)
-                grid_img = ants.apply_transforms(
-                    fixed=ref,
-                    moving=grid_img,
-                    transformlist=mytx["fwdtransforms"],
-                    whichtoinvert=[False, False],
-                )
-                grid_img = grid_img.numpy()
-                registration_image_data["deformation_field"]["grid"][i] = grid_img
 
             # basic quick rigid
             elif settings["registration"] == "quick_rigid":
