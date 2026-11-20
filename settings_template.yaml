@@ -24,7 +24,7 @@ registration_extra_debug: False
 # IMAGE REGISTRATION
 # ========================================================================================
 # none, quick_rigid, elastix_rigid, elastix_affine, elastix_non_rigid, elastix_non_rigid_fb
-# elastix_groupwise (not working well at the moment), ants_non_rigid
+# elastix_groupwise (not working well at the moment)
 registration: elastix_non_rigid
 # fast, slow
 registration_speed: fast
@@ -73,6 +73,8 @@ remove_b_values: []
 md_scale: [0, 3]
 # interpolate dicom images factor
 img_interp_factor: 1
+# SE heart-spacing (integer)
+se_rr_intervals: 1
 
 # ========================================================================================
 # ex-vivo (in development)

@@ -48,9 +48,9 @@ For more information:
 
 INDI has been tested on:
 
-- macOS 15 with Python 3.12
-- Ubuntu 24.04 with Python 3.12
-- Windows 10 with Python 3.12
+- macOS 15 with Python 3.14
+- Ubuntu 24.04 with Python 3.14
+- Windows 10 with Python 3.14
 
 ### Quick start (any OS)
 

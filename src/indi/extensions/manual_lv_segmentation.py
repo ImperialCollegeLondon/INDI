@@ -677,7 +677,12 @@ def manual_lv_segmentation(
             endo_contour = None
 
     # Show the toolbars for zooming and panning
-    matplotlib.rcParams["toolbar"] = "toolbar2"
+    # Note: toolbar2 causes crashes on macOS with Qt backend, so disable it there
+    backend = matplotlib.get_backend().lower()
+    if "qt" in backend and os.name != "nt":  # Qt backend on macOS/Linux
+        matplotlib.rcParams["toolbar"] = "None"
+    else:
+        matplotlib.rcParams["toolbar"] = "toolbar2"
 
     # plot the magnitude image to be ROI'd
     # retina screen resolution
