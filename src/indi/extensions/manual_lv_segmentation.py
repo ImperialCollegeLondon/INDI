@@ -693,7 +693,6 @@ def manual_lv_segmentation(
             1,
             2,
             dpi=my_dpi,
-            figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
             num="Slice " + str(slice_idx + 1) + " of " + str(len(slices)),
         )
     else:
@@ -701,7 +700,6 @@ def manual_lv_segmentation(
             2,
             1,
             dpi=my_dpi,
-            figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
             num="Slice " + str(slice_idx + 1) + " of " + str(len(slices)),
         )
 
@@ -788,6 +786,10 @@ def manual_lv_segmentation(
 
     fig.canvas.mpl_connect("scroll_event", actions.on_scroll)
     actions.remove_border_btn()
+
+    # maximize the figure window
+    figManager = plt.get_current_fig_manager()
+    figManager.window.showMaximized()
 
     plt.show(block=True)
 
