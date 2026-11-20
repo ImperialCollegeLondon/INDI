@@ -115,9 +115,7 @@ def crop_images(
         array_stack = np.stack(c_data["image"].values)
         array_stack = array_stack[np.ix_(np.repeat(True, array_stack.shape[0]), crop_mask.any(1), crop_mask.any(0))]
         # create a new dataframe with the cropped images, matching column name and index
-        df = pd.DataFrame.from_records(array_stack[:, None])
-        df.index = c_data.index
-        df.columns = ["image"]
+        df = pd.DataFrame({"image": list(array_stack)}, index=c_data.index)
         # update the data table with the cropped images for the correct indices
         data.update(df)
 
@@ -127,9 +125,7 @@ def crop_images(
                 np.ix_(np.repeat(True, array_stack.shape[0]), crop_mask.any(1), crop_mask.any(0))
             ]
             # create a new dataframe with the cropped images, matching column name and index
-            df = pd.DataFrame.from_records(array_stack_phase[:, None])
-            df.index = c_data.index
-            df.columns = ["image_phase"]
+            df = pd.DataFrame({"image_phase": list(array_stack_phase)}, index=c_data.index)
             # update the data table with the cropped images for the correct indices
             data.update(df)
 
@@ -290,7 +286,7 @@ def record_image_registration(
                 comp_2 = fake_color_reg(c_ref, c_img_post)
                 comp_3 = fake_color_reg(c_ref, c_img_pre)
 
-                plt.figure(figsize=(5, 5))
+                plt.figure(figsize=(6, 6))
 
                 plt.subplot(3, 3, 1)
                 plt.imshow(c_ref)
@@ -355,6 +351,53 @@ def record_image_registration(
                     transparent=False,
                 )
                 plt.close()
+
+            # Create a movie from the generated PNG images and remove them
+            import glob
+            import subprocess
+
+            debug_folder = os.path.join(settings["debug_folder"], "extra_motion_registration")
+
+            # Get all PNG files for this slice, sorted by image index
+            png_files = sorted(
+                glob.glob(os.path.join(debug_folder, f"registration_slice_{str(slice_idx).zfill(2)}_img_*.png"))
+            )
+
+            if png_files:
+                # Create movie using FFmpeg
+                output_video = os.path.join(debug_folder, f"registration_slice_{str(slice_idx).zfill(2)}.mp4")
+                input_pattern = os.path.join(
+                    debug_folder, f"registration_slice_{str(slice_idx).zfill(2)}_img_%03d.png"
+                )
+
+                try:
+                    subprocess.run(
+                        [
+                            "ffmpeg",
+                            "-framerate",
+                            "10",
+                            "-i",
+                            input_pattern,
+                            "-c:v",
+                            "libx264",
+                            "-pix_fmt",
+                            "yuv420p",
+                            "-y",
+                            output_video,
+                        ],
+                        check=True,
+                        capture_output=True,
+                    )
+                    # logger.info(f"Created video: {output_video}")
+
+                    # Remove individual PNG files
+                    for png_file in png_files:
+                        os.remove(png_file)
+                    # logger.info(f"Removed {len(png_files)} PNG images for slice {slice_idx}")
+                except subprocess.CalledProcessError as e:
+                    logger.warning(f"Failed to create video for slice {slice_idx}: {e.stderr.decode()}")
+                except FileNotFoundError:
+                    logger.warning("FFmpeg not found. Please install FFmpeg to create videos from PNG images.")
 
 
 def crop_fov(

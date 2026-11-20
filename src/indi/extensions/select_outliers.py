@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 
@@ -139,6 +140,8 @@ def manual_image_removal(
             text_rotation = 90
 
         for page in range(pages):
+            plt.close("all")
+            gc.collect()
             if stage == "pre":
                 fig, axs = plt.subplots(
                     rows_per_page,
@@ -253,9 +256,14 @@ def manual_image_removal(
                         store_selected_images.append(event.inaxes)
                 fig.canvas.draw_idle()
 
+            def onclose_fig(event):
+                plt.close(fig)
+
             fig.canvas.mpl_connect("button_press_event", onclick_select)
+            fig.canvas.mpl_connect("close_event", onclose_fig)
             fig.canvas.draw_idle()
             plt.show(block=True)
+            gc.collect()
 
         # store the indices of the rejected images:
         for ax in store_selected_images:
