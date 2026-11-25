@@ -10,7 +10,6 @@ import os
 import sys
 
 import matplotlib
-import pyautogui
 
 from indi.extensions.complex_averaging import complex_averaging
 from indi.extensions.crop_fov import crop_fov, record_image_registration
@@ -80,9 +79,6 @@ def main() -> None:
 
     # initial setup before going into the folder loop
     dti, settings, logger, log_format, all_to_be_analysed_folders = initial_setup(script_path)
-
-    # screen size
-    settings["screen_size"] = pyautogui.size()
 
     # Warning about deleting DICOM data
     if settings["workflow_mode"] == "anon":
