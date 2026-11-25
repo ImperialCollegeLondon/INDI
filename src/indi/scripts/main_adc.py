@@ -14,7 +14,6 @@ import matplotlib
 from indi.extensions.complex_averaging import complex_averaging
 from indi.extensions.crop_fov import crop_fov, record_image_registration
 from indi.extensions.extensions import (
-    export_results_adc,
     get_cardiac_coordinates_short_axis,
     get_colourmaps,
     get_lv_segments,
@@ -23,6 +22,7 @@ from indi.extensions.extensions import (
     remove_outliers,
     remove_slices,
 )
+from indi.extensions.final_results_export import export_results_adc
 from indi.extensions.folder_loop_initial_setup import folder_loop_initial_setup
 from indi.extensions.heart_segmentation import get_average_images, heart_segmentation
 from indi.extensions.image_denoising import image_denoising
@@ -59,8 +59,7 @@ def main() -> None:
     # to run efficiently
     matplotlib.rcParams["toolbar"] = "None"
     # Faster interactive matplotlib
-    if sys.platform != "darwin":
-        matplotlib.use("qtagg")
+    matplotlib.use("qtagg")
 
     # script path
     abspath = os.path.abspath(sys.argv[0])
