@@ -38,7 +38,6 @@ dependencies = [
   "pandas",
   "pillow",
   "py7zr",
-  "PyAutoGUI",
   "pydicom",
   "PyQt6",
   "pystackreg",
