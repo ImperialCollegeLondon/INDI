@@ -53,12 +53,12 @@ For more information:
 INDI has been tested on:
 
 - macOS 27 with Python 3.14
-- Ubuntu 24.04 with Python 3.14
+- Ubuntu 26.04 with Python 3.14
 - Windows 11 with Python 3.14
 
 ### Quick start (any OS)
 
-Install [uv](https://pypi.org/project/uv/) and then run
+Install [uv](https://docs.astral.sh/uv/) and then run
 
 ```bash
 uv tool install git+https://github.com/ImperialCollegeLondon/INDI
@@ -191,14 +191,6 @@ If you encounter issues displaying matplotlib windows, run:
 
 ```bash
 xhost +
-```
-
-### Windows
-
-To allow the ImageMagick scripts to run enter command:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope LocalMachine`
 ```
 
 ## License
