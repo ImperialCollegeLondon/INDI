@@ -23,7 +23,6 @@ A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 	- [Documentation](#documentation)
 	- [Troubleshooting](#troubleshooting)
 		- [Ubuntu](#ubuntu)
-		- [Windows](#windows)
 	- [License](#license)
 	- [Acknowledgements](#acknowledgements)
 
@@ -70,7 +69,7 @@ Optionally, but recommended, also install [ffmpeg](https://www.ffmpeg.org).
 # mac os (from homebrew https://brew.sh/)
 brew install ffmpeg
 # Ubuntu
-apt-get install ffmpeg
+sudo apt-get install ffmpeg
 # windows with winget
 winget install ffmpeg
 ```
