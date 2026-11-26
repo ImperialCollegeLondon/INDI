@@ -141,11 +141,13 @@ This helps ensure code quality and style before committing changes.
 
 #### Run tests with coverage
 
-Run the tests and show which lines of code are not covered:
+To see which parts of INDI the tests cover, generate a report you can open in your browser:
 
 ```bash
-uv run pytest --cov --cov-report=term-missing
+uv run pytest --cov --cov-report=html
 ```
+
+Open `htmlcov/index.html` and select a file to see which lines the tests ran. Files the tests never touch count towards the total. For the latest coverage on `main`, click the Codecov badge at the top of this page.
 
 Finally install [ImageMagick](https://imagemagick.org/):
 

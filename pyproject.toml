@@ -100,5 +100,8 @@ exclude = '''
 package = true
 
 [tool.coverage.run]
-source = ["indi"]
+source = ["src/indi"]
 branch = true
+
+[tool.coverage.report]
+include_namespace_packages = true
