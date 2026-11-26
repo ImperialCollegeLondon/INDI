@@ -95,3 +95,10 @@ package = true
 required-environments = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'"
 ]
+
+[tool.coverage.run]
+source = ["src/indi"]
+branch = true
+
+[tool.coverage.report]
+include_namespace_packages = true

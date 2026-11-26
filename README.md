@@ -9,6 +9,8 @@ In-vivo diffusion analysis (INDI)<br>
 A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 </p>
 
+[![Codecov](https://codecov.io/gh/ImperialCollegeLondon/INDI/branch/main/graph/badge.svg)](https://codecov.io/gh/ImperialCollegeLondon/INDI)
+
 ## Table of Contents
 
 - [INDI (In-Vivo Diffusion)](#indi-in-vivo-diffusion)
@@ -19,6 +21,7 @@ A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 	- [Basic Usage Example](#basic-usage-example)
 	- [Developer installation](#developer-installation)
 			- [Install pre-commit](#install-pre-commit)
+			- [Run tests with coverage](#run-tests-with-coverage)
 	- [Installing Optional AI Modules (under development 🚧)](#installing-optional-ai-modules-under-development-)
 	- [Documentation](#documentation)
 	- [Troubleshooting](#troubleshooting)
@@ -152,6 +155,16 @@ winget install ffmpeg
 
 >[!NOTE]
 > You can run INDI without activating the environment by doing `uv run indi`
+
+#### Run tests with coverage
+
+To see which parts of INDI the tests cover, generate a report you can open in your browser:
+
+```bash
+uv run pytest --cov --cov-report=html
+```
+
+Open `htmlcov/index.html` and select a file to see which lines the tests ran. Files the tests never touch count towards the total. For the latest coverage on `main`, click the Codecov badge at the top of this page.
 
 ---
 

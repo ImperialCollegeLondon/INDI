@@ -36,3 +36,4 @@ share/python-wheels/
 MANIFEST
 
 cov*
+.coverage

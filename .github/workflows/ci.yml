@@ -10,6 +10,9 @@ jobs:
   install-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -27,4 +30,11 @@ jobs:
         run: uv sync --locked --group dev --group doc
 
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest --cov --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          use_oidc: true
+          fail_ci_if_error: false
