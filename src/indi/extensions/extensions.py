@@ -176,7 +176,7 @@ def get_cardiac_coordinates_short_axis(
     dti: dict,
     average_images: NDArray,
     info: dict,
-) -> tuple[dict, dict]:
+) -> tuple[dict, NDArray, dict]:
     """Compute local cardiac coordinates for short-axis data.
 
     Args:
@@ -307,12 +307,23 @@ def get_cardiac_coordinates_short_axis(
             plt.close()
 
         # save local_cardiac_coordinates to a vtk file
-        maps = {"FA": dti["fa"], "MD": dti["md"], "mask": mask, "mean_img": average_images}
-        # dictionaries and lists are mutable, so they will be modified also outside the function
-        # so here, to prevent local_cardiac_coordinates dict to be modified I am creating a
-        # deep copy.
-        lcc = copy.deepcopy(local_cardiac_coordinates)
         if settings["debug"]:
+            if "tensor" in dti:
+                maps = {"FA": dti["fa"], "MD": dti["md"], "mask": mask, "mean_img": average_images}
+            else:
+                maps = {
+                    "mADC": dti["madc"],
+                    "ADCp": dti["adc_p"],
+                    "ADCr": dti["adc_r"],
+                    "ADCs": dti["adc_s"],
+                    "S0": dti["s0"],
+                    "mask": mask,
+                    "mean_img": average_images,
+                }
+            # dictionaries and lists are mutable, so they will be modified also outside the function
+            # so here, to prevent local_cardiac_coordinates dict to be modified I am creating a
+            # deep copy.
+            lcc = copy.deepcopy(local_cardiac_coordinates)
             save_vtk_file(lcc, {}, maps, info, "cardiac_coordinates", settings["debug_folder"], save_mesh=True)
 
     return local_cardiac_coordinates, lv_centres, phi_matrix
