@@ -16,17 +16,20 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.3
+      - name: Set up Python
+        uses: actions/setup-python@v7
         with:
-          enable-cache: true
+          python-version-file: ".python-version"
 
-      - name: Install package and dev dependencies
-        run: uv sync --locked
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - name: Run pytest
+      - name: Install the project
+        run: uv sync --locked --group dev --group doc
+
+      - name: Run tests
         run: uv run pytest --cov --cov-report=xml
 
       - name: Upload coverage to Codecov

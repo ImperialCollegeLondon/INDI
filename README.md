@@ -13,18 +13,21 @@ A post-processing pipeline for in-vivo cardiac diffusion tensor imaging.
 
 ## Table of Contents
 
-- [Introduction](#introduction)
-- [Installation](#installation)
-	- [Quick start](#quick-start-any-os)
-- [Basic Usage](#basic-usage-example)
-- [Developer installation](#developer-installation)
-	- [Install pre-commit](#install-pre-commit)
-	- [Run tests with coverage](#run-tests-with-coverage)
-- [Optional AI modules](#installing-optional-ai-modules-under-development-)
-- [Documentation](#documentation)
-- [Troubleshooting](#troubleshooting)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
+- [INDI (In-Vivo Diffusion)](#indi-in-vivo-diffusion)
+	- [Table of Contents](#table-of-contents)
+	- [Introduction](#introduction)
+	- [Installation](#installation)
+		- [Quick start (any OS)](#quick-start-any-os)
+	- [Basic Usage Example](#basic-usage-example)
+	- [Developer installation](#developer-installation)
+			- [Install pre-commit](#install-pre-commit)
+			- [Run tests with coverage](#run-tests-with-coverage)
+	- [Installing Optional AI Modules (under development 🚧)](#installing-optional-ai-modules-under-development-)
+	- [Documentation](#documentation)
+	- [Troubleshooting](#troubleshooting)
+		- [Ubuntu](#ubuntu)
+	- [License](#license)
+	- [Acknowledgements](#acknowledgements)
 
 ## Introduction
 
@@ -51,27 +54,27 @@ For more information:
 
 INDI has been tested on:
 
-- macOS 15 with Python 3.12
-- Ubuntu 24.04 with Python 3.12
-- Windows 10 with Python 3.12
+- macOS 27 with Python 3.14
+- Ubuntu 26.04 with Python 3.14
+- Windows 11 with Python 3.14
 
 ### Quick start (any OS)
 
-Install [uv](https://pypi.org/project/uv/) and then run
+Install [uv](https://docs.astral.sh/uv/) and then run
 
 ```bash
 uv tool install git+https://github.com/ImperialCollegeLondon/INDI
 ```
 
-Finally, you also need [ImageMagick](https://imagemagick.org/):
+Optionally, but recommended, also install [ffmpeg](https://www.ffmpeg.org).
 
 ```bash
 # mac os (from homebrew https://brew.sh/)
-brew install imagemagick
+brew install ffmpeg
 # Ubuntu
-sudo apt install imagemagick
+sudo apt-get install ffmpeg
 # windows with winget
-winget install ImageMagick.Q16-HDRI # Or download the installer from https://imagemagick.org/download/
+winget install ffmpeg
 ```
 
 ---
@@ -139,6 +142,20 @@ uv run pre-commit run --all-files
 
 This helps ensure code quality and style before committing changes.
 
+Also install [ffmpeg](https://www.ffmpeg.org):
+
+```bash
+# mac os (from homebrew https://brew.sh/)
+brew install ffmpeg
+# Ubuntu
+apt-get install ffmpeg
+# windows with winget
+winget install ffmpeg
+```
+
+>[!NOTE]
+> You can run INDI without activating the environment by doing `uv run indi`
+
 #### Run tests with coverage
 
 To see which parts of INDI the tests cover, generate a report you can open in your browser:
@@ -148,20 +165,6 @@ uv run pytest --cov --cov-report=html
 ```
 
 Open `htmlcov/index.html` and select a file to see which lines the tests ran. Files the tests never touch count towards the total. For the latest coverage on `main`, click the Codecov badge at the top of this page.
-
-Finally install [ImageMagick](https://imagemagick.org/):
-
-```bash
-# mac os (from homebrew https://brew.sh/)
-brew install imagemagick
-# Ubuntu
-sudo apt install imagemagick
-# windows with winget
-winget install ImageMagick.Q16-HDRI # Or download the installer from https://imagemagick.org/download/
-```
-
->[!NOTE]
-> You can run INDI without activating the environment by doing `uv run indi`
 
 ---
 
@@ -200,14 +203,6 @@ If you encounter issues displaying matplotlib windows, run:
 
 ```bash
 xhost +
-```
-
-### Windows
-
-To allow the ImageMagick scripts to run enter command:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope LocalMachine`
 ```
 
 ## License

@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 
@@ -119,11 +120,8 @@ def manual_image_removal(
         rows = len(c_img_stack)
         cols = max_number_of_images
 
-        # get the maximum number of rows to display in each page based on the monitor height.
-        # A 900 pixel height is used as a reference to accomodate 7 rows,
-        # and the maximum number of rows is scaled accordingly.
-        monitor_height = settings["screen_size"][1]
-        n_max_rows = int(monitor_height * 7 / 900)
+        # maximum number of rows to display per page
+        n_max_rows = 7
 
         if rows > n_max_rows:
             rows_per_page = n_max_rows
@@ -139,11 +137,12 @@ def manual_image_removal(
             text_rotation = 90
 
         for page in range(pages):
+            plt.close("all")
+            gc.collect()
             if stage == "pre":
                 fig, axs = plt.subplots(
                     rows_per_page,
                     cols,
-                    figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                     dpi=my_dpi,
                     num=f"Slice {slice_idx + 1}/{len(slices)}, page {page + 1}/{pages}.",
                     squeeze=False,
@@ -152,7 +151,6 @@ def manual_image_removal(
                 fig, axs = plt.subplots(
                     rows_per_page,
                     cols,
-                    figsize=(settings["screen_size"][0] / my_dpi, (settings["screen_size"][1] - 52) / my_dpi),
                     dpi=my_dpi,
                     num=f"Slice {slice_idx + 1}/{len(slices)}, page {page + 1}/{pages}. Borders colour-coded by z-scores. Red = z-score > 3 and may be an outlier!",
                     squeeze=False,
@@ -253,9 +251,19 @@ def manual_image_removal(
                         store_selected_images.append(event.inaxes)
                 fig.canvas.draw_idle()
 
+            def onclose_fig(event):
+                plt.close(fig)
+
             fig.canvas.mpl_connect("button_press_event", onclick_select)
+            fig.canvas.mpl_connect("close_event", onclose_fig)
             fig.canvas.draw_idle()
+
+            # maximize the figure window
+            figManager = plt.get_current_fig_manager()
+            figManager.window.showMaximized()
+
             plt.show(block=True)
+            gc.collect()
 
         # store the indices of the rejected images:
         for ax in store_selected_images:
