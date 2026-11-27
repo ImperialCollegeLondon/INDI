@@ -129,6 +129,12 @@ def main() -> None:
                 continue
 
             # =========================================================
+            # Image denoising of all DWIs
+            # =========================================================
+            if settings["image_denoising"] != "None":
+                data, info = image_denoising(data, logger, settings, info)
+
+            # =========================================================
             # Remove outliers (pre-segmentation)
             # =========================================================
             if settings["remove_outliers_manually_pre"]:
@@ -215,12 +221,6 @@ def main() -> None:
             # Remove outliers and other data from table
             # =========================================================
             data, info = remove_outliers(data, info, settings)
-
-            # =========================================================
-            # Image denoising of all DWIs
-            # =========================================================
-            if settings["image_denoising"] != "None":
-                data = image_denoising(data, logger, settings, mask_3c, segmentation)
 
             # =========================================================
             # Get line profile off all remaining images to

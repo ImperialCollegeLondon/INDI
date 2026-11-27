@@ -7,15 +7,14 @@ import pandas as pd
 from dipy.denoise.adaptive_soft_matching import adaptive_soft_matching
 from dipy.denoise.localpca import mppca
 from dipy.denoise.noise_estimate import estimate_sigma as estimate_sigma_dipy
+from scipy.signal import resample
 from skimage.restoration import denoise_nl_means, estimate_sigma
 from tqdm import tqdm
 
 from indi.extensions.cnlm_denoise_faster import collaborative_nlm
 
 
-def image_denoising(
-    data: pd.DataFrame, logger: logging.Logger, settings: dict, mask: np.ndarray, segmentation: dict
-) -> pd.DataFrame:
+def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, info: dict) -> pd.DataFrame:
     """Denoise all DWIs in the DataFrame using either:
         - a Non-Local Means (NLM) filter.
         - a custom collaborative NLM (CNLM) filter.
@@ -28,8 +27,7 @@ def image_denoising(
         logger (logging.Logger): Logger instance for debug output.
         settings (dict): Dictionary of configuration settings. Must include 'debug'
             (bool) and optionally 'debug_folder' (str) if debug is True.
-        mask (np.ndarray): Binary mask indicating the region of interest for denoising.
-        segmentation (dict): Dictionary containing segmentation masks
+        info (dict): Dictionary containing additional information about the images, such as dimensions.
 
     Returns:
         data (pd.DataFrame): DataFrame with denoised images replacing original images.
@@ -201,6 +199,7 @@ def image_denoising(
                 slice_images = np.stack(data_slice["image"].values, axis=-1)
                 # store_slice_images = slice_images.copy()
 
+                # TODO remove this setting as it does not seem to produce good results
                 if settings["image_data_zero_filled"]:
                     if slice == unique_slices[0]:
                         logger.debug("Removing zero padding of k-space interpolation.")
@@ -330,42 +329,42 @@ def image_denoising(
             cax = plt.gca().inset_axes([1.02, 0.05, 0.05, 0.90])
             plt.colorbar(img, cax=cax)
             plt.axis("off")
-            if segmentation[slice_idx]["epicardium"].size != 0:
-                plt.scatter(
-                    segmentation[slice_idx]["epicardium_true_border"][:, 0],
-                    segmentation[slice_idx]["epicardium_true_border"][:, 1],
-                    marker=".",
-                    s=4,
-                    color="k",
-                    alpha=1,
-                )
-            if segmentation[slice_idx]["endocardium"].size != 0:
-                plt.scatter(
-                    segmentation[slice_idx]["endocardium_true_border"][:, 0],
-                    segmentation[slice_idx]["endocardium_true_border"][:, 1],
-                    marker=".",
-                    s=4,
-                    color="k",
-                    alpha=1,
-                )
-            if segmentation[slice_idx]["anterior_ip"].size != 0:
-                plt.plot(
-                    segmentation[slice_idx]["anterior_ip"][0],
-                    segmentation[slice_idx]["anterior_ip"][1],
-                    "2",
-                    color="k",
-                    markersize=10,
-                    alpha=1,
-                )
-            if segmentation[slice_idx]["inferior_ip"].size != 0:
-                plt.plot(
-                    segmentation[slice_idx]["inferior_ip"][0],
-                    segmentation[slice_idx]["inferior_ip"][1],
-                    "1",
-                    color="k",
-                    markersize=10,
-                    alpha=1,
-                )
+            # if segmentation[slice_idx]["epicardium"].size != 0:
+            #     plt.scatter(
+            #         segmentation[slice_idx]["epicardium_true_border"][:, 0],
+            #         segmentation[slice_idx]["epicardium_true_border"][:, 1],
+            #         marker=".",
+            #         s=4,
+            #         color="k",
+            #         alpha=1,
+            #     )
+            # if segmentation[slice_idx]["endocardium"].size != 0:
+            #     plt.scatter(
+            #         segmentation[slice_idx]["endocardium_true_border"][:, 0],
+            #         segmentation[slice_idx]["endocardium_true_border"][:, 1],
+            #         marker=".",
+            #         s=4,
+            #         color="k",
+            #         alpha=1,
+            #     )
+            # if segmentation[slice_idx]["anterior_ip"].size != 0:
+            #     plt.plot(
+            #         segmentation[slice_idx]["anterior_ip"][0],
+            #         segmentation[slice_idx]["anterior_ip"][1],
+            #         "2",
+            #         color="k",
+            #         markersize=10,
+            #         alpha=1,
+            #     )
+            # if segmentation[slice_idx]["inferior_ip"].size != 0:
+            #     plt.plot(
+            #         segmentation[slice_idx]["inferior_ip"][0],
+            #         segmentation[slice_idx]["inferior_ip"][1],
+            #         "1",
+            #         color="k",
+            #         markersize=10,
+            #         alpha=1,
+            #     )
             plt.savefig(
                 os.path.join(
                     settings["debug_folder"],
@@ -378,7 +377,55 @@ def image_denoising(
             )
             plt.close()
 
-    return data
+    if settings["img_interp_factor_post_denoising"] != 1:
+        logger.debug(
+            "Interpolating images after denoising by a factor of %d", settings["img_interp_factor_post_denoising"]
+        )
+        for slice_idx in slices:
+            images = data[data["slice_integer"] == slice_idx]["image"].values
+            images = np.stack(images, axis=0)
+
+            images_temp = np.zeros(
+                (
+                    images.shape[0],
+                    images.shape[1] * settings["img_interp_factor_post_denoising"],
+                    images.shape[2] * settings["img_interp_factor_post_denoising"],
+                )
+            )
+            for idx, img in enumerate(images):
+
+                img = resample(
+                    img,
+                    img.shape[0] * settings["img_interp_factor_post_denoising"],
+                    axis=0,
+                    window=("tukey", 0.4),
+                )
+                img = resample(
+                    img,
+                    img.shape[1] * settings["img_interp_factor_post_denoising"],
+                    axis=1,
+                    window=("tukey", 0.4),
+                )
+                images_temp[idx] = img
+
+            slice_images_denoised = images_temp
+            # Find the index that matches all conditions
+            mask = data["slice_integer"] == slice_idx
+            matching_indices = data[mask].index
+
+            # Assign the denoised images back to the original data
+            for i, idx in enumerate(matching_indices):
+                data.at[idx, "image"] = slice_images_denoised[i]
+
+        info["Rows"] *= settings["img_interp_factor_post_denoising"]
+        info["Columns"] *= settings["img_interp_factor_post_denoising"]
+        info["img_size"] = [info["Rows"], info["Columns"]]
+        info["pixel_spacing"] = [
+            info["pixel_spacing"][0] / settings["img_interp_factor_post_denoising"],
+            info["pixel_spacing"][1] / settings["img_interp_factor_post_denoising"],
+        ]
+
+    return data, info
 
 
 def add_k_space_padding(image, final_shape):

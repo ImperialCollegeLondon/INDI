@@ -55,6 +55,7 @@ remove_outliers_with_ai: False
 image_denoising: mppca
 # MP-PCA denoising parameters
 image_data_zero_filled: True
+img_interp_factor_post_denoising: 2
 
 # ========================================================================================
 # MISC
