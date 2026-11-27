@@ -246,7 +246,10 @@ def get_nii_pixel_array(nii_px_array: NDArray, c_slice_idx: int, c_frame_idx: in
     if "img_interp_factor" in settings and settings["img_interp_factor"] != 1:
         factor = settings["img_interp_factor"]
         new_shape = (round(img.shape[0] * factor), round(img.shape[1] * factor))
-        interpolated = resample(img, (new_shape[0], new_shape[1]), axis=(0, 1))
+
+        interpolated = resample(img, new_shape[0] * 2, axis=0, window=("tukey", 0.4))
+        interpolated = resample(interpolated, new_shape[1] * 2, axis=1, window=("tukey", 0.4))
+
         img = interpolated
         # zero any negative pixels after interpolation
         img[img < 0] = 0

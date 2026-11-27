@@ -592,7 +592,7 @@ def plot_results_maps(
             plt.figure(figsize=(5, 5))
             plt.imshow(average_images[slice_idx], cmap="Greys_r")
             if params[param]["abs"]:
-                plt.imshow(
+                img = plt.imshow(
                     np.abs(dti[params[param]["var_name"]][slice_idx] * params[param]["scale"]),
                     alpha=alphas_whole_heart,
                     vmin=params[param]["vmin_max"][0],
@@ -600,14 +600,15 @@ def plot_results_maps(
                     cmap=params[param]["cmap"],
                 )
             else:
-                plt.imshow(
+                img = plt.imshow(
                     dti[params[param]["var_name"]][slice_idx] * params[param]["scale"],
                     alpha=alphas_whole_heart,
                     vmin=params[param]["vmin_max"][0],
                     vmax=params[param]["vmin_max"][1],
                     cmap=params[param]["cmap"],
                 )
-            plt.colorbar(fraction=0.046, pad=0.04)
+            cax = plt.gca().inset_axes([1.02, 0.05, 0.05, 0.90])
+            plt.colorbar(img, cax=cax)
             plt.tight_layout(pad=1.0)
             plt.axis("off")
             plt.title(params[param]["title"])

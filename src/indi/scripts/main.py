@@ -220,7 +220,7 @@ def main() -> None:
             # Image denoising of all DWIs
             # =========================================================
             if settings["image_denoising"] != "None":
-                data = image_denoising(data, logger, settings, mask_3c)
+                data = image_denoising(data, logger, settings, mask_3c, segmentation)
 
             # =========================================================
             # Get line profile off all remaining images to

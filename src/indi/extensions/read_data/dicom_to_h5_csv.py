@@ -15,8 +15,8 @@ import sys
 import numpy as np
 import pandas as pd
 import pydicom
-import scipy
 import yaml
+from scipy.signal import resample
 from tqdm import tqdm
 
 from indi.extensions.extensions import mag_to_rad, rad_to_mag
@@ -499,16 +499,24 @@ def interpolate_dicom_pixel_values(
 
     def interpolate_img(img, image_type):
         if image_type == "mag":
-            img = scipy.ndimage.zoom(img, factor, order=3)
+
+            img = resample(img, img.shape[0] * factor, axis=0, window=("tukey", 0.4))
+            img = resample(img, img.shape[1] * factor, axis=1, window=("tukey", 0.4))
             # zero any negative pixels after interpolation
             img[img < 0] = 0
+
         elif image_type == "phase":
             # convert phase to real and imaginary before interpolating
             img = mag_to_rad(img)
+
             img_real = np.cos(img)
-            img_real = scipy.ndimage.zoom(img_real, factor, order=0)
+            img_real = resample(img_real, img_real.shape[0] * factor, axis=0, window=("tukey", 0.4))
+            img_real = resample(img_real, img_real.shape[1] * factor, axis=1, window=("tukey", 0.4))
+
             img_imag = np.sin(img)
-            img_imag = scipy.ndimage.zoom(img_imag, factor, order=0)
+            img_imag = resample(img_imag, img_imag.shape[0] * factor, axis=0, window=("tukey", 0.4))
+            img_imag = resample(img_imag, img_imag.shape[1] * factor, axis=1, window=("tukey", 0.4))
+
             # revert back to the original phase values
             img = np.arctan2(img_imag, img_real)
             img = rad_to_mag(img)

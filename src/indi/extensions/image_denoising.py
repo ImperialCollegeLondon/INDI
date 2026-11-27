@@ -13,7 +13,9 @@ from tqdm import tqdm
 from indi.extensions.cnlm_denoise_faster import collaborative_nlm
 
 
-def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, mask: np.ndarray) -> pd.DataFrame:
+def image_denoising(
+    data: pd.DataFrame, logger: logging.Logger, settings: dict, mask: np.ndarray, segmentation: dict
+) -> pd.DataFrame:
     """Denoise all DWIs in the DataFrame using either:
         - a Non-Local Means (NLM) filter.
         - a custom collaborative NLM (CNLM) filter.
@@ -27,6 +29,7 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
         settings (dict): Dictionary of configuration settings. Must include 'debug'
             (bool) and optionally 'debug_folder' (str) if debug is True.
         mask (np.ndarray): Binary mask indicating the region of interest for denoising.
+        segmentation (dict): Dictionary containing segmentation masks
 
     Returns:
         data (pd.DataFrame): DataFrame with denoised images replacing original images.
@@ -183,13 +186,14 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
             )
 
         elif settings["image_denoising"] == "mppca":
-            logger.debug("Image denoising with Marcenko-Pastur PCA (method 2 no averaging)...")
+            logger.debug("Image denoising with Marcenko-Pastur PCA...")
 
             data_temp_old = data.copy()
 
             # how many slices do we have?
             unique_slices = data["slice_integer"].unique()
 
+            collected_sigmas = []
             # loop and denoise each slice separately
             for slice in unique_slices:
                 data_slice = data[data["slice_integer"] == slice]
@@ -198,48 +202,52 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
                 # store_slice_images = slice_images.copy()
 
                 if settings["image_data_zero_filled"]:
+                    if slice == unique_slices[0]:
+                        logger.debug("Removing zero padding of k-space interpolation.")
                     # we need to go back to k-space to crop the zero-filled edges,
                     # as mppca does not work well with interpolated data
                     slice_images = np.transpose(slice_images, (2, 0, 1))
-                    old_shape = [slice_images.shape[1], slice_images.shape[2]]
+                    original_shape = [slice_images.shape[1], slice_images.shape[2]]
                     # make sure the old_shape is divisible by 4
-                    old_shape_4 = [s if s % 4 == 0 else s + (4 - s % 4) for s in old_shape]
-                    new_shape = (round(old_shape_4[0] * 0.5), round(old_shape_4[1] * 0.5))
+                    original_shape_4 = [s if s % 4 == 0 else s + (4 - s % 4) for s in original_shape]
+                    new_shape = (round(original_shape_4[0] * 0.5), round(original_shape_4[1] * 0.5))
                     deinterp_slice_images = np.zeros((slice_images.shape[0], new_shape[0], new_shape[1]))
+
                     for idx, image in enumerate(slice_images):
-                        # add padding if necessary to reach old_shape_even
-                        pad_rows = old_shape_4[0] - image.shape[0]
-                        pad_cols = old_shape_4[1] - image.shape[1]
-                        if pad_rows > 0 or pad_cols > 0:
-                            image = np.pad(image, ((0, pad_rows), (0, pad_cols)), mode="reflect")
-
-                        # go to k-space
-                        ks = np.fft.fftshift(np.fft.fft2(image))
-
-                        # shrink ks to the new_shape by cropping the edges
-                        start_row = round(ks.shape[0] / 2 - new_shape[0] / 2)
-                        end_row = start_row + new_shape[0]
-                        start_col = round(ks.shape[1] / 2 - new_shape[1] / 2)
-                        end_col = start_col + new_shape[1]
-                        ks2 = ks[start_row:end_row, start_col:end_col]
-                        # Ensure ks2 is exactly new_shape (handle edge cases)
-                        if ks2.shape != new_shape:
-                            ks2 = ks2[: new_shape[0], : new_shape[1]]
-                        # go back to image space
-                        img = np.real(np.fft.ifft2(np.fft.ifftshift(ks2)))
+                        img = remove_k_space_padding(image)
                         deinterp_slice_images[idx] = img
+
                     deinterp_slice_images = np.transpose(deinterp_slice_images, (1, 2, 0))
                     slice_images = deinterp_slice_images
 
                 # add an empty dimension in the third axis to match the expected 4D array shape
                 slice_images = slice_images[:, :, np.newaxis, :]
 
+                # number of volumes
+                num_volumes = slice_images.shape[-1]
+
+                # find the minimum patch radius based on the number of volumes
+                def patch_size(radius):
+                    return (2 * radius + 1) ** 2
+
+                radius = 2
+                while patch_size(radius) < num_volumes:
+                    radius += 1
+
+                # I need to decrement the radius by 1 to get noticeable denoising effects
+                radius = radius - 1
+
+                if slice == unique_slices[0]:
+                    logger.debug("MP-PCA denoising with patch radius: %s", radius)
+
                 # denoise images
+                patch_radius = [radius, radius, 1]
                 slice_images_denoised, sigma = mppca(
-                    slice_images, patch_radius=[4, 4, 1], return_sigma=True, pca_method="svd"
+                    slice_images, patch_radius=patch_radius, return_sigma=True, pca_method="svd"
                 )
-                # TODO export sigma maps and print mean
-                print("Mean sigma:", np.mean(sigma))
+                if settings["debug"]:
+                    # collect sigmas
+                    collected_sigmas.append(sigma[:, :, 0])
 
                 slice_images_denoised = np.squeeze(slice_images_denoised, axis=2)
 
@@ -249,44 +257,12 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
 
                     # old_slice_image_denoised = slice_images_denoised.copy()
                     slice_images_denoised = np.transpose(slice_images_denoised, (2, 0, 1))
-                    interp_slice_images = np.zeros([slice_images_denoised.shape[0], old_shape[0], old_shape[1]])
+                    interp_slice_images = np.zeros(
+                        [slice_images_denoised.shape[0], original_shape[0], original_shape[1]]
+                    )
                     for idx, image in enumerate(slice_images_denoised):
 
-                        # go back to k-space
-                        ks = np.fft.fftshift(np.fft.fft2(image))
-
-                        # double the k-space by zero-padding
-                        ks = np.pad(
-                            ks,
-                            ((old_shape_4[0] // 4, old_shape_4[0] // 4), (old_shape_4[1] // 4, old_shape_4[1] // 4)),
-                            mode="constant",
-                        )
-
-                        # # 3. Create centered frequency coordinates
-                        # Ny, Nx = ks.shape
-                        # kx = np.arange(-Nx // 2, Nx // 2)
-                        # ky = np.arange(-Ny // 2, Ny // 2)
-                        # KX, KY = np.meshgrid(kx, ky)
-
-                        # # 4. Define the shift (half a pixel along X)
-                        # dx = 0
-                        # dy = 0
-
-                        # # 5. Compute the phase slope matrix
-                        # phase_slope = np.exp(-1j * 2 * np.pi * ((KX * dx / Nx) + (KY * dy / Ny)))
-
-                        # # 6. Apply the phase slope
-                        # shifted_k_space = ks * phase_slope
-
-                        # go back to image space
-                        img = np.real(np.fft.ifft2(np.fft.ifftshift(ks)))
-
-                        # crop pixels at the end in case the image is larger than the original shape
-                        if img.shape[0] > old_shape[0] or img.shape[1] > old_shape[1]:
-                            img = img[: old_shape[0], : old_shape[1]]
-
-                        plt.imshow(data_temp_old["image"].values[0])
-                        plt.imshow(img)
+                        img = add_k_space_padding(image, original_shape)
 
                         # go back to image space
                         interp_slice_images[idx] = img
@@ -345,4 +321,120 @@ def image_denoising(data: pd.DataFrame, logger: logging.Logger, settings: dict, 
             )
             plt.close()
 
+        # plot estimated sigmas for each slice
+        max_sigma = np.max(sigma)
+        for idx, slice_idx in enumerate(slices):
+            # plot estimated sigmas
+            plt.figure(figsize=(5, 5))
+            img = plt.imshow(collected_sigmas[idx], cmap="YlOrRd_r", vmin=0, vmax=max_sigma)
+            cax = plt.gca().inset_axes([1.02, 0.05, 0.05, 0.90])
+            plt.colorbar(img, cax=cax)
+            plt.axis("off")
+            if segmentation[slice_idx]["epicardium"].size != 0:
+                plt.scatter(
+                    segmentation[slice_idx]["epicardium_true_border"][:, 0],
+                    segmentation[slice_idx]["epicardium_true_border"][:, 1],
+                    marker=".",
+                    s=4,
+                    color="k",
+                    alpha=1,
+                )
+            if segmentation[slice_idx]["endocardium"].size != 0:
+                plt.scatter(
+                    segmentation[slice_idx]["endocardium_true_border"][:, 0],
+                    segmentation[slice_idx]["endocardium_true_border"][:, 1],
+                    marker=".",
+                    s=4,
+                    color="k",
+                    alpha=1,
+                )
+            if segmentation[slice_idx]["anterior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["anterior_ip"][0],
+                    segmentation[slice_idx]["anterior_ip"][1],
+                    "2",
+                    color="k",
+                    markersize=10,
+                    alpha=1,
+                )
+            if segmentation[slice_idx]["inferior_ip"].size != 0:
+                plt.plot(
+                    segmentation[slice_idx]["inferior_ip"][0],
+                    segmentation[slice_idx]["inferior_ip"][1],
+                    "1",
+                    color="k",
+                    markersize=10,
+                    alpha=1,
+                )
+            plt.savefig(
+                os.path.join(
+                    settings["debug_folder"],
+                    "mppca_sigma_map_slice_" + str(slice_idx).zfill(2) + ".png",
+                ),
+                dpi=100,
+                bbox_inches="tight",
+                pad_inches=0.2,
+                transparent=False,
+            )
+            plt.close()
+
     return data
+
+
+def add_k_space_padding(image, final_shape):
+
+    # make sure the final_shape is divisible by 4
+    final_shape_4 = [s if s % 4 == 0 else s + (4 - s % 4) for s in final_shape]
+
+    # go back to k-space
+    ks = np.fft.fftshift(np.fft.fft2(image))
+
+    # double the k-space by zero-padding
+    ks = np.pad(
+        ks,
+        (
+            (final_shape_4[0] // 4, final_shape_4[0] // 4),
+            (final_shape_4[1] // 4, final_shape_4[1] // 4),
+        ),
+        mode="constant",
+    )
+
+    # go back to image space
+    img = np.real(np.fft.ifft2(np.fft.ifftshift(ks)))
+
+    # crop pixels at the end in case the image is larger than the original shape
+    if img.shape[0] > final_shape[0] or img.shape[1] > final_shape[1]:
+        img = img[: final_shape[0], : final_shape[1]]
+    return img
+
+
+def remove_k_space_padding(image):
+    original_shape_ = [image.shape[0], image.shape[1]]
+    # make sure the original_shape_ is divisible by 4
+    original_shape_4_ = [s if s % 4 == 0 else s + (4 - s % 4) for s in original_shape_]
+    new_shape_ = (round(original_shape_4_[0] * 0.5), round(original_shape_4_[1] * 0.5))
+
+    # add padding if necessary to reach old_shape_even
+    pad_rows = original_shape_4_[0] - image.shape[0]
+    pad_cols = original_shape_4_[1] - image.shape[1]
+    if pad_rows > 0 or pad_cols > 0:
+        image = np.pad(image, ((0, pad_rows), (0, pad_cols)), mode="reflect")
+
+        # go to k-space
+    ks = np.fft.fftshift(np.fft.fft2(image))
+
+    # shrink ks to the new_shape by cropping the edges
+    start_row = round(ks.shape[0] / 2 - new_shape_[0] / 2)
+    end_row = start_row + new_shape_[0]
+    start_col = round(ks.shape[1] / 2 - new_shape_[1] / 2)
+    end_col = start_col + new_shape_[1]
+    ks2 = ks[start_row:end_row, start_col:end_col]
+
+    # Ensure ks2 is exactly new_shape_ (handle edge cases)
+    if ks2.shape != new_shape_:
+        ks2 = ks2[: new_shape_[0], : new_shape_[1]]
+
+    # go back to image space
+    img = np.real(np.fft.ifft2(np.fft.ifftshift(ks2)))
+
+    return img

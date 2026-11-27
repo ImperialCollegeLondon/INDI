@@ -53,7 +53,7 @@ remove_outliers_with_ai: False
 # ========================================================================================
 # None, nlm, clmn, ascm, mppca
 image_denoising: mppca
-# Are the image data zero-filled? (important for mppca denoising method)
+# MP-PCA denoising parameters
 image_data_zero_filled: True
 
 # ========================================================================================
